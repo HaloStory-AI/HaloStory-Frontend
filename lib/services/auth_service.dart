@@ -57,6 +57,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_loginDateKey, DateTime.now().toIso8601String());
+    print("DEBUG: Token saved to SharedPrefs: $token");
   }
 
   Future<String?> getToken() async {

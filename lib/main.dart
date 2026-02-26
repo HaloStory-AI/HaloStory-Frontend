@@ -19,8 +19,9 @@ class BlueTalkApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFD92A4),
-          primary: const Color(0xFFFD92A4),
+          seedColor: const Color(0xFFB8D8F8),
+          primary: const Color(0xFFB8D8F8),
+          secondary: const Color(0xFF135ACF),
           surface: const Color(0xFFF4F8FB),
         ),
         scaffoldBackgroundColor: const Color(0xFFF4F8FB),
@@ -29,15 +30,15 @@ class BlueTalkApp extends StatelessWidget {
           elevation: 0,
           centerTitle: true,
           titleTextStyle: TextStyle(
-            color: Color(0xFFFD92A4),
+            color: Color(0xFF135ACF),
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
-          iconTheme: IconThemeData(color: Color(0xFFFD92A4)),
+          iconTheme: IconThemeData(color: Color(0xFF135ACF)),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFD92A4),
+            backgroundColor: const Color(0xFF135ACF),
             foregroundColor: Colors.white,
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(
@@ -58,7 +59,7 @@ class BlueTalkApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFFD92A4), width: 1),
+            borderSide: const BorderSide(color: Color(0xFF135ACF), width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
@@ -87,6 +88,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuth() async {
     final status = await _authService.isLoggedIn();
+    print("DEBUG: Checking login status: $status");
     setState(() {
       _isLoggedIn = status;
     });

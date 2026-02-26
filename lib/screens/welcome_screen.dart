@@ -69,7 +69,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 child: const Text(
                   'NEXT',
                   style: TextStyle(
-                    color: Color(0xFFFD92A4),
+                    color: Color(0xFF135ACF),
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
                   ),
@@ -88,7 +88,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       height: 8,
       width: _currentPage == index ? 24 : 8,
       decoration: BoxDecoration(
-        color: _currentPage == index ? const Color(0xFFFD92A4) : Colors.grey.withOpacity(0.3),
+        color: _currentPage == index ? const Color(0xFF135ACF) : Colors.grey.withOpacity(0.3),
         borderRadius: BorderRadius.circular(4),
       ),
     );
@@ -100,10 +100,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.flutter_dash,
-            size: 150,
-            color: Color(0xFFFD92A4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              'assets/icon/icon.jpg',
+              width: 150,
+              height: 150,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(height: 48),
           const Text(
@@ -112,7 +116,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFFD92A4),
+              color: Color(0xFF135ACF),
             ),
           ),
           const SizedBox(height: 12),
@@ -147,14 +151,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Color(0xFFFD92A4), size: 28),
+              Icon(Icons.warning_amber_rounded, color: Color(0xFF135ACF), size: 28),
               SizedBox(width: 12),
               Text(
                 'Disclaimer',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFFFD92A4),
+                  color: Color(0xFF135ACF),
                 ),
               ),
             ],
@@ -205,7 +209,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           const Icon(
             Icons.favorite,
             size: 100,
-            color: Color(0xFFFD92A4),
+            color: Color(0xFF135ACF),
           ),
           const SizedBox(height: 48),
           const Text(
@@ -213,7 +217,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFFD92A4),
+              color: Color(0xFF135ACF),
             ),
           ),
           const SizedBox(height: 40),
@@ -234,11 +238,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             },
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 50),
-              side: const BorderSide(color: Color(0xFFFD92A4)),
+              side: const BorderSide(color: Color(0xFF135ACF)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              foregroundColor: const Color(0xFFFD92A4),
+              foregroundColor: const Color(0xFF135ACF),
             ),
             child: const Text('REGISTER'),
           ),

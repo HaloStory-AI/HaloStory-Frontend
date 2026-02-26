@@ -34,7 +34,7 @@ class HomeScreen extends StatelessWidget {
             const Icon(
               Icons.chat_bubble_outline,
               size: 100,
-              color: Color(0xFFFD92A4),
+              color: Color(0xFF135ACF),
             ),
             const SizedBox(height: 24),
             const Text(

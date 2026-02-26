@@ -27,8 +27,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     if (success && mounted) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
       );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -52,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFFFD92A4),
+                  color: Color(0xFF135ACF),
                 ),
               ),
               const SizedBox(height: 8),
@@ -94,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
                 child: const Text(
                   'Don\'t have an account? Register',
-                  style: TextStyle(color: Color(0xFFFD92A4)),
+                  style: TextStyle(color: Color(0xFF135ACF)),
                 ),
               ),
             ],
