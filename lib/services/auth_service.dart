@@ -89,4 +89,43 @@ class AuthService {
     final token = await getToken();
     return token != null;
   }
+
+  // --- Profile Caching ---
+  Map<String, dynamic>? _userProfileCache;
+
+  Future<Map<String, dynamic>?> getUserProfile({bool forceRefresh = false}) async {
+    if (!forceRefresh && _userProfileCache != null) {
+      print("DEBUG: Returning cached user profile");
+      return _userProfileCache;
+    }
+
+    final token = await getToken();
+    if (token == null) return null;
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/user'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        _userProfileCache = jsonDecode(response.body);
+        print("DEBUG: Fetched user profile from API");
+        return _userProfileCache;
+      } else {
+        print("DEBUG: Failed to fetch profile: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("DEBUG: Error fetching profile: $e");
+    }
+    return null;
+  }
+
+  void clearCache() {
+    _userProfileCache = null;
+  }
 }
