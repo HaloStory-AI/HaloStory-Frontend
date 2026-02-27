@@ -92,9 +92,14 @@ class AuthService {
 
   // --- Profile Caching ---
   Map<String, dynamic>? _userProfileCache;
+  DateTime? _lastProfileFetch;
 
   Future<Map<String, dynamic>?> getUserProfile({bool forceRefresh = false}) async {
-    if (!forceRefresh && _userProfileCache != null) {
+    final now = DateTime.now();
+    bool isCacheExpired = _lastProfileFetch == null || 
+                         now.difference(_lastProfileFetch!).inHours >= 3;
+
+    if (!forceRefresh && !isCacheExpired && _userProfileCache != null) {
       print("DEBUG: Returning cached user profile");
       return _userProfileCache;
     }
@@ -114,6 +119,7 @@ class AuthService {
 
       if (response.statusCode == 200) {
         _userProfileCache = jsonDecode(response.body);
+        _lastProfileFetch = DateTime.now();
         print("DEBUG: Fetched user profile from API");
         return _userProfileCache;
       } else {
@@ -127,5 +133,6 @@ class AuthService {
 
   void clearCache() {
     _userProfileCache = null;
+    _lastProfileFetch = null;
   }
 }
