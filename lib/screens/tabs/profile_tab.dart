@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/skeleton_loader.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -30,7 +31,7 @@ class _ProfileTabState extends State<ProfileTab> {
       future: _userProfile,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const ProfileSkeleton();
         }
 
         if (snapshot.hasError || snapshot.data == null) {
