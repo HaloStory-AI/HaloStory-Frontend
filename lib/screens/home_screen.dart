@@ -5,6 +5,7 @@ import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/profile_tab.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -90,7 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Settings'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(context); // Close drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                );
               },
             ),
             ListTile(
