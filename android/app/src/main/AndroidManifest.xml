@@ -5,16 +5,19 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Network State: For checking connectivity before requests -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <!-- Storage: For saving images to DCIM/BlueTalkPics (Android < 10) -->
+    <!-- Storage: For saving images to gallery (Android < 10) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-    <!-- Media: For saving images on Android 10+ -->
+    <!-- Media: For reading/saving images on Android 10+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Required by image_gallery_saver on Android 13+ -->
+    <uses-permission android:name="android.permission.WRITE_MEDIA_IMAGES"/>
+
 
     <application
         android:label="BlueTalk"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"

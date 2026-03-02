@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bluetalk_frontend/services/auth_service.dart';
-import 'package:bluetalk_frontend/screens/login_screen.dart';
-import 'package:bluetalk_frontend/screens/home_screen.dart';
-import 'package:bluetalk_frontend/screens/welcome_screen.dart';
+import 'package:bluetalk_frontend/screens/splash_screen.dart';
 
 void main() {
   runApp(const BlueTalkApp());
@@ -64,44 +61,7 @@ class BlueTalkApp extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
       ),
-      home: const AuthWrapper(),
+      home: const SplashScreen(),
     );
-  }
-}
-
-class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends State<AuthWrapper> {
-  final AuthService _authService = AuthService();
-  bool? _isLoggedIn;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkAuth();
-  }
-
-  Future<void> _checkAuth() async {
-    final status = await _authService.isLoggedIn();
-    print("DEBUG: Checking login status: $status");
-    setState(() {
-      _isLoggedIn = status;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoggedIn == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return _isLoggedIn! ? const HomeScreen() : const WelcomeScreen();
   }
 }

@@ -1,122 +1,149 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants.dart';
+import 'auth_service.dart';
 import 'local_chat_service.dart';
 import 'bot_service.dart';
 
 class StoryService {
   final LocalChatService _localChatService = LocalChatService();
   final BotService _botService = BotService();
-  
+  final AuthService _authService = AuthService();
+
   static const String _seenPrefix = 'story_seen_';
-  static const String _lastUpdateKey = 'stories_last_update_';
-  static const String _cachedStoriesKey = 'cached_stories_data';
 
-  Future<String> _getStoragePath() async {
-    if (kIsWeb) return '';
-    final directory = await getApplicationDocumentsDirectory();
-    final path = '${directory.path}/BlueTalkData/statustemp';
-    final dir = Directory(path);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return path;
-  }
+  // --- MEMORY DATA ---
+  // "Lepas cache jika sudah close aplikasi" -> simpan di variabel static (memory).
+  static List<Map<String, dynamic>>? _cachedStories;
+  static DateTime? _lastFetchTime;
+  static DateTime? _lastManualReload;
 
-  // Fetch images from Safebooru based on 'sbr' tag
-  Future<List<Map<String, dynamic>>> getStories() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastUpdateStr = prefs.getString('global_stories_timestamp');
-    final cachedJson = prefs.getString(_cachedStoriesKey);
+  Future<List<Map<String, dynamic>>> getStories({bool forceRefresh = false}) async {
     final now = DateTime.now();
 
-    // 1. Logic for Fixed 4-Hour Intervals
-    // Intervals: 0, 4, 8, 12, 16, 20
-    int currentHour = now.hour;
-    int lastIntervalHour = (currentHour ~/ 4) * 4;
-    DateTime lastIntervalTime = DateTime(now.year, now.month, now.day, lastIntervalHour);
-
-    bool isIntervalExpired = false;
-    if (lastUpdateStr != null) {
-      DateTime lastUpdate = DateTime.parse(lastUpdateStr);
-      if (lastUpdate.isBefore(lastIntervalTime)) {
-        isIntervalExpired = true;
+    // 1. Logic COOLDOWN 5 Menit untuk Manual Reload
+    if (forceRefresh && _lastManualReload != null) {
+      final diff = now.difference(_lastManualReload!);
+      if (diff.inMinutes < 5) {
+        print("DEBUG: Reload Stories is on cooldown. ${5 - diff.inMinutes} mins left.");
+        return _cachedStories ?? [];
       }
-    } else {
-      isIntervalExpired = true;
     }
 
-    // 2. Logic for New Bots (Immediate appearance after chat)
-    final allBots = await _botService.getBots();
-    final activeChats = await _localChatService.getAllChatMetadata();
-    final activeChatIds = activeChats.map((e) => e['id']).toSet();
+    // 2. Logic AUTO-REFRESH 30 Menit (Silent/Lazy) atau Hit DB jika Kosong
+    bool shouldFetch = false;
 
-    List<Map<String, dynamic>> cachedStories = [];
-    if (cachedJson != null) {
-      cachedStories = List<Map<String, dynamic>>.from(jsonDecode(cachedJson));
-    }
-    
-    final cachedBotIds = cachedStories.map((e) => e['bot_id']).toSet();
-    final storyBots = allBots.where((b) => activeChatIds.contains(b['id']) && b['sbr'] != null).toList();
-    
-    // Check if there are any active bots NOT in cache
-    bool hasNewBot = storyBots.any((b) => !cachedBotIds.contains(b['id']));
-
-    // Decide if we should refresh
-    if (!isIntervalExpired && !hasNewBot && cachedStories.isNotEmpty) {
-      return cachedStories;
+    if (forceRefresh) {
+      shouldFetch = true;
+    } else if (_cachedStories == null) {
+      shouldFetch = true;
+    } else if (_lastFetchTime != null) {
+      // Jika sudah lebih dari 30 menit sejak fetch terakhir, kita update datanya.
+      if (now.difference(_lastFetchTime!).inMinutes >= 30) {
+        shouldFetch = true;
+      }
     }
 
-    // Refresh Logic
-    List<Map<String, dynamic>> newStoriesList = [];
+    if (!shouldFetch) {
+      return _cachedStories!;
+    }
 
-    for (var bot in storyBots) {
-      // If it's not interval expired, we keep the old story if it exists
-      if (!isIntervalExpired && cachedBotIds.contains(bot['id'])) {
-        final existing = cachedStories.firstWhere((s) => s['bot_id'] == bot['id']);
-        newStoriesList.add(existing);
-        continue;
+    // 3. HIT DATABASE (Backend tidak pakai cache, jadi Live DB)
+    print("DEBUG: Fetching stories from DB (Live)...");
+
+    try {
+      final allChats = await _localChatService.getAllChatMetadata();
+      if (allChats.isEmpty) {
+        _cachedStories = [];
+        return [];
       }
 
-      final sbrTag = bot['sbr'];
-      try {
-        final response = await http.get(Uri.parse(
-          'https://safebooru.donmai.us/posts.json?tags=$sbrTag+order:random&limit=1'
-        ));
+      allChats.sort((a, b) => (b['lastModified'] as DateTime).compareTo(a['lastModified'] as DateTime));
 
-        if (response.statusCode == 200) {
-          final List<dynamic> posts = jsonDecode(response.body);
-          if (posts.isNotEmpty) {
-            final post = posts[0];
-            final imageUrl = post['file_url'] ?? post['large_file_url'] ?? post['preview_file_url'];
-            
-            if (imageUrl != null) {
-              newStoriesList.add({
-                'bot_id': bot['id'],
-                'bot_name': bot['name'],
-                'bot_avatar': bot['image_url'],
-                'image_url': imageUrl,
-                'timestamp': now.toIso8601String(),
-                'id': post['id'].toString(),
-              });
-            }
+      final allBots = await _botService.getBots();
+      final botMap = {for (var b in allBots) b['id']: b};
+
+      final orderedBotIds = allChats
+          .map((c) => c['id'] as String)
+          .where((id) => botMap.containsKey(id) && botMap[id]!['sbr'] != null)
+          .toList();
+
+      if (orderedBotIds.isEmpty) {
+        _cachedStories = [];
+        return [];
+      }
+
+      final token = await _authService.getToken();
+      if (token == null) return _cachedStories ?? [];
+
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/stories/fetch-status'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'fetch_status': orderedBotIds}),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        
+        final freshStories = data.map((item) {
+          final bot = botMap[item['bot_id']];
+          return <String, dynamic>{
+            ...Map<String, dynamic>.from(item),
+            'bot_avatar': bot?['image_url'],
+          };
+        }).toList();
+
+        // Sort by LATEST story timestamp (Like WhatsApp)
+        // Groups bots first
+        Map<String, DateTime> botLatestMap = {};
+        for (var s in freshStories) {
+          final dt = DateTime.parse(s['created_at']);
+          if (botLatestMap[s['bot_id']] == null || dt.isAfter(botLatestMap[s['bot_id']]!)) {
+            botLatestMap[s['bot_id']] = dt;
           }
         }
-      } catch (e) {
-        print('DEBUG: Story Service Error: $e');
+
+        freshStories.sort((a, b) {
+          final aTime = botLatestMap[a['bot_id']]!;
+          final bTime = botLatestMap[b['bot_id']]!;
+          
+          if (aTime != bTime) {
+            return bTime.compareTo(aTime); // Newest bot first
+          }
+
+          // Then internal sequence (Oldest to Newest within a bot)
+          return DateTime.parse(a['created_at']).compareTo(DateTime.parse(b['created_at']));
+        });
+
+        // Update tracking
+        _cachedStories = freshStories;
+        _lastFetchTime = now;
+        if (forceRefresh) {
+          _lastManualReload = now;
+        }
+
+        return freshStories;
       }
+    } catch (e) {
+      print('DEBUG: StoryService Refresh Error: $e');
     }
 
-    if (newStoriesList.isNotEmpty) {
-      await prefs.setString('global_stories_timestamp', now.toIso8601String());
-      await prefs.setString(_cachedStoriesKey, jsonEncode(newStoriesList));
-    }
+    return _cachedStories ?? [];
+  }
 
-    return newStoriesList;
+  // Mendapatkan waktu sisa cooldown reload dalam detik
+  int getReloadCooldownSeconds() {
+    if (_lastManualReload == null) return 0;
+    final diff = DateTime.now().difference(_lastManualReload!);
+    final remaining = 300 - diff.inSeconds;
+    return remaining > 0 ? remaining : 0;
   }
 
   Future<void> markAsSeen(String storyId) async {
@@ -129,17 +156,31 @@ class StoryService {
     return prefs.getBool('$_seenPrefix$storyId') ?? false;
   }
 
-  // Cleanup old stories (simplified: just clear cache if expired over 24h)
-  Future<void> cleanupExpiredStories() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastUpdateStr = prefs.getString('global_stories_timestamp');
-    if (lastUpdateStr != null) {
-      final now = DateTime.now();
-      final lastUpdate = DateTime.parse(lastUpdateStr);
-      if (now.difference(lastUpdate).inHours >= 24) {
-        await prefs.remove(_cachedStoriesKey);
-        await prefs.remove('global_stories_timestamp');
+  // --- LOCAL CACHING HELPER ---
+  Future<File?> getLocalMedia(String url) async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory('${appDir.path}/.statustemp');
+      if (!cacheDir.existsSync()) {
+        cacheDir.createSync(recursive: true);
       }
+
+      final fileName = url.split('/').last;
+      final localFile = File('${cacheDir.path}/$fileName');
+
+      if (localFile.existsSync()) {
+        return localFile;
+      }
+
+      // Download
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        await localFile.writeAsBytes(response.bodyBytes);
+        return localFile;
+      }
+    } catch (e) {
+      print("DEBUG: Local Cache Error: $e");
     }
+    return null;
   }
 }

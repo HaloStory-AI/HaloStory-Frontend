@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../main.dart';
+import 'splash_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'settings_screen.dart';
+import '../services/story_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +18,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final AuthService _authService = AuthService();
+  final StoryService _storyService = StoryService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Bot warm-up is handled in SplashScreen or BotService implicitly
+  }
 
   final List<Widget> _tabs = [
     const ChatTab(),       // Index 0
@@ -44,12 +52,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: () async {
                 await _authService.logout();
-                if (mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const AuthWrapper()),
-                    (route) => false,
-                  );
-                }
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const SplashScreen()),
+                      (route) => false,
+                    );
+                  }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,

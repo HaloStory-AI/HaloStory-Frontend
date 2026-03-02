@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import '../services/story_service.dart';
+import 'package:video_player/video_player.dart';
+import 'package:gallery_saver_plus/gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/story_service.dart';
 
 class StoryViewScreen extends StatefulWidget {
   final List<Map<String, dynamic>> stories;
@@ -20,28 +24,122 @@ class StoryViewScreen extends StatefulWidget {
 class _StoryViewScreenState extends State<StoryViewScreen> {
   late int _currentIndex;
   final StoryService _storyService = StoryService();
+  
   double _progress = 0.0;
   Timer? _timer;
-  static const int _storyDurationSeconds = 5;
+  bool _isSaving = false;
+  bool _isLoadingMedia = true;
+  
+  VideoPlayerController? _videoController;
+  File? _localFile;
+  bool _isVideo = false;
+
+  static const int _imageDurationSeconds = 5;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _startTimer();
+    _loadMedia();
     _markSeen();
   }
 
-  void _startTimer() {
+  Future<void> _loadMedia() async {
     _timer?.cancel();
-    _progress = 0.0;
-    _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      setState(() {
-        _progress += 0.05 / _storyDurationSeconds;
-        if (_progress >= 1.0) {
-          _nextStory();
+    _videoController?.dispose();
+    _videoController = null;
+    
+    if (!mounted) return;
+    setState(() {
+      _isLoadingMedia = true;
+      _progress = 0.0;
+      _localFile = null;
+    });
+
+    final url = widget.stories[_currentIndex]['image_url'] as String;
+    _isVideo = url.toLowerCase().endsWith('.mp4') || 
+               url.toLowerCase().endsWith('.mov') || 
+               url.toLowerCase().endsWith('.avi');
+
+    // 1. Get from Local Cache (.statustemp)
+    final file = await _storyService.getLocalMedia(url);
+    
+    if (!mounted) return;
+    
+    if (file != null) {
+      _localFile = file;
+      if (_isVideo) {
+        _videoController = VideoPlayerController.file(file);
+        await _videoController!.initialize();
+        if (mounted) {
+          setState(() {
+            _isLoadingMedia = false;
+          });
+          _videoController!.play();
+          _startVideoTimer();
         }
-      });
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingMedia = false;
+          });
+          _startImageTimer();
+        }
+      }
+    } else {
+      // Fallback to Network if cache fails
+      if (_isVideo) {
+        _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
+        await _videoController!.initialize();
+        if (mounted) {
+          setState(() {
+            _isLoadingMedia = false;
+          });
+          _videoController!.play();
+          _startVideoTimer();
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingMedia = false;
+          });
+          _startImageTimer();
+        }
+      }
+    }
+  }
+
+  void _startImageTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (mounted) {
+        setState(() {
+          _progress += 0.05 / _imageDurationSeconds;
+          if (_progress >= 1.0) {
+            _nextStory();
+          }
+        });
+      }
+    });
+  }
+
+  void _startVideoTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (_videoController == null || !_videoController!.value.isInitialized) return;
+      
+      if (mounted) {
+        setState(() {
+          final duration = _videoController!.value.duration.inMilliseconds;
+          final position = _videoController!.value.position.inMilliseconds;
+          _progress = position / duration;
+          
+          if (_progress >= 0.99 || (_videoController!.value.position >= _videoController!.value.duration)) {
+             _timer?.cancel();
+             _nextStory();
+          }
+        });
+      }
     });
   }
 
@@ -49,7 +147,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     if (_currentIndex < widget.stories.length - 1) {
       setState(() {
         _currentIndex++;
-        _startTimer();
+        _loadMedia();
         _markSeen();
       });
     } else {
@@ -61,32 +159,75 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     if (_currentIndex > 0) {
       setState(() {
         _currentIndex--;
-        _startTimer();
+        _loadMedia();
         _markSeen();
       });
+    } else {
+        // Restart current
+        _loadMedia();
     }
   }
 
   void _markSeen() {
-    final storyId = widget.stories[_currentIndex]['id'];
+    final storyId = widget.stories[_currentIndex]['id'].toString();
     _storyService.markAsSeen(storyId);
   }
 
-  Future<void> _downloadImage() async {
-    final url = widget.stories[_currentIndex]['image_url'];
-    if (await canLaunchUrl(Uri.parse(url))) {
-      // In web/debug browser, many cross-origin policies prevent direct download via code
-      // Opening in new tab is the safest way to "save"
-       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-       ScaffoldMessenger.of(context).showSnackBar(
-         const SnackBar(content: Text('Opening image in browser for download...'))
-       );
+  Future<void> _saveToGallery() async {
+    if (_isSaving) return;
+    final url = widget.stories[_currentIndex]['image_url'] as String;
+
+    PermissionStatus status;
+    if (Platform.isAndroid) {
+        status = await Permission.photos.request();
+        if (!status.isGranted) status = await Permission.storage.request();
+    } else {
+        status = await Permission.photos.request();
+    }
+
+    if (!status.isGranted) {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    _timer?.cancel();
+    _videoController?.pause();
+
+    try {
+      bool? success;
+      if (_isVideo) {
+          success = await GallerySaver.saveVideo(url, albumName: 'BlueTalk', toDcim: true);
+      } else {
+          success = await GallerySaver.saveImage(url, albumName: 'BlueTalk', toDcim: true);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(success == true ? '✅ Saved to gallery!' : '❌ Failed to save.')),
+        );
+      }
+    } catch (e) {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+    } finally {
+      setState(() => _isSaving = false);
+      if (_isVideo) {
+          _videoController?.play();
+          _startVideoTimer();
+      } else {
+          _startImageTimer();
+      }
     }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _videoController?.dispose();
     super.dispose();
   }
 
@@ -98,23 +239,25 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background Image
+          // MEDIA CONTENT
           Center(
-            child: InteractiveViewer(
-              child: Image.network(
-                story['image_url'],
-                fit: BoxFit.contain,
-                width: double.infinity,
-                height: double.infinity,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(child: CircularProgressIndicator(color: Colors.white));
-                },
-              ),
-            ),
+            child: _isLoadingMedia 
+              ? const CircularProgressIndicator(color: Colors.white)
+              : _isVideo 
+                  ? (_videoController != null && _videoController!.value.isInitialized
+                      ? AspectRatio(
+                          aspectRatio: _videoController!.value.aspectRatio,
+                          child: VideoPlayer(_videoController!),
+                        )
+                      : const CircularProgressIndicator(color: Colors.white))
+                  : InteractiveViewer(
+                      child: _localFile != null 
+                        ? Image.file(_localFile!, fit: BoxFit.contain)
+                        : Image.network(story['image_url'], fit: BoxFit.contain),
+                    ),
           ),
 
-          // Progress Bars
+          // PROGRESS BARS (WhatsApp Style)
           Positioned(
             top: 50,
             left: 10,
@@ -139,7 +282,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
             ),
           ),
 
-          // Header (Avatar & Name)
+          // HEADER
           Positioned(
             top: 70,
             left: 20,
@@ -148,7 +291,11 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
               children: [
                 CircleAvatar(
                   radius: 20,
+                  backgroundColor: Colors.white24,
                   backgroundImage: story['bot_avatar'] != null ? NetworkImage(story['bot_avatar']) : null,
+                  child: story['bot_avatar'] == null 
+                    ? Text(story['bot_name'][0].toUpperCase(), style: const TextStyle(color: Colors.white))
+                    : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -159,9 +306,9 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                         story['bot_name'],
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
-                      const Text(
-                        'Safebooru Status',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      Text(
+                        _isVideo ? 'Video Status' : 'Image Status',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
                   ),
@@ -174,44 +321,60 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
             ),
           ),
 
-          // Tap Areas
+          // INTERACTION AREAS
           Row(
             children: [
               Expanded(
                 child: GestureDetector(
                   onTap: _prevStory,
-                  onLongPress: () => _timer?.cancel(),
-                  onLongPressUp: () => _startTimer(),
+                  onLongPress: () {
+                      _timer?.cancel();
+                      _videoController?.pause();
+                  },
+                  onLongPressUp: () {
+                      if (_isVideo) {
+                          _videoController?.play();
+                          _startVideoTimer();
+                      } else {
+                          _startImageTimer();
+                      }
+                  },
                   child: Container(color: Colors.transparent),
                 ),
               ),
               Expanded(
                 child: GestureDetector(
                   onTap: _nextStory,
-                  onLongPress: () => _timer?.cancel(),
-                  onLongPressUp: () => _startTimer(),
+                  onLongPress: () {
+                      _timer?.cancel();
+                      _videoController?.pause();
+                  },
+                  onLongPressUp: () {
+                      if (_isVideo) {
+                          _videoController?.play();
+                          _startVideoTimer();
+                      } else {
+                          _startImageTimer();
+                      }
+                  },
                   child: Container(color: Colors.transparent),
                 ),
               ),
             ],
           ),
 
-          // Bottom Action
+          // DOWNLOAD BUTTON
           Positioned(
             bottom: 40,
             left: 0,
             right: 0,
             child: Center(
-              child: Column(
-                children: [
-                  const Icon(Icons.keyboard_arrow_up, color: Colors.white),
-                  TextButton.icon(
-                    onPressed: _downloadImage,
-                    icon: const Icon(Icons.download, color: Colors.white),
-                    label: const Text('Save to Gallery', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ),
+              child: _isSaving
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : IconButton(
+                      onPressed: _saveToGallery,
+                      icon: const Icon(Icons.download_for_offline, color: Colors.white, size: 40),
+                    ),
             ),
           ),
         ],

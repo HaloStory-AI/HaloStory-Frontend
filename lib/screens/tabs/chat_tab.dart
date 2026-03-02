@@ -3,6 +3,7 @@ import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
 import '../chat_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 import '../../widgets/skeleton_loader.dart';
 
@@ -34,6 +35,20 @@ class _ChatTabState extends State<ChatTab> {
     return Colors.blueGrey;
   }
 
+  String _formatDateTime(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(dt.year, dt.month, dt.day);
+
+    if (date == today) {
+      return DateFormat('HH:mm').format(dt);
+    } else if (dt.year == now.year && dt.month == now.month) {
+      return DateFormat('d MMM').format(dt);
+    } else {
+      return DateFormat('d/M/yy').format(dt);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,11 +56,16 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   Future<void> _initData({bool force = false}) async {
-    // Parallel load
-    Future.wait([
-      _loadAvailableBots(force: force),
-      _loadActiveChats(),
-    ]);
+    setState(() {
+      _isLoadingBots = true;
+      _isLoadingChats = true;
+    });
+
+    // 1. Load bots first (Now very fast because of SharedPreferences cache in BotService)
+    await _loadAvailableBots(force: force);
+    
+    // 2. Then load chats, so we can match them with the bot avatars/colors
+    await _loadActiveChats();
   }
 
   Future<void> _handleRefresh() async {
@@ -88,7 +108,7 @@ class _ChatTabState extends State<ChatTab> {
         loadedChats.add({
           ...bot,
           'lastMessage': history.last['content'],
-          'time': 'Active', 
+          'time': _formatDateTime(meta['lastModified']), 
           'provider': 'Global Config',
           'lastModified': meta['lastModified'],
         });
@@ -345,18 +365,6 @@ class _ChatTabState extends State<ChatTab> {
             children: [
               const SizedBox(height: 4),
               Text(chat['lastMessage'], maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF135ACF).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'Active Session',
-                  style: TextStyle(fontSize: 10, color: Color(0xFF135ACF), fontWeight: FontWeight.bold),
-                ),
-              ),
             ],
           ),
           onTap: () async {

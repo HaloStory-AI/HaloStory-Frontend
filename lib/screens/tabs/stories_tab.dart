@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../services/story_service.dart';
@@ -13,22 +14,49 @@ class StoriesTab extends StatefulWidget {
 class _StoriesTabState extends State<StoriesTab> {
   final StoryService _storyService = StoryService();
   bool _isLoading = true;
+  bool _isReloading = false;
   List<Map<String, dynamic>> _stories = [];
+  Timer? _cooldownTimer;
+  int _remainingSeconds = 0;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _startCooldownListener();
   }
 
-  Future<void> _loadData() async {
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCooldownListener() {
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final seconds = _storyService.getReloadCooldownSeconds();
+      if (mounted && seconds != _remainingSeconds) {
+        setState(() {
+          _remainingSeconds = seconds;
+        });
+      }
+    });
+  }
+
+  Future<void> _loadData({bool force = false}) async {
+    if (force) {
+      setState(() => _isReloading = true);
+    } else {
+      setState(() => _isLoading = true);
+    }
+
     try {
-      final stories = await _storyService.getStories();
+      final stories = await _storyService.getStories(forceRefresh: force);
       
       // Check seen status for each
       List<Map<String, dynamic>> enrichedStories = [];
       for (var s in stories) {
-        final seen = await _storyService.isSeen(s['id']);
+        final seen = await _storyService.isSeen(s['id'].toString());
         enrichedStories.add({...s, 'isSeen': seen});
       }
 
@@ -36,11 +64,33 @@ class _StoriesTabState extends State<StoriesTab> {
         setState(() {
           _stories = enrichedStories;
           _isLoading = false;
+          _isReloading = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isReloading = false;
+        });
+      }
     }
+  }
+
+  List<String> _getGroupedBots() {
+    final List<String> botIds = [];
+    for (var s in _stories) {
+      if (!botIds.contains(s['bot_id'])) {
+        botIds.add(s['bot_id']);
+      }
+    }
+    return botIds;
+  }
+
+  String _formatCooldown(int seconds) {
+    int mins = seconds ~/ 60;
+    int secs = seconds % 60;
+    return "$mins:${secs.toString().padLeft(2, '0')}";
   }
 
   @override
@@ -61,91 +111,84 @@ class _StoriesTabState extends State<StoriesTab> {
           const SizedBox(height: 16),
           _isLoading
               ? SizedBox(
-                  height: 180,
+                  height: 110,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: 4,
                     itemBuilder: (_, __) => Container(
-                      width: 110,
+                      width: 80,
                       margin: const EdgeInsets.only(right: 12),
-                      child: const SkeletonWidget(width: 110, height: 180, borderRadius: 16),
+                      child: const SkeletonWidget(width: 80, height: 80, borderRadius: 40),
                     ),
                   ),
                 )
               : _stories.isEmpty 
                 ? const SizedBox.shrink()
                 : SizedBox(
-                  height: 180,
+                  height: 115,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _stories.length,
+                    itemCount: _getGroupedBots().length,
                     itemBuilder: (context, index) {
-                      final story = _stories[index];
-                      final isSeen = story['isSeen'] ?? false;
+                      final groupedBots = _getGroupedBots();
+                      final botId = groupedBots[index];
+                      final botStories = _stories.where((s) => s['bot_id'] == botId).toList();
+                      final firstStory = botStories.first; // This is the oldest due to ASC sort
+                      final latestStory = botStories.last; // This is the newest
+                      final bool hasUnseen = botStories.any((s) => !(s['isSeen'] ?? false));
                       
                       return GestureDetector(
                         onTap: () {
+                          int targetIndex = botStories.indexWhere((s) => !(s['isSeen'] ?? false));
+                          if (targetIndex == -1) targetIndex = 0;
+
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => StoryViewScreen(
-                                stories: _stories,
-                                initialIndex: index,
+                                stories: botStories,
+                                initialIndex: targetIndex,
                               ),
                             ),
-                          ).then((_) => _loadData()); // Reload to update seen status
+                          ).then((_) => _loadData());
                         },
                         child: Container(
-                          width: 110,
+                          width: 85,
                           margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            image: DecorationImage(
-                              image: NetworkImage(story['image_url']),
-                              fit: BoxFit.cover,
-                              colorFilter: ColorFilter.mode(
-                                Colors.black.withOpacity(0.3),
-                                BlendMode.darken,
-                              ),
-                            ),
-                          ),
-                          child: Stack(
+                          child: Column(
                             children: [
-                              Positioned(
-                                top: 8,
-                                left: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: isSeen ? Colors.grey : const Color(0xFF135ACF),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 18,
-                                    backgroundImage: story['bot_avatar'] != null 
-                                        ? NetworkImage(story['bot_avatar']) 
-                                        : null,
-                                    child: story['bot_avatar'] == null 
-                                        ? Text(story['bot_name'][0].toUpperCase()) 
-                                        : null,
+                              Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: hasUnseen ? const Color(0xFF135ACF) : Colors.grey.shade300,
+                                    width: 2.5,
                                   ),
                                 ),
+                                child: CircleAvatar(
+                                  radius: 32,
+                                  backgroundColor: Colors.grey.shade200,
+                                  backgroundImage: latestStory['bot_avatar'] != null 
+                                      ? NetworkImage(latestStory['bot_avatar']) 
+                                      : null,
+                                  child: latestStory['bot_avatar'] == null 
+                                      ? Text(latestStory['bot_name'][0].toUpperCase(), 
+                                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)) 
+                                      : null,
+                                ),
                               ),
-                              Positioned(
-                                bottom: 8,
-                                left: 8,
-                                right: 8,
-                                child: Text(
-                                  story['bot_name'],
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
+                              const SizedBox(height: 8),
+                              Text(
+                                latestStory['bot_name'].split(' ')[0],
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: hasUnseen ? FontWeight.bold : FontWeight.normal,
+                                  color: hasUnseen ? Colors.black : Colors.grey.shade600,
                                 ),
                               ),
                             ],
@@ -171,15 +214,37 @@ class _StoriesTabState extends State<StoriesTab> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: (_isReloading || _remainingSeconds > 0) 
+                      ? null 
+                      : () => _loadData(force: true),
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFFF0F0F0),
+                    backgroundColor: (_isReloading || _remainingSeconds > 0) ? Colors.grey[200] : const Color(0xFFF0F0F0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
-                  child: const Text('Explore', style: TextStyle(color: Colors.black87)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_isReloading)
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF135ACF)),
+                        ),
+                      if (_isReloading) const SizedBox(width: 8),
+                      Text(
+                        _remainingSeconds > 0 
+                            ? 'Reload in ${_formatCooldown(_remainingSeconds)}'
+                            : _isReloading ? 'Reloading...' : 'Reload Stories',
+                        style: TextStyle(
+                          color: (_isReloading || _remainingSeconds > 0) ? Colors.grey : Colors.black87,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

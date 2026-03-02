@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/local_create_service.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
+import 'package:intl/intl.dart';
 
 class ManualChatScreen extends StatefulWidget {
   final Map<String, dynamic> bot;
@@ -51,8 +54,9 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
     final content = _messageController.text.trim();
     _messageController.clear();
 
+    final timestamp = DateTime.now().toIso8601String();
     setState(() {
-      _messages.add({'role': role, 'content': content});
+      _messages.add({'role': role, 'content': content, 'timestamp': timestamp});
     });
     _scrollToBottom();
 
@@ -115,11 +119,12 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
                 itemBuilder: (context, index) {
                   final msg = _messages[index];
                   final isUser = msg['role'] == 'user';
+                  final timestamp = msg['timestamp'] != null ? DateTime.parse(msg['timestamp']) : null;
 
                   if (isUser) {
-                    return _buildUserBubble(msg['content']);
+                    return _buildUserBubble(msg['content'], timestamp);
                   } else {
-                    return _buildBotBubble(msg['content']);
+                    return _buildBotBubble(msg['content'], timestamp);
                   }
                 },
               ),
@@ -140,38 +145,66 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
     return Colors.blueGrey;
   }
 
-  Widget _buildUserBubble(String content) {
+  String _formatMessageTime(DateTime? dt) {
+    if (dt == null) return "";
+    return DateFormat('MMMM d').format(dt) + " at " + DateFormat('h:mm a').format(dt);
+  }
+
+  Widget _buildUserBubble(String content, DateTime? timestamp) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: const BoxDecoration(
-            color: Color(0xFF5A8DEE),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(12),
-              topRight: Radius.circular(12),
-              bottomLeft: Radius.circular(12),
-              bottomRight: Radius.circular(0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (timestamp != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4, right: 4),
+              child: Text(
+                _formatMessageTime(timestamp),
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFF5A8DEE),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(0),
+                ),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                child: MarkdownBody(
+                  data: content,
+                  selectable: true,
+                  extensionSet: md.ExtensionSet(
+                    md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                    <md.InlineSyntax>[
+                      md.EmojiSyntax(),
+                      ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes
+                    ],
+                  ),
+                  styleSheet: MarkdownStyleSheet(
+                    p: const TextStyle(color: Colors.white, fontSize: 15),
+                    strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    em: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic),
+                    listBullet: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
             ),
           ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-            child: Text(
-              content,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-            ),
-          ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildBotBubble(String content) {
-    final parts = content.split('\n').where((s) => s.trim().isNotEmpty).toList();
-    if (parts.isEmpty) return const SizedBox.shrink();
-
+  Widget _buildBotBubble(String content, DateTime? timestamp) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -190,35 +223,62 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (timestamp != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      _formatMessageTime(timestamp),
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                  ),
                 Text(
                   widget.bot['name'], 
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)
                 ),
                 const SizedBox(height: 4),
-                ...parts.asMap().entries.map((entry) {
-                  int i = entry.key;
-                  String part = entry.value;
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF414D66),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(i == 0 ? 0 : 12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft: const Radius.circular(12),
-                        bottomRight: const Radius.circular(12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF414D66),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(0),
+                      topRight: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
+                    child: MarkdownBody(
+                      data: content,
+                      selectable: true,
+                      extensionSet: md.ExtensionSet(
+                        md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                        <md.InlineSyntax>[
+                          md.EmojiSyntax(),
+                          ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes
+                        ],
+                      ),
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(color: Colors.white, fontSize: 15),
+                        strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        em: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic),
+                        code: const TextStyle(
+                          color: Color(0xFFB8D8F8), 
+                          backgroundColor: Colors.black26,
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                        ),
+                        codeblockDecoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        listBullet: const TextStyle(color: Colors.white),
+                        h1: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
-                      child: Text(
-                        part,
-                        style: const TextStyle(color: Colors.white, fontSize: 15),
-                      ),
-                    ),
-                  );
-                }).toList(),
+                  ),
+                ),
               ],
             ),
           ),

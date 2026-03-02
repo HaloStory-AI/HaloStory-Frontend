@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
@@ -27,6 +28,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  Future<void> _requestStoragePermission() async {
+    // Request storage/photos permissions needed for saving stories to gallery
+    await Permission.photos.request();
+    await Permission.storage.request();
   }
 
   @override
@@ -222,7 +229,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
           const SizedBox(height: 40),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              await _requestStoragePermission();
+              if (!mounted) return;
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
               );
@@ -231,7 +240,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
           const SizedBox(height: 16),
           OutlinedButton(
-            onPressed: () {
+            onPressed: () async {
+              await _requestStoragePermission();
+              if (!mounted) return;
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const RegisterScreen()),
               );
