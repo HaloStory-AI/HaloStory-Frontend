@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:permission_handler/permission_handler.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -31,6 +32,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Future<void> _requestStoragePermission() async {
+    if (kIsWeb) return;
     // Request storage/photos permissions needed for saving stories to gallery
     await Permission.photos.request();
     await Permission.storage.request();

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:video_player/video_player.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -178,6 +179,13 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     final url = widget.stories[_currentIndex]['image_url'] as String;
 
     PermissionStatus status;
+    if (kIsWeb) {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+
     if (Platform.isAndroid) {
         status = await Permission.photos.request();
         if (!status.isGranted) status = await Permission.storage.request();
@@ -251,7 +259,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                         )
                       : const CircularProgressIndicator(color: Colors.white))
                   : InteractiveViewer(
-                      child: _localFile != null 
+                      child: (!kIsWeb && _localFile != null)
                         ? Image.file(_localFile!, fit: BoxFit.contain)
                         : Image.network(story['image_url'], fit: BoxFit.contain),
                     ),

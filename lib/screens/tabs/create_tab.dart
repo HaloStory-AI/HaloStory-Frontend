@@ -79,6 +79,7 @@ class _CreateTabState extends State<CreateTab> {
   }
 
   void _showAddDialogueSheet() {
+    _initData(force: true); // Force refresh bots when opening selection sheet
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

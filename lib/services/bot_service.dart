@@ -18,11 +18,11 @@ class BotService {
     final now = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
 
-    // 1. Memory Cache Check
-    bool isMemCacheFresh = _lastBotsFetch != null && 
-                          now.difference(_lastBotsFetch!).inHours < 1;
+    // 1. Memory Cache Check - VERY FRESH (< 1 minute)
+    bool isMemCacheVeryFresh = _lastBotsFetch != null && 
+                           now.difference(_lastBotsFetch!).inMinutes < 1;
 
-    if (!forceRefresh && isMemCacheFresh && _cachedBots != null) {
+    if (!forceRefresh && isMemCacheVeryFresh && _cachedBots != null) {
       return _cachedBots!;
     }
 
@@ -33,21 +33,29 @@ class BotService {
       
       if (localJson != null && localTimeStr != null) {
         final localTime = DateTime.parse(localTimeStr);
-        // If persisted cache exists, use it immediately to prevent UI lag
         _cachedBots = List<Map<String, dynamic>>.from(jsonDecode(localJson));
         _lastBotsFetch = localTime;
         
-        // If it's still relatively fresh (e.g. < 24h), we can just return it
+        // If it's fresh (< 5 minutes), return and don't re-fetch
+        if (now.difference(localTime).inMinutes < 5) {
+          return _cachedBots!;
+        }
+        
+        // If it's sort of fresh (< 24h), return cache IMMEDIATELY but trigger background fetch
         if (now.difference(localTime).inHours < 24) {
-          print("DEBUG: Returning persistent cache");
-          // Optionally: still fetch in background to stay updated? 
-          // For now, return and stop to save PHP workers.
+          _fetchAndCacheBots(); // Background fetch
           return _cachedBots!;
         }
       }
     }
 
-    // 3. API Fetch (Only if forceRefresh, no cache, or cache expired > 24h)
+    // 3. API Fetch (Sync)
+    return await _fetchAndCacheBots();
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchAndCacheBots() async {
+    final now = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
     final token = await _authService.getToken();
     if (token == null) return _cachedBots ?? [];
 

@@ -124,10 +124,9 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   void _showAddChatSheet() {
-    // If we're already opening but bots are not ready, we fetch bots
-    if (_availableBots.isEmpty && !_isLoadingBots) {
-      _loadAvailableBots();
-    }
+    // Refresh bots from API to ensure new contacts appear
+    // We don't await this so the sheet opens immediately with cached data
+    _loadAvailableBots(force: true); 
 
     showModalBottomSheet(
       context: context,
