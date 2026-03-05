@@ -95,4 +95,26 @@ class BotService {
     await prefs.remove(_botsCacheKey);
     await prefs.remove(_botsTimeKey);
   }
+
+  Future<bool> recruitBot(String botId) async {
+    final token = await _authService.getToken();
+    if (token == null) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/bots/recruit'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'bot_id': botId}),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('DEBUG: recruitBot Error: $e');
+      return false;
+    }
+  }
 }

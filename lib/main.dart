@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:bluetalk_frontend/screens/splash_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const BlueTalkApp());
 }
 

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:video_player/video_player.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 import '../services/story_service.dart';
 
 class StoryViewScreen extends StatefulWidget {
@@ -144,6 +146,30 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     });
   }
 
+  String _formatTimestamp(String timestamp) {
+    try {
+      final dt = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      
+      final today = DateTime(now.year, now.month, now.day);
+      final date = DateTime(dt.year, dt.month, dt.day);
+
+      if (date == today) {
+        return 'Today, ${DateFormat('HH:mm').format(dt)}';
+      } else if (date == today.subtract(const Duration(days: 1))) {
+        return 'Yesterday, ${DateFormat('HH:mm').format(dt)}';
+      } else {
+        return DateFormat('d MMM, HH:mm').format(dt);
+      }
+    } catch (e) {
+      return 'Recently';
+    }
+  }
+
   void _nextStory() {
     if (_currentIndex < widget.stories.length - 1) {
       setState(() {
@@ -194,8 +220,10 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     }
 
     if (!status.isGranted) {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Permission required to save.')),
+        );
       }
       return;
     }
@@ -206,10 +234,14 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
 
     try {
       bool? success;
+      // Optimization: If local file exists, use it instead of URL to avoid slow Backblaze download
+      final String? cachedPath = await _storyService.getCachedPath(url);
+      final String source = cachedPath ?? url;
+
       if (_isVideo) {
-          success = await GallerySaver.saveVideo(url, albumName: 'BlueTalk', toDcim: true);
+          success = await GallerySaver.saveVideo(source, albumName: 'BlueTalk', toDcim: true);
       } else {
-          success = await GallerySaver.saveImage(url, albumName: 'BlueTalk', toDcim: true);
+          success = await GallerySaver.saveImage(source, albumName: 'BlueTalk', toDcim: true);
       }
 
       if (mounted) {
@@ -218,11 +250,14 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
         );
       }
     } catch (e) {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      print("DEBUG: Save error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ An error occurred while saving.')),
+        );
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
       if (_isVideo) {
           _videoController?.play();
           _startVideoTimer();
@@ -247,10 +282,35 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // MEDIA CONTENT
+          // BLURRED BACKGROUND (Glassmorphism Effect)
+          Positioned.fill(
+            child: _localFile != null && !_isVideo
+              ? Image.file(_localFile!, fit: BoxFit.cover)
+              : (story['bot_avatar'] != null 
+                  ? Image.network(story['bot_avatar'], fit: BoxFit.cover)
+                  : Container(color: Colors.black)),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(color: Colors.black.withOpacity(0.4)),
+            ),
+          ),
+
+          // MAIN MEDIA CONTENT
           Center(
             child: _isLoadingMedia 
-              ? const CircularProgressIndicator(color: Colors.white)
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading Sensei\'s memory...',
+                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+                    ),
+                  ],
+                )
               : _isVideo 
                   ? (_videoController != null && _videoController!.value.isInitialized
                       ? AspectRatio(
@@ -315,7 +375,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       Text(
-                        _isVideo ? 'Video Status' : 'Image Status',
+                        _formatTimestamp(story['created_at']),
                         style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],

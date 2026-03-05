@@ -1,4 +1,4 @@
-package com.example.bluetalk_frontend
+package com.r8kstudio.bluetalk
 
 import io.flutter.embedding.android.FlutterActivity
 

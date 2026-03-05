@@ -11,6 +11,8 @@ class AIService {
     required String provider,
     required String model,
     required List<Map<String, String>> messages,
+    String? botId,
+    String? language,
   }) async {
     final token = await _authService.getToken();
     if (token == null) return null;
@@ -36,6 +38,8 @@ class AIService {
           'provider': provider,
           'model': model,
           'messages': messages,
+          'bot_id': botId,
+          'language': language,
           // max_tokens is handled by backend default or passed here
         }),
       );

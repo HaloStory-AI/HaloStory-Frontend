@@ -31,6 +31,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _loadHistory();
   }
 
+  bool _isBirthday(dynamic birthdayStr) {
+    if (birthdayStr == null || birthdayStr == '') return false;
+    try {
+      final birthday = DateTime.parse(birthdayStr.toString());
+      final now = DateTime.now();
+      return birthday.month == now.month && birthday.day == now.day;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _loadHistory() async {
     final history = await _localChatService.loadChat(widget.bot['id']);
     setState(() {
@@ -64,31 +75,38 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
     _scrollToBottom();
 
-    // Prepare messages for AI (Role-based)
-    List<Map<String, String>> aiMessages = [];
-    
-    // Add system instruction if available
-    final systemInstruction = widget.bot['system_instruction'];
-    if (systemInstruction != null && (systemInstruction as String).isNotEmpty) {
-      aiMessages.add({
-        'role': 'system',
-        'content': systemInstruction,
-      });
+    // Bug Fix 1: Remove trailing system error messages before sending
+    // If the last message was a system error, we should not include it in the retry
+    while (_messages.isNotEmpty && _messages.last['role'] == 'system') {
+      _messages.removeLast();
     }
-
-    aiMessages.addAll(_messages.map((m) => {
+    
+    // Prepare messages for AI (Role-based)
+    // We no longer inject system instruction here; the backend builds it from latest_sys.md
+    List<Map<String, String>> aiMessages = _messages.map((m) => {
       'role': m['role'] as String,
       'content': m['content'] as String,
-    }));
+    }).toList();
 
-    // Get model from settings or use default
+    // Get model & language from settings or use default
     final prefs = await SharedPreferences.getInstance();
-    String model = prefs.getString('model_${widget.provider}') ?? 'llama-3.3-70b-versatile'; 
-
+    String language = prefs.getString('app_language') ?? 'Indonesian';
+    
+    // Bug Fix 2: Handle Groq (System) model properly
+    // If provider is Groq (System), passing an empty model or wrong model causes 422
+    // We let the backend handle the model for Groq (System) by sending a placeholder or constant
+    String model = prefs.getString('model_${widget.provider}') ?? ''; 
+    if (widget.provider == 'Groq (System)' && model.isEmpty) {
+      model = 'default'; // Backend knows to use GROQ_SYSTEM_MODEL from .env
+    } else if (model.isEmpty) {
+      model = 'openai/gpt-oss-20b'; // Standard fallback for others
+    }
     final response = await _aiService.sendMessage(
       provider: widget.provider,
       model: model,
       messages: aiMessages,
+      botId: widget.bot['id'],
+      language: language,
     );
 
     setState(() {
@@ -129,10 +147,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 : null,
             ),
             const SizedBox(width: 10),
-            Text(
-              widget.bot['name'],
-              style: const TextStyle(color: Color(0xFF4A5568), fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.bot['name'],
+                      style: const TextStyle(color: Color(0xFF4A5568), fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    if (widget.bot['bond_hearts'] != null && widget.bot['bond_hearts'] > 0)
+                      Row(
+                        children: List.generate(
+                          (widget.bot['bond_hearts'] as num).toInt().clamp(1, 10), 
+                          (i) => const Padding(
+                            padding: EdgeInsets.only(right: 2),
+                            child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 10),
+                          )
+                        ),
+                      ),
+                  ],
+                ),
+                if (_isBirthday(widget.bot['birthday']))
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Text('🎂', style: TextStyle(fontSize: 14)),
+                  ),
           ],
         ),
         actions: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
 import '../chat_screen.dart';
+import '../student_request_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
@@ -46,6 +47,17 @@ class _ChatTabState extends State<ChatTab> {
       return DateFormat('d MMM').format(dt);
     } else {
       return DateFormat('d/M/yy').format(dt);
+    }
+  }
+
+  bool _isBirthday(dynamic birthdayStr) {
+    if (birthdayStr == null || birthdayStr == '') return false;
+    try {
+      final birthday = DateTime.parse(birthdayStr.toString());
+      final now = DateTime.now();
+      return birthday.month == now.month && birthday.day == now.day;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -133,10 +145,18 @@ class _ChatTabState extends State<ChatTab> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return StatefulBuilder( // Use StatefulBuilder for inner updates if needed
+        String searchQuery = '';
+        return StatefulBuilder(
           builder: (context, setModalState) {
+            final filteredBots = _availableBots.where((bot) {
+              final name = (bot['name'] ?? '').toString().toLowerCase();
+              final id = (bot['id'] ?? '').toString().toLowerCase();
+              final query = searchQuery.toLowerCase();
+              return name.contains(query) || id.contains(query);
+            }).toList();
+
             return Container(
-              height: MediaQuery.of(context).size.height * 0.75,
+              height: MediaQuery.of(context).size.height * 0.85,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -155,12 +175,12 @@ class _ChatTabState extends State<ChatTab> {
                       ),
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.all(20),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Create New Dialogue',
                           style: TextStyle(
                             fontSize: 20,
@@ -168,15 +188,53 @@ class _ChatTabState extends State<ChatTab> {
                             color: Color(0xFF135ACF),
                           ),
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Select a contact to start a new chat session. The AI engine will use your global default settings.',
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
+                        const SizedBox(height: 16),
+                        TextField(
+                          onChanged: (value) {
+                            setModalState(() {
+                              searchQuery = value;
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Search character name or ID...',
+                            prefixIcon: const Icon(Icons.search, color: Color(0xFF135ACF)),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                          ),
                         ),
-                        SizedBox(height: 20),
-                        Text(
-                          'Select Contact / Bot',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Data murid mungkin belum lengkap. ada murid yang tidak ada?',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const StudentRequestScreen()),
+                                );
+                              },
+                              icon: const Icon(Icons.add_task_rounded, size: 16),
+                              label: const Text('Saranin dong', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF135ACF),
+                                backgroundColor: const Color(0xFFF0F5FF),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -184,46 +242,70 @@ class _ChatTabState extends State<ChatTab> {
                   Expanded(
                     child: _isLoadingBots 
                       ? const ChatListSkeleton() 
-                      : ListView.separated(
-                        itemCount: _availableBots.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final bot = _availableBots[index];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: _parseColor(bot['color']),
-                              backgroundImage: bot['image_url'] != null ? NetworkImage(bot['image_url']) : null,
-                              child: bot['image_url'] == null 
-                                ? Text(
-                                    (bot['name'] as String).isNotEmpty ? (bot['name'] as String)[0].toUpperCase() : '?',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  )
-                                : null,
-                            ),
-                            title: Text(bot['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(bot['description']),
-                            trailing: const Icon(Icons.add_circle_outline, color: Color(0xFF135ACF)),
-                            onTap: () async {
-                              Navigator.pop(context);
-                              final prefs = await SharedPreferences.getInstance();
-                              final provider = prefs.getString('default_provider') ?? 'Groq (System)';
-                              
-                              if (!mounted) return;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
-                                ),
-                              ).then((_) => _loadActiveChats());
-                            },
-                          );
-                        },
-                      ),
+                      : (filteredBots.isEmpty 
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.person_search_rounded, size: 64, color: Colors.grey[300]),
+                                  const SizedBox(height: 16),
+                                  Text('No matching characters found', style: TextStyle(color: Colors.grey[600])),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: filteredBots.length,
+                              separatorBuilder: (context, index) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final bot = filteredBots[index];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: _parseColor(bot['color']),
+                                    backgroundImage: bot['image_url'] != null ? NetworkImage(bot['image_url']) : null,
+                                    child: bot['image_url'] == null 
+                                      ? Text(
+                                          (bot['name'] as String).isNotEmpty ? (bot['name'] as String)[0].toUpperCase() : '?',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                        )
+                                      : null,
+                                  ),
+                                  title: Row(
+                                    children: [
+                                      Text(bot['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      if (_isBirthday(bot['birthday']))
+                                        const Padding(
+                                          padding: EdgeInsets.only(left: 4),
+                                          child: Text('🎂', style: TextStyle(fontSize: 14)),
+                                        ),
+                                    ],
+                                  ),
+                                  subtitle: Text(bot['description'], maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  trailing: const Icon(Icons.add_circle_outline, color: Color(0xFF135ACF)),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    
+                                    // 1. Recruit the bot (Initialize bond in DB)
+                                    _botService.recruitBot(bot['id']);
+
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final provider = prefs.getString('default_provider') ?? 'Groq (System)';
+                                    
+                                    if (!mounted) return;
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
+                                      ),
+                                    ).then((_) => _loadActiveChats());
+                                  },
+                                );
+                              },
+                            )),
                   ),
                 ],
               ),
             );
-          }
+          },
         );
       },
     );
@@ -355,7 +437,27 @@ class _ChatTabState extends State<ChatTab> {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(chat['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  Text(chat['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (_isBirthday(chat['birthday']))
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text('🎂', style: TextStyle(fontSize: 14)),
+                    ),
+                  // Render Bond Hearts (Max 5 for UI simplicity, but can be more)
+                  if (chat['bond_hearts'] != null && chat['bond_hearts'] > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Row(
+                        children: List.generate(
+                          (chat['bond_hearts'] as num).toInt().clamp(1, 5), 
+                          (i) => const Icon(Icons.favorite, color: Colors.pinkAccent, size: 12)
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               Text(chat['time'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),

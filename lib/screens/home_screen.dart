@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'splash_screen.dart';
+import 'admin_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
 import 'tabs/stories_tab.dart';
-import 'tabs/profile_tab.dart';
+import 'tabs/calendar_tab.dart';
+import 'profile_screen.dart';
 import 'settings_screen.dart';
+import 'student_request_screen.dart';
 import '../services/story_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,21 +20,81 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static bool _hasShownDonationPopup = false;
   int _currentIndex = 0;
   final AuthService _authService = AuthService();
   final StoryService _storyService = StoryService();
+  Map<String, dynamic>? _userProfile;
 
   @override
   void initState() {
     super.initState();
-    // Bot warm-up is handled in SplashScreen or BotService implicitly
+    _loadProfile();
+    
+    // Show donation popup on first entry
+    if (!_hasShownDonationPopup) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showDonationPopup();
+        _hasShownDonationPopup = true;
+      });
+    }
+  }
+
+  void _showDonationPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Halo Sensei!',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "BlueTalk tidak akan ada tanpa dukungan kalian. Makasih ya... \n\n"
+              "Btw kalau kalian ingin donasi agar BlueTalk bisa berkembang, boleh kok, tuh klik aja tombol itu!",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => launchUrl(Uri.parse('https://trakteer.id/r8kstudio')),
+              icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
+              label: const Text('Donasi di Trakteer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF0F5FF),
+                foregroundColor: const Color(0xFF135ACF),
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Nanti Deh', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await _authService.getUserProfile();
+    if (mounted) {
+      setState(() => _userProfile = profile);
+    }
   }
 
   final List<Widget> _tabs = [
     const ChatTab(),       // Index 0
     const CreateTab(),     // Index 1
     const StoriesTab(),    // Index 2
-    const ProfileTab(),    // Index 3
+    const CalendarTab(),   // Index 3
   ];
 
   void _showLogoutDialog() {
@@ -154,22 +218,75 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: Drawer(
         child: Column(
           children: [
-            UserAccountsDrawerHeader(
-              decoration: const BoxDecoration(
-                color: Color(0xFFB8D8F8),
+            InkWell(
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              },
+              child: UserAccountsDrawerHeader(
+                decoration: const BoxDecoration(
+                  color: Color(0xFFB8D8F8),
+                  borderRadius: BorderRadius.only(topRight: Radius.circular(20)),
+                ),
+                currentAccountPicture: CircleAvatar(
+                  backgroundColor: Colors.white,
+                  child: Text(
+                    (_userProfile?['name'] != null && _userProfile!['name'].isNotEmpty)
+                        ? _userProfile!['name'][0].toUpperCase()
+                        : 'S',
+                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+                  ),
+                ),
+                accountName: Text(
+                  _userProfile?['name'] ?? 'Sensei',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold, 
+                    color: Colors.white,
+                    shadows: [Shadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                  ),
+                ),
+                accountEmail: Text(
+                  _userProfile?['email'] ?? 'sensei@kivotos.jp',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
               ),
-              currentAccountPicture: const CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, size: 40, color: Color(0xFFB8D8F8)),
+            ),
+            if (_userProfile?['role'] == 'admin')
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings, color: Colors.amber),
+                title: const Text('Admin Panel', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AdminScreen()),
+                  );
+                },
               ),
-              accountName: const Text(
-                'BlueTalk User',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              accountEmail: const Text('user@bluetalk.com', style: TextStyle(color: Colors.white70)),
+            ListTile(
+              leading: const Icon(Icons.add_task_rounded, color: Color(0xFF135ACF)),
+              title: const Text('Saranin Murid'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const StudentRequestScreen()),
+                );
+              },
             ),
             ListTile(
-              leading: const Icon(Icons.settings_outlined),
+              leading: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent),
+              title: const Text('Donasi (Trakteer)'),
+              onTap: () {
+                Navigator.pop(context);
+                launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined, color: Color(0xFF135ACF)),
               title: const Text('Settings'),
               onTap: () {
                 Navigator.pop(context); // Close drawer
@@ -180,12 +297,12 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.help_outline),
+              leading: const Icon(Icons.help_outline, color: Color(0xFF135ACF)),
               title: const Text('Help & Support'),
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
-              leading: const Icon(Icons.info_outline),
+              leading: const Icon(Icons.info_outline, color: Color(0xFF135ACF)),
               title: const Text('About App'),
               onTap: () => Navigator.pop(context),
             ),
@@ -246,9 +363,9 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Stories',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
+              icon: Icon(Icons.calendar_month_outlined),
+              activeIcon: Icon(Icons.calendar_month),
+              label: 'Calendar',
             ),
           ],
         ),

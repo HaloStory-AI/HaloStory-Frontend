@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
+import 'setup_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -37,8 +39,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = false);
 
     if (success && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
+
+      if (!mounted) return;
+
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (_) => isSetupCompleted ? const HomeScreen() : const SetupScreen()
+        ),
         (route) => false,
       );
     } else if (mounted) {

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:external_path/external_path.dart';
 import '../constants.dart';
 import 'auth_service.dart';
 import 'local_chat_service.dart';
@@ -157,31 +158,92 @@ class StoryService {
     return prefs.getBool('$_seenPrefix$storyId') ?? false;
   }
 
-  // --- LOCAL CACHING HELPER ---
+  // --- PERSISTENT CACHING ---
+  Future<Directory> _getCacheDir() async {
+    if (kIsWeb) throw UnsupportedError("Web not supported for local caching");
+    
+    String path;
+    if (Platform.isAndroid) {
+      try {
+        // Use external_path for /storage/emulated/0
+        path = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOWNLOADS);
+        // We want /BlueTalk/media/.statustmp, but let's try to put it in a place we definitely have access to.
+        // If we want root /BlueTalk, we build it from base.
+        final root = path.split('/Download')[0]; 
+        path = '$root/BlueTalk/media/.statustmp';
+      } catch (e) {
+        // Fallback to app doc dir if something fails
+        final appDir = await getApplicationDocumentsDirectory();
+        path = '${appDir.path}/.statustmp';
+      }
+    } else {
+      final appDir = await getApplicationDocumentsDirectory();
+      path = '${appDir.path}/.statustmp';
+    }
+
+    final dir = Directory(path);
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
+    }
+    return dir;
+  }
+
   Future<File?> getLocalMedia(String url) async {
     if (kIsWeb) return null;
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final cacheDir = Directory('${appDir.path}/.statustemp');
-      if (!cacheDir.existsSync()) {
-        cacheDir.createSync(recursive: true);
-      }
+      final cacheDir = await _getCacheDir();
+      
+      // Auto Cleanup: Hapus file yang lebih tua dari 24 jam (seperti WA)
+      _cleanupOldCache(cacheDir);
 
-      final fileName = url.split('/').last;
+      final fileName = url.split('/').last.split('?').first; // Remove query params
       final localFile = File('${cacheDir.path}/$fileName');
 
-      if (localFile.existsSync()) {
+      if (localFile.existsSync() && localFile.lengthSync() > 0) {
         return localFile;
       }
 
-      // Download
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+      // Download if not exists
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
       if (response.statusCode == 200) {
         await localFile.writeAsBytes(response.bodyBytes);
         return localFile;
       }
     } catch (e) {
       print("DEBUG: Local Cache Error: $e");
+    }
+    return null;
+  }
+
+  Future<void> _cleanupOldCache(Directory cacheDir) async {
+    try {
+      final now = DateTime.now();
+      final List<FileSystemEntity> files = cacheDir.listSync();
+      
+      for (var file in files) {
+        if (file is File) {
+          final stat = file.statSync();
+          final diff = now.difference(stat.modified);
+          
+          if (diff.inHours >= 24) {
+            print("DEBUG: Cleaning up old story cache: ${file.path}");
+            await file.delete();
+          }
+        }
+      }
+    } catch (e) {
+      print("DEBUG: Cleanup Cache Error: $e");
+    }
+  }
+
+  // Optimize saving: Move/Copy if already in cache
+  Future<String?> getCachedPath(String url) async {
+    if (kIsWeb) return null;
+    final cacheDir = await _getCacheDir();
+    final fileName = url.split('/').last.split('?').first;
+    final localFile = File('${cacheDir.path}/$fileName');
+    if (localFile.existsSync()) {
+      return localFile.path;
     }
     return null;
   }

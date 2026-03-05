@@ -84,60 +84,112 @@ class _CreateTabState extends State<CreateTab> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-            const Padding(
-              padding: EdgeInsets.all(20),
+      builder: (context) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredBots = _availableBots.where((bot) {
+              final name = (bot['name'] ?? '').toString().toLowerCase();
+              final id = (bot['bot_id'] ?? bot['id'] ?? '').toString().toLowerCase();
+              final query = searchQuery.toLowerCase();
+              return name.contains(query) || id.contains(query);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Manual Dialogue Creator', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange)),
-                  SizedBox(height: 8),
-                  Text('Create a conversation manually. No AI will respond here; you control both sides.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Manual Dialogue Creator',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          onChanged: (value) {
+                            setModalState(() {
+                              searchQuery = value;
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Search character name or ID...',
+                            prefixIcon: const Icon(Icons.search, color: Colors.orange),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: _isLoading && _availableBots.isEmpty
+                      ? const ChatListSkeleton()
+                      : (filteredBots.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.person_search_rounded, size: 64, color: Colors.grey[300]),
+                                  const SizedBox(height: 16),
+                                  Text('No matching characters found', style: TextStyle(color: Colors.grey[600])),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: filteredBots.length,
+                              separatorBuilder: (context, index) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final bot = filteredBots[index];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: _parseColor(bot['color']),
+                                    backgroundImage: bot['image_url'] != null ? NetworkImage(bot['image_url']) : null,
+                                    child: bot['image_url'] == null 
+                                      ? Text(bot['name'][0].toUpperCase(), style: const TextStyle(color: Colors.white))
+                                      : null,
+                                  ),
+                                  title: Text(bot['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: const Text('New Manual Session'),
+                                  trailing: const Icon(Icons.edit_note, color: Colors.orange),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => ManualChatScreen(bot: bot)),
+                                    ).then((_) => _initData());
+                                  },
+                                );
+                              },
+                            )),
+                  ),
                 ],
               ),
-            ),
-            Expanded(
-              child: _isLoading && _availableBots.isEmpty
-                ? const ChatListSkeleton()
-                : ListView.separated(
-                  itemCount: _availableBots.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final bot = _availableBots[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _parseColor(bot['color']),
-                        backgroundImage: bot['image_url'] != null ? NetworkImage(bot['image_url']) : null,
-                        child: bot['image_url'] == null 
-                          ? Text(bot['name'][0].toUpperCase(), style: const TextStyle(color: Colors.white))
-                          : null,
-                      ),
-                      title: Text(bot['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: const Text('New Manual Session'),
-                      trailing: const Icon(Icons.edit_note, color: Colors.orange),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => ManualChatScreen(bot: bot)),
-                        ).then((_) => _initData());
-                      },
-                    );
-                  },
-                ),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 

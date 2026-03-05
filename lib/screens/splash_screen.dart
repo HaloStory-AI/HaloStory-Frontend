@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
 import '../services/bot_service.dart';
 import '../services/story_service.dart';
+import '../services/config_service.dart';
 import 'home_screen.dart';
+import 'setup_screen.dart';
 import 'welcome_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -47,26 +53,79 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _initializeApp() async {
-    // 1. Simultan: Cek Auth dan Warm-up Cache (Bots & Stories)
-    // Kita jalankan berbarengan agar efisien
-    final startTime = DateTime.now();
-    
+    // 1. Fetch Dynamic Config First (API URL & Maintenance Status)
+    await ConfigService.initConfig();
+
+    if (ConfigService.isMaintenance) {
+      if (!mounted) return;
+      _showMaintenanceDialog();
+      return;
+    }
+
+    // 2. Simultan: Cek Auth dan Warm-up Cache (Bots & Stories)
     final results = await Future.wait([
       _authService.isLoggedIn(),
-      _botService.getBots(), // Warm-up bot cache (Persistent + Memory)
-      Future.delayed(const Duration(seconds: 2)), // Minimal splash duration agar animasi terlihat
+      _botService.getBots(), 
+      Future.delayed(const Duration(seconds: 2)), 
     ]);
 
     final bool isLoggedIn = results[0] as bool;
+    final prefs = await SharedPreferences.getInstance();
+    final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
 
-    // 2. Jika login, biarkan stories di-load nanti saat tab dibuka (Lazy Loading)
+    // Check permissions
+    bool permissionsGranted = true;
+    if (isSetupCompleted && !kIsWeb) {
+      final photoStatus = await Permission.photos.status;
+      final notificationStatus = await Permission.notification.status;
+      if (!photoStatus.isGranted || !notificationStatus.isGranted) {
+        permissionsGranted = false;
+      }
+    }
 
     if (!mounted) return;
 
     // Pindah ke screen selanjutnya
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => isLoggedIn ? const HomeScreen() : const WelcomeScreen(),
+    if (isLoggedIn) {
+      if (isSetupCompleted && permissionsGranted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        // Even if setup is "completed" in prefs, if permissions are missing, 
+        // we send them back to SetupScreen (which will show the steps).
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SetupScreen()),
+        );
+      }
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      );
+    }
+  }
+
+  void _showMaintenanceDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'System Maintenance',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent),
+        ),
+        content: Text(
+          ConfigService.maintenanceMsg,
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => SystemNavigator.pop(),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Exit Application', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }

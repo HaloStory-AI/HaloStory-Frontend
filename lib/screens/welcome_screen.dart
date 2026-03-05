@@ -31,12 +31,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
   }
 
-  Future<void> _requestStoragePermission() async {
-    if (kIsWeb) return;
-    // Request storage/photos permissions needed for saving stories to gallery
-    await Permission.photos.request();
-    await Permission.storage.request();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -231,9 +225,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
           const SizedBox(height: 40),
           ElevatedButton(
-            onPressed: () async {
-              await _requestStoragePermission();
-              if (!mounted) return;
+            onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
               );
@@ -242,9 +234,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
           const SizedBox(height: 16),
           OutlinedButton(
-            onPressed: () async {
-              await _requestStoragePermission();
-              if (!mounted) return;
+            onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const RegisterScreen()),
               );
