@@ -166,10 +166,10 @@ class StoryService {
     if (Platform.isAndroid) {
       try {
         // Use external_path for /storage/emulated/0
-        path = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOWNLOADS);
-        // We want /BlueTalk/media/.statustmp, but let's try to put it in a place we definitely have access to.
-        // If we want root /BlueTalk, we build it from base.
-        final root = path.split('/Download')[0]; 
+        // Version 2.2.0+ returns a list of storage paths (Internal & SD Card)
+        final paths = await ExternalPath.getExternalStorageDirectories();
+        if (paths == null || paths.isEmpty) throw Exception("No storage paths found");
+        String root = paths[0]; // Primary internal storage
         path = '$root/BlueTalk/media/.statustmp';
       } catch (e) {
         // Fallback to app doc dir if something fails
