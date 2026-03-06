@@ -10,66 +10,66 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _providers = [
-    'Groq (System)',
-    'Groq (Self)',
-    'OpenAI',
-    'Open Router',
-    'Gemini',
-    'Anthropic',
-    'xAI',
-  ];
+  final List<String> _providers = ['System', 'BYOK', 'BYOM'];
 
-  String _selectedProvider = 'Groq (System)';
-  final Map<String, TextEditingController> _apiKeyControllers = {};
-  final Map<String, TextEditingController> _modelControllers = {};
+  String _selectedProvider = 'System';
+  
+  // BYOK Controllers
+  final TextEditingController _byokApiKeyController = TextEditingController();
+  final TextEditingController _byokModelController = TextEditingController();
+  final TextEditingController _byokBaseUrlController = TextEditingController();
+  
+  // BYOM Controllers
+  final TextEditingController _byomEndpointController = TextEditingController();
+  final TextEditingController _byomModelController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    for (var provider in _providers) {
-      _apiKeyControllers[provider] = TextEditingController();
-      _modelControllers[provider] = TextEditingController();
-    }
     _loadSettings();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    for (var c in _apiKeyControllers.values) {
-      c.dispose();
-    }
-    for (var c in _modelControllers.values) {
-      c.dispose();
-    }
+    _byokApiKeyController.dispose();
+    _byokModelController.dispose();
+    _byokBaseUrlController.dispose();
+    _byomEndpointController.dispose();
+    _byomModelController.dispose();
     super.dispose();
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _selectedProvider = prefs.getString('default_provider') ?? 'Groq (System)';
-      for (var provider in _providers) {
-        _apiKeyControllers[provider]!.text = prefs.getString('api_key_$provider') ?? '';
-        _modelControllers[provider]!.text = prefs.getString('model_$provider') ?? '';
-      }
+      _selectedProvider = prefs.getString('default_provider') ?? 'System';
+      
+      _byokApiKeyController.text = prefs.getString('byok_api_key') ?? '';
+      _byokModelController.text = prefs.getString('byok_model') ?? 'gpt-3.5-turbo';
+      _byokBaseUrlController.text = prefs.getString('byok_base_url') ?? 'https://api.openai.com/v1/chat/completions';
+      
+      _byomEndpointController.text = prefs.getString('byom_endpoint') ?? 'http://localhost:11434/v1/chat/completions';
+      _byomModelController.text = prefs.getString('byom_model') ?? 'llama3';
     });
   }
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('default_provider', _selectedProvider);
-    for (var provider in _providers) {
-      await prefs.setString('api_key_$provider', _apiKeyControllers[provider]!.text);
-      await prefs.setString('model_$provider', _modelControllers[provider]!.text);
-    }
+    
+    await prefs.setString('byok_api_key', _byokApiKeyController.text);
+    await prefs.setString('byok_model', _byokModelController.text);
+    await prefs.setString('byok_base_url', _byokBaseUrlController.text);
+    
+    await prefs.setString('byom_endpoint', _byomEndpointController.text);
+    await prefs.setString('byom_model', _byomModelController.text);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Settings saved successfully!'),
+          content: Text('Pengaturan berhasil disimpan!'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
@@ -81,15 +81,15 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text('Pengaturan'),
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFF135ACF),
           unselectedLabelColor: Colors.grey,
           indicatorColor: const Color(0xFF135ACF),
           tabs: const [
-            Tab(icon: Icon(Icons.tune), text: 'General'),
-            Tab(icon: Icon(Icons.api), text: 'Providers'),
+            Tab(icon: Icon(Icons.tune), text: 'Umum'),
+            Tab(icon: Icon(Icons.api), text: 'Mesin AI'),
           ],
         ),
       ),
@@ -104,7 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
         padding: const EdgeInsets.all(16.0),
         child: ElevatedButton(
           onPressed: _saveSettings,
-          child: const Text('Save All Settings'),
+          child: const Text('Simpan Semua Perubahan'),
         ),
       ),
     );
@@ -115,11 +115,11 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
       padding: const EdgeInsets.all(20),
       children: [
         const Text(
-          'Active AI Engine',
+          'Mesin AI Aktif',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
         ),
         const SizedBox(height: 8),
-        const Text('Select which provider to use as default.'),
+        const Text('Pilih mode yang ingin digunakan untuk percakapan AI.'),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -139,8 +139,30 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
             ),
           ),
         ),
+        const SizedBox(height: 30),
+        const Text(
+          'Tentang Mode AI',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        _buildModeInfo('System', 'Menggunakan model yang sudah dikonfigurasi otomatis dengan fallback. Disarankan untuk kemudahan.'),
+        _buildModeInfo('BYOK', 'Gunakan API Key sendiri. Mendukung API OpenAI (OpenAI, Groq, OpenRouter, dll).'),
+        _buildModeInfo('BYOM', 'Gunakan model lokal. Hubungkan ke mesin lokal seperti Ollama, LM Studio, atau LocalAI.'),
       ],
     );
+  }
+
+  Widget _buildModeInfo(String title, String desc) {
+     return Padding(
+       padding: const EdgeInsets.only(bottom: 12),
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.start,
+         children: [
+           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+           Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+         ],
+       ),
+     );
   }
 
   Widget _buildProvidersTab() {
@@ -148,14 +170,11 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
       padding: const EdgeInsets.all(20),
       children: [
         const Text(
-          'Manage API Keys & Models',
+          'Konfigurasi Mesin',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
         ),
-        const SizedBox(height: 8),
-        const Text('Select a provider to configure its API key and specific model.'),
         const SizedBox(height: 20),
         
-        // Tab-like buttons for each provider to make it cleaner
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -177,43 +196,52 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
         
         const SizedBox(height: 30),
         
-        if (_selectedProvider != 'Groq (System)') ...[
-          Text(
-            'Configuring: $_selectedProvider',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
+        if (_selectedProvider == 'BYOK') ...[
+          const Text('Konfigurasi BYOK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 20),
           _buildTextField(
-            controller: _apiKeyControllers[_selectedProvider]!,
+            controller: _byokApiKeyController,
             label: 'API Key',
-            hint: 'Paste your key here',
+            hint: 'sk-xxxx...',
             obscure: true,
             icon: Icons.vpn_key,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildTextField(
-            controller: _modelControllers[_selectedProvider]!,
-            label: 'Default Model',
-            hint: 'e.g. gpt-4, llama-3, etc.',
+            controller: _byokModelController,
+            label: 'Nama Model',
+            hint: 'cth: gpt-4o, llama-3-70b',
             icon: Icons.model_training,
           ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _byokBaseUrlController,
+            label: 'URL Dasar',
+            hint: 'https://api.openai.com/v1/chat/completions',
+            icon: Icons.link,
+          ),
+        ] else if (_selectedProvider == 'BYOM') ...[
+          const Text('Konfigurasi BYOM (Lokal)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: () {
-              // Placeholder for future fetch model logic
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Fetching models for $_selectedProvider...')),
-              );
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Fetch Available Models'),
+          _buildTextField(
+            controller: _byomEndpointController,
+            label: 'Endpoint Lokal',
+            hint: 'http://localhost:11434/v1/chat/completions',
+            icon: Icons.computer,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _byomModelController,
+            label: 'Nama Model Lokal',
+            hint: 'cth: llama3, mistral',
+            icon: Icons.model_training,
           ),
         ] else
           const Center(
             child: Padding(
               padding: EdgeInsets.all(40),
               child: Text(
-                'Groq (System) uses pre-configured settings. No API key required.',
+                'Mode System menggunakan model yang dioptimalkan dengan fallback otomatis. Tidak perlu konfigurasi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),

@@ -110,6 +110,27 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
         }
       }
     }
+
+    // Prefetch next 3 stories
+    _prefetchMedia();
+  }
+
+  void _prefetchMedia() {
+    for (int i = 1; i <= 3; i++) {
+      int nextIdx = _currentIndex + i;
+      if (nextIdx < widget.stories.length) {
+        final nextUrl = widget.stories[nextIdx]['image_url'] as String;
+        // Just trigger the download/cache, don't await
+        _storyService.getLocalMedia(nextUrl).then((file) {
+          if (file != null && !nextUrl.toLowerCase().endsWith('.mp4')) {
+             // For images, also precache to memory
+             if (mounted) {
+               precacheImage(FileImage(file), context);
+             }
+          }
+        });
+      }
+    }
   }
 
   void _startImageTimer() {

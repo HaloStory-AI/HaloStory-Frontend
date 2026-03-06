@@ -242,7 +242,12 @@ class _AdminScreenState extends State<AdminScreen> {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Approve'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green, 
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
                         onPressed: () => _updateRequestStatus(req['id'], 'approved'),
                       ),
                     ],

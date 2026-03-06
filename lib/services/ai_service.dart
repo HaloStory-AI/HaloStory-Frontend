@@ -8,8 +8,7 @@ class AIService {
   final AuthService _authService = AuthService();
 
   Future<Map<String, dynamic>?> sendMessage({
-    required String provider,
-    required String model,
+    required String provider, // 'System', 'BYOK', 'BYOM'
     required List<Map<String, String>> messages,
     String? botId,
     String? language,
@@ -19,39 +18,99 @@ class AIService {
 
     final prefs = await SharedPreferences.getInstance();
     
-    // Get user-provided API key if not system
-    String? userApiKey;
-    if (provider != 'Groq (System)') {
-      userApiKey = prefs.getString('api_key_$provider');
+    // Normalize provider for legacy support if needed
+    String mode = provider;
+    if (provider.contains('Groq') || provider == 'OpenAI' || provider == 'Gemini') {
+       mode = 'System'; // Fallback for old selections
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/ai/chat'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          if (userApiKey != null && userApiKey.isNotEmpty) 'X-AI-API-Key': userApiKey,
-        },
-        body: jsonEncode({
-          'provider': provider,
-          'model': model,
-          'messages': messages,
-          'bot_id': botId,
-          'language': language,
-          // max_tokens is handled by backend default or passed here
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        print('DEBUG: AI Request Failed: ${response.statusCode} - ${response.body}');
+      if (mode == 'System') {
+        return await _sendSystemMessage(token, messages, botId, language);
+      } else if (mode == 'BYOK') {
+        final apiKey = prefs.getString('byok_api_key') ?? '';
+        final model = prefs.getString('byok_model') ?? 'gpt-3.5-turbo';
+        final baseUrl = prefs.getString('byok_base_url') ?? 'https://api.openai.com/v1/chat/completions';
+        return await _sendByokMessage(token, messages, botId, language, apiKey, model, baseUrl);
+      } else if (mode == 'BYOM') {
+        final endpoint = prefs.getString('byom_endpoint') ?? 'http://localhost:11434/v1/chat/completions';
+        final model = prefs.getString('byom_model') ?? 'llama3';
+        return await _sendByomMessage(token, messages, botId, language, endpoint, model);
       }
     } catch (e) {
       print('DEBUG: AIService Error: $e');
     }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _sendSystemMessage(String token, List<Map<String, String>> messages, String? botId, String? language) async {
+    final response = await http.post(
+      Uri.parse(AppConstants.chatSystemUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'messages': messages,
+        'bot_id': botId,
+        'language': language,
+      }),
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _sendByokMessage(String token, List<Map<String, String>> messages, String? botId, String? language, String apiKey, String model, String baseUrl) async {
+    final response = await http.post(
+      Uri.parse(AppConstants.chatByokUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'messages': messages,
+        'bot_id': botId,
+        'language': language,
+        'api_key': apiKey,
+        'model': model,
+        'base_url': baseUrl,
+      }),
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _sendByomMessage(String token, List<Map<String, String>> messages, String? botId, String? language, String endpoint, String model) async {
+    // 1. Fetch system prompt from backend
+    final promptResponse = await http.get(
+      Uri.parse('${AppConstants.byomPromptUrl}/$botId?language=$language'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    
+    String systemPrompt = "";
+    if (promptResponse.statusCode == 200) {
+      systemPrompt = jsonDecode(promptResponse.body)['system_prompt'] ?? "";
+    }
+
+    // 2. Format messages for local model
+    List<Map<String, String>> localMessages = List.from(messages);
+    bool hasSystem = localMessages.any((m) => m['role'] == 'system');
+    if (!hasSystem && systemPrompt.isNotEmpty) {
+      localMessages.insert(0, {'role': 'system', 'content': systemPrompt});
+    }
+
+    // 3. Send directly to local endpoint
+    final response = await http.post(
+      Uri.parse(endpoint),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': model,
+        'messages': localMessages,
+        'max_tokens': 4000,
+      }),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
     return null;
   }
 }

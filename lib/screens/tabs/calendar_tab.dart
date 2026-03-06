@@ -125,7 +125,7 @@ class _CalendarTabState extends State<CalendarTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Kivitos Calendar',
+            'Kalender Murid',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -133,7 +133,7 @@ class _CalendarTabState extends State<CalendarTab> {
             ),
           ),
           Text(
-            'Don\'t miss your students\' special days!',
+            'Yakali kamu mau ninggalin ulang tahun berharga muridmu',
             style: TextStyle(color: Colors.grey),
           ),
         ],
@@ -152,7 +152,7 @@ class _CalendarTabState extends State<CalendarTab> {
             Icon(Icons.event_available, size: 64, color: Colors.grey.withOpacity(0.3)),
             const SizedBox(height: 16),
             const Text(
-              'No birthdays today',
+              'Yah... gaada yang ultah :(',
               style: TextStyle(color: Colors.grey, fontSize: 16),
             ),
           ],
@@ -202,7 +202,7 @@ class _CalendarTabState extends State<CalendarTab> {
                         Icon(Icons.cake, size: 14, color: Colors.pinkAccent),
                         SizedBox(width: 4),
                         Text(
-                          'Student Birthday',
+                          'Ultah Murid',
                           style: TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ],

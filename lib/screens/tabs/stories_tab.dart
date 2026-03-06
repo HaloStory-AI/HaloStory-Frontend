@@ -57,7 +57,7 @@ class _StoriesTabState extends State<StoriesTab> {
       List<Map<String, dynamic>> enrichedStories = [];
       for (var s in stories) {
         final seen = await _storyService.isSeen(s['id'].toString());
-        enrichedStories.add({...s, 'isSeen': seen});
+        enrichedStories.add({...s, 'Diliat': seen});
       }
 
       if (mounted) {
@@ -97,9 +97,7 @@ class _StoriesTabState extends State<StoriesTab> {
   Widget build(BuildContext context) {
     // Dummy channels data
     final List<Map<String, String>> channels = [
-      {'name': 'MoutoSubs', 'message': 'Mari bangkit Dari kuburan', 'date': '12/31/25', 'icon': 'MS', 'pinned': 'true'},
-      {'name': 'BlueTalk Changelog', 'message': 'Fixed minor bugs in UI and logic.', 'date': '02/27/26', 'icon': 'CL', 'pinned': 'true'},
-      {'name': 'Creator Info', 'message': 'New features coming next week! Stay tuned.', 'date': '02/25/26', 'icon': 'CI', 'pinned': 'false'},
+      {'name': 'Coming Soon', 'message': 'Fitur Channel akan segera hadir!', 'date': '--/--/--', 'icon': '?', 'pinned': 'false'},
     ];
 
     return SingleChildScrollView(
@@ -206,7 +204,7 @@ class _StoriesTabState extends State<StoriesTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Channels',
+                  'Saluran',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -237,7 +235,7 @@ class _StoriesTabState extends State<StoriesTab> {
                       Text(
                         _remainingSeconds > 0 
                             ? 'Reload in ${_formatCooldown(_remainingSeconds)}'
-                            : _isReloading ? 'Reloading...' : 'Reload Stories',
+                            : _isReloading ? 'Loading...' : 'Reload Stories',
                         style: TextStyle(
                           color: (_isReloading || _remainingSeconds > 0) ? Colors.grey : Colors.black87,
                           fontSize: 13,

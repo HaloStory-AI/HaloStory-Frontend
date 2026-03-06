@@ -88,22 +88,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       'content': m['content'] as String,
     }).toList();
 
-    // Get model & language from settings or use default
+    // Get language from settings or use default
     final prefs = await SharedPreferences.getInstance();
     String language = prefs.getString('app_language') ?? 'Indonesian';
-    
-    // Bug Fix 2: Handle Groq (System) model properly
-    // If provider is Groq (System), passing an empty model or wrong model causes 422
-    // We let the backend handle the model for Groq (System) by sending a placeholder or constant
-    String model = prefs.getString('model_${widget.provider}') ?? ''; 
-    if (widget.provider == 'Groq (System)' && model.isEmpty) {
-      model = 'default'; // Backend knows to use GROQ_SYSTEM_MODEL from .env
-    } else if (model.isEmpty) {
-      model = 'openai/gpt-oss-20b'; // Standard fallback for others
-    }
     final response = await _aiService.sendMessage(
       provider: widget.provider,
-      model: model,
       messages: aiMessages,
       botId: widget.bot['id'],
       language: language,
@@ -116,9 +105,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         final aiContent = response['choices'][0]['message']['content'];
         _messages.add({'role': 'assistant', 'content': aiContent, 'timestamp': aiTimestamp});
       } else {
+        String errorMsg = 'Error: Failed to get response from ${widget.provider}.';
+        if (widget.provider == 'System') {
+          errorMsg = 'System error: All models are busy. Try switching to BYOK or BYOM in Settings for better performance.';
+        }
         _messages.add({
           'role': 'system', 
-          'content': 'Error: Failed to get response from ${widget.provider}.',
+          'content': errorMsg,
           'timestamp': aiTimestamp
         });
       }
@@ -147,30 +140,51 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 : null,
             ),
             const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.bot['name'],
-                      style: const TextStyle(color: Color(0xFF4A5568), fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    if (widget.bot['bond_hearts'] != null && widget.bot['bond_hearts'] > 0)
-                      Row(
-                        children: List.generate(
-                          (widget.bot['bond_hearts'] as num).toInt().clamp(1, 10), 
-                          (i) => const Padding(
-                            padding: EdgeInsets.only(right: 2),
-                            child: Icon(Icons.favorite, color: Colors.pinkAccent, size: 10),
-                          )
-                        ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        widget.bot['name'],
+                        style: const TextStyle(color: Color(0xFF4A5568), fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                  ],
-                ),
-                if (_isBirthday(widget.bot['birthday']))
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Text('🎂', style: TextStyle(fontSize: 14)),
+                      if (_isBirthday(widget.bot['birthday']))
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Text('🎂', style: TextStyle(fontSize: 14)),
+                        ),
+                    ],
                   ),
+                ],
+              ),
+            ),
+            Container(
+              width: 40,
+              height: 40,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.favorite, 
+                    color: Color(0xFFFBB6CE), 
+                    size: 38,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      '${widget.bot['bond_hearts'] ?? 0}',
+                      style: const TextStyle(
+                        color: Color(0xFF135ACF),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [
@@ -345,8 +359,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildBotBubble(String content, DateTime? timestamp) {
-    // Split content by newlines to create "divided" messages as requested
-    final parts = content.split('\n').where((s) => s.trim().isNotEmpty).toList();
+    // Split content by double newlines to create separate chat bubbles
+    final parts = content.split('\n\n').where((s) => s.trim().isNotEmpty).toList();
     if (parts.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -367,64 +381,74 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (timestamp != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      _formatMessageTime(timestamp),
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                // Display Name and Timestamp only once for the whole group
+                Row(
+                  children: [
+                    Text(
+                      widget.bot['name'], 
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF4A5568))
                     ),
-                  ),
-                Text(
-                  widget.bot['name'], 
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF414D66), // Dark grey-blue
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(0),
-                      topRight: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                    ),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
-                    child: MarkdownBody(
-                      data: content,
-                      selectable: true,
-                      extensionSet: md.ExtensionSet(
-                        md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                        <md.InlineSyntax>[
-                          md.EmojiSyntax(),
-                          ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes
-                        ],
+                    const SizedBox(width: 8),
+                    if (timestamp != null)
+                      Text(
+                        _formatMessageTime(timestamp),
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
                       ),
-                      styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(color: Colors.white, fontSize: 15),
-                        strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        em: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic),
-                        code: const TextStyle(
-                          color: Color(0xFFB8D8F8), 
-                          backgroundColor: Colors.black26,
-                          fontFamily: 'monospace',
-                          fontSize: 13,
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Build a bubble for each part
+                ...parts.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  String part = entry.value;
+                  bool isFirst = idx == 0;
+                  
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: idx == parts.length - 1 ? 0 : 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF414D66), // Dark grey-blue based on reference
+                        borderRadius: BorderRadius.only(
+                          topLeft: isFirst ? const Radius.circular(2) : const Radius.circular(12),
+                          topRight: const Radius.circular(12),
+                          bottomLeft: const Radius.circular(12),
+                          bottomRight: const Radius.circular(12),
                         ),
-                        codeblockDecoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
+                        child: MarkdownBody(
+                          data: part,
+                          selectable: true,
+                          extensionSet: md.ExtensionSet(
+                            md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                            <md.InlineSyntax>[
+                              md.EmojiSyntax(),
+                              ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes
+                            ],
+                          ),
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(color: Colors.white, fontSize: 15, height: 1.3),
+                            strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            em: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic),
+                            code: const TextStyle(
+                              color: Color(0xFFB8D8F8), 
+                              backgroundColor: Colors.black26,
+                              fontFamily: 'monospace',
+                              fontSize: 13,
+                            ),
+                            codeblockDecoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            listBullet: const TextStyle(color: Colors.white),
+                          ),
                         ),
-                        listBullet: const TextStyle(color: Colors.white),
-                        h1: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                        h2: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                        h3: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }),
               ],
             ),
           ),
@@ -453,7 +477,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 child: TextField(
                   controller: _messageController,
                   decoration: InputDecoration(
-                    hintText: 'Message ${widget.bot['name']}',
+                    hintText: 'Cet si ${widget.bot['name']}',
                     hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),

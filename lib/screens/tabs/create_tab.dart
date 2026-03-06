@@ -118,7 +118,7 @@ class _CreateTabState extends State<CreateTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Manual Dialogue Creator',
+                          'Buat Kisah Manual',
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange),
                         ),
                         const SizedBox(height: 16),
@@ -129,7 +129,7 @@ class _CreateTabState extends State<CreateTab> {
                             });
                           },
                           decoration: InputDecoration(
-                            hintText: 'Search character name or ID...',
+                            hintText: 'Cariin murid kesayanganku...',
                             prefixIcon: const Icon(Icons.search, color: Colors.orange),
                             filled: true,
                             fillColor: Colors.grey[100],
@@ -153,7 +153,7 @@ class _CreateTabState extends State<CreateTab> {
                                 children: [
                                   Icon(Icons.person_search_rounded, size: 64, color: Colors.grey[300]),
                                   const SizedBox(height: 16),
-                                  Text('No matching characters found', style: TextStyle(color: Colors.grey[600])),
+                                  Text('lah... gaada?', style: TextStyle(color: Colors.grey[600])),
                                 ],
                               ),
                             )
@@ -202,6 +202,7 @@ class _CreateTabState extends State<CreateTab> {
         child: _buildBody(),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'create_fab',
         onPressed: _showAddDialogueSheet,
         backgroundColor: Colors.orange,
         child: const Icon(Icons.edit_rounded, color: Colors.white),
@@ -223,14 +224,14 @@ class _CreateTabState extends State<CreateTab> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.edit_note_rounded, size: 100, color: Colors.grey[200]),
-                const Text('No Manual Dialogues', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const Text('Lah... gaada?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey)),
                 const SizedBox(height: 8),
-                const Text('Create your own stories manually.', style: TextStyle(color: Colors.grey)),
+                const Text('buatlah MyKisah Sendiri :v.', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: _showAddDialogueSheet,
                   icon: const Icon(Icons.add),
-                  label: const Text('Create Dialogue'),
+                  label: const Text('Buat Dialog'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
                 ),
               ],

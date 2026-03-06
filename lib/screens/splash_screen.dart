@@ -10,6 +10,7 @@ import 'welcome_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -53,8 +54,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _initializeApp() async {
-    // 1. Fetch Dynamic Config First (API URL & Maintenance Status)
+    // 1. Fetch Dynamic Config First (API URL, Maintenance, & Version)
     await ConfigService.initConfig();
+
+    if (ConfigService.needsUpdate) {
+      if (!mounted) return;
+      _showUpdateDialog();
+      return;
+    }
 
     if (ConfigService.isMaintenance) {
       if (!mounted) return;
@@ -87,13 +94,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     // Pindah ke screen selanjutnya
     if (isLoggedIn) {
-      if (isSetupCompleted && permissionsGranted) {
+      if (isSetupCompleted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       } else {
-        // Even if setup is "completed" in prefs, if permissions are missing, 
-        // we send them back to SetupScreen (which will show the steps).
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SetupScreen()),
         );
@@ -105,6 +110,45 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     }
   }
 
+  void _showUpdateDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Update Tersedia!',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Versi baru BlueTalk sudah rilis! Kamu perlu memperbarui aplikasi untuk terus menggunakan fitur terbaru.",
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Versi Terbaru: v${ConfigService.remoteVersion}",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => launchUrl(
+              Uri.parse('https://github.com/rafiq8k-moga/bluetalk-app_repo/releases'),
+              mode: LaunchMode.externalApplication,
+            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF135ACF)),
+            child: const Text('Download Update', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showMaintenanceDialog() {
     showDialog(
       context: context,
@@ -112,7 +156,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
-          'System Maintenance',
+          'Pemeliharaan Sistem',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent),
         ),
         content: Text(
@@ -123,7 +167,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           ElevatedButton(
             onPressed: () => SystemNavigator.pop(),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Exit Application', style: TextStyle(color: Colors.white)),
+            child: const Text('Keluar Aplikasi', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

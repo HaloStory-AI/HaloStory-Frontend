@@ -13,15 +13,16 @@ class SetupScreen extends StatefulWidget {
 
 class _SetupScreenState extends State<SetupScreen> {
   String _selectedLanguage = 'Indonesian';
-  String _selectedProvider = 'Groq (System)';
+  String _selectedProvider = 'System';
   int _currentStep = 0;
 
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _modelController = TextEditingController();
+  final TextEditingController _baseUrlController = TextEditingController();
 
   Future<void> _requestPermissions() async {
     if (kIsWeb) return;
-    final status = await [
+    await [
       Permission.photos,
       Permission.storage,
       Permission.notification,
@@ -35,6 +36,7 @@ class _SetupScreenState extends State<SetupScreen> {
   void dispose() {
     _apiKeyController.dispose();
     _modelController.dispose();
+    _baseUrlController.dispose();
     super.dispose();
   }
 
@@ -45,29 +47,20 @@ class _SetupScreenState extends State<SetupScreen> {
     {'name': 'Japanese', 'code': 'ja'},
   ];
 
-  final List<String> _providers = [
-    'Groq (System)',
-    'Groq (Self)',
-    'OpenAI',
-    'Open Router',
-    'Gemini',
-    'Anthropic',
-    'xAI',
-  ];
+  final List<String> _providers = ['System', 'BYOK', 'BYOM'];
 
   Future<void> _completeSetup() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('app_language', _selectedLanguage);
     await prefs.setString('default_provider', _selectedProvider);
     
-    // Save API key and Model if provided
-    if (_selectedProvider != 'Groq (System)') {
-      if (_apiKeyController.text.isNotEmpty) {
-        await prefs.setString('api_key_$_selectedProvider', _apiKeyController.text);
-      }
-      if (_modelController.text.isNotEmpty) {
-        await prefs.setString('model_$_selectedProvider', _modelController.text);
-      }
+    if (_selectedProvider == 'BYOK') {
+      await prefs.setString('byok_api_key', _apiKeyController.text);
+      await prefs.setString('byok_model', _modelController.text.isEmpty ? 'gpt-3.5-turbo' : _modelController.text);
+      await prefs.setString('byok_base_url', _baseUrlController.text.isEmpty ? 'https://api.openai.com/v1/chat/completions' : _baseUrlController.text);
+    } else if (_selectedProvider == 'BYOM') {
+      await prefs.setString('byom_endpoint', _baseUrlController.text.isEmpty ? 'http://localhost:11434/v1/chat/completions' : _baseUrlController.text);
+      await prefs.setString('byom_model', _modelController.text.isEmpty ? 'llama3' : _modelController.text);
     }
 
     await prefs.setBool('is_setup_completed', true);
@@ -83,14 +76,14 @@ class _SetupScreenState extends State<SetupScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Navigation'),
+        title: const Text('Konfirmasi Pengaturan'),
         content: const Text(
-          'System defaults might not always be perfectly accurate for all use cases. Are you sure you want to continue with current settings?'
+          'Pengaturan default mungkin tidak selalu cocok untuk semua orang. Yakin ingin lanjut dengan pengaturan ini?'
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Back'),
+            child: const Text('Kembali'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -101,7 +94,7 @@ class _SetupScreenState extends State<SetupScreen> {
               backgroundColor: const Color(0xFF135ACF),
               minimumSize: const Size(80, 40),
             ),
-            child: const Text('Yes, Continue'),
+            child: const Text('Ya, Lanjut'),
           ),
         ],
       ),
@@ -110,15 +103,15 @@ class _SetupScreenState extends State<SetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String title = 'Select Language';
-    String subTitle = 'Choose your preferred language for the interface and AI responses.';
+    String title = 'Pilih Bahasa';
+    String subTitle = 'Pilih bahasa yang kamu sukai untuk tampilan dan respon AI.';
     
     if (_currentStep == 1) {
-      title = 'Select Provider';
-      subTitle = 'Select your AI engine provider. You can configure API keys later.';
+      title = 'Pilih Mesin AI';
+      subTitle = 'Pilih cara kamu terhubung ke AI. Mode System adalah yang termudah.';
     } else if (_currentStep == 2) {
-      title = 'Permissions';
-      subTitle = 'Grant permissions and optimize for a better experience.';
+      title = 'Izin Aplikasi';
+      subTitle = 'Berikan izin yang diperlukan untuk pengalaman yang lebih baik.';
     }
 
     return Scaffold(
@@ -142,9 +135,9 @@ class _SetupScreenState extends State<SetupScreen> {
                 subTitle,
                 style: const TextStyle(color: Colors.grey, fontSize: 16),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
               Expanded(
-                child: _buildCurrentStepView(),
+                child: SingleChildScrollView(child: _buildCurrentStepView()),
               ),
               const SizedBox(height: 24),
               Row(
@@ -153,7 +146,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   if (_currentStep > 0)
                     TextButton(
                       onPressed: () => setState(() => _currentStep--),
-                      child: const Text('BACK', style: TextStyle(color: Colors.grey)),
+                      child: const Text('KEMBALI', style: TextStyle(color: Colors.grey)),
                     )
                   else
                     const SizedBox.shrink(),
@@ -164,7 +157,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(120, 50),
                       ),
-                      child: const Text('NEXT'),
+                      child: const Text('LANJUT'),
                     )
                   else
                     Row(
@@ -172,7 +165,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         TextButton(
                           onPressed: _showSkipConfirmation,
                           child: const Text(
-                            'SKIP',
+                            'LEWATI',
                             style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -182,7 +175,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(120, 50),
                           ),
-                          child: const Text('FINISH'),
+                          child: const Text('SELESAI'),
                         ),
                       ],
                     ),
@@ -209,20 +202,20 @@ class _SetupScreenState extends State<SetupScreen> {
       children: [
         _buildPermissionItem(
           icon: Icons.notifications_active_outlined,
-          title: 'Notifications',
-          desc: 'To remind you about student birthdays and messages.',
+          title: 'Notifikasi',
+          desc: 'Untuk mengingatkanmu tentang ulang tahun murid dan pesan baru.',
         ),
         const SizedBox(height: 16),
         _buildPermissionItem(
           icon: Icons.photo_library_outlined,
-          title: 'Storage & Photos',
-          desc: 'Necessary for saving story images to your gallery.',
+          title: 'Penyimpanan & Foto',
+          desc: 'Diperlukan untuk menyimpan gambar status ke galeri kamu.',
         ),
         const SizedBox(height: 32),
         ElevatedButton.icon(
           onPressed: _requestPermissions,
           icon: const Icon(Icons.security),
-          label: const Text('GRANT PERMISSIONS'),
+          label: const Text('BERIKAN IZIN'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF135ACF).withOpacity(0.1),
             foregroundColor: const Color(0xFF135ACF),
@@ -244,7 +237,7 @@ class _SetupScreenState extends State<SetupScreen> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Recommended: Please disable battery optimization for BlueTalk to ensure notifications arrive on time.',
+                  'Disarankan: Matikan optimasi baterai untuk BlueTalk agar notifikasi tidak telat.',
                   style: TextStyle(fontSize: 13, color: Colors.black87),
                 ),
               ),
@@ -285,10 +278,8 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildLanguageSelection() {
-    return ListView.builder(
-      itemCount: _languages.length,
-      itemBuilder: (context, index) {
-        final lang = _languages[index];
+    return Column(
+      children: _languages.map((lang) {
         final isSelected = _selectedLanguage == lang['name'];
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -329,92 +320,103 @@ class _SetupScreenState extends State<SetupScreen> {
             ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 
   Widget _buildProviderSelection() {
     return Column(
       children: [
-        Expanded(
-          child: ListView.builder(
-            itemCount: _providers.length,
-            itemBuilder: (context, index) {
-              final provider = _providers[index];
-              final isSelected = _selectedProvider == provider;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: () => setState(() => _selectedProvider = provider),
+        ..._providers.map((p) {
+          final isSelected = _selectedProvider == p;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: InkWell(
+              onTap: () => setState(() => _selectedProvider = p),
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF135ACF).withOpacity(0.05) : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF135ACF).withOpacity(0.05) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? const Color(0xFF135ACF) : Colors.transparent,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          provider,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? const Color(0xFF135ACF) : Colors.black87,
-                          ),
-                        ),
-                        if (isSelected)
-                          const Icon(Icons.check_circle, color: Color(0xFF135ACF))
-                        else
-                          const Icon(Icons.circle_outlined, color: Colors.grey),
-                      ],
-                    ),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF135ACF) : Colors.transparent,
+                    width: 2,
                   ),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+                  ],
                 ),
-              );
-            },
-          ),
-        ),
-        if (_selectedProvider != 'Groq (System)')
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      p,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? const Color(0xFF135ACF) : Colors.black87,
+                      ),
+                    ),
+                    if (isSelected)
+                      const Icon(Icons.check_circle, color: Color(0xFF135ACF))
+                    else
+                      const Icon(Icons.circle_outlined, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+        if (_selectedProvider != 'System')
           Padding(
             padding: const EdgeInsets.only(top: 16),
             child: Column(
               children: [
-                TextField(
-                  controller: _apiKeyController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    hintText: 'Enter API Key for $_selectedProvider',
-                    prefixIcon: const Icon(Icons.vpn_key_outlined),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                if (_selectedProvider == 'BYOK')
+                  _buildSetupField(
+                    controller: _apiKeyController,
+                    hint: 'Masukkan API Key',
+                    icon: Icons.vpn_key_outlined,
+                    obscure: true,
                   ),
+                const SizedBox(height: 12),
+                _buildSetupField(
+                  controller: _modelController,
+                  hint: _selectedProvider == 'BYOK' ? 'Model (cth: gpt-4o)' : 'Model Lokal (cth: llama3)',
+                  icon: Icons.model_training_outlined,
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _modelController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter specific model (Optional)',
-                    prefixIcon: const Icon(Icons.model_training_outlined),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  ),
+                _buildSetupField(
+                  controller: _baseUrlController,
+                  hint: _selectedProvider == 'BYOK' ? 'URL Dasar (Opsional)' : 'URL Endpoint Lokal',
+                  icon: Icons.link_outlined,
                 ),
               ],
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildSetupField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscure = false,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 20),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      ),
     );
   }
 }

@@ -181,7 +181,7 @@ class _ChatTabState extends State<ChatTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Create New Dialogue',
+                          'Buat dialog baru',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -196,7 +196,7 @@ class _ChatTabState extends State<ChatTab> {
                             });
                           },
                           decoration: InputDecoration(
-                            hintText: 'Search character name or ID...',
+                            hintText: 'Cariin murid kesayanganku...',
                             prefixIcon: const Icon(Icons.search, color: Color(0xFF135ACF)),
                             filled: true,
                             fillColor: Colors.grey[100],
@@ -249,7 +249,7 @@ class _ChatTabState extends State<ChatTab> {
                                 children: [
                                   Icon(Icons.person_search_rounded, size: 64, color: Colors.grey[300]),
                                   const SizedBox(height: 16),
-                                  Text('No matching characters found', style: TextStyle(color: Colors.grey[600])),
+                                  Text('Lah... ga nemu?', style: TextStyle(color: Colors.grey[600])),
                                 ],
                               ),
                             )
@@ -288,7 +288,7 @@ class _ChatTabState extends State<ChatTab> {
                                     _botService.recruitBot(bot['id']);
 
                                     final prefs = await SharedPreferences.getInstance();
-                                    final provider = prefs.getString('default_provider') ?? 'Groq (System)';
+                                    final provider = prefs.getString('default_provider') ?? 'System';
                                     
                                     if (!mounted) return;
                                     Navigator.push(
@@ -320,6 +320,7 @@ class _ChatTabState extends State<ChatTab> {
         child: _buildBody(),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'chat_fab',
         onPressed: _showAddChatSheet,
         backgroundColor: const Color(0xFF135ACF),
         child: const Icon(Icons.add_comment_rounded, color: Colors.white),
@@ -350,6 +351,7 @@ class _ChatTabState extends State<ChatTab> {
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
                 ),
                 child: const Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('Newest', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     Icon(Icons.arrow_drop_down, size: 20, color: Color(0xFF135ACF)),
@@ -410,10 +412,8 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   Widget _buildChatList() {
-    final combinedChats = [..._activeChats]; // For now just active chats
-    
     return ListView.separated(
-      itemCount: combinedChats.length,
+      itemCount: _activeChats.length,
       padding: const EdgeInsets.symmetric(vertical: 0),
       separatorBuilder: (context, index) => const Divider(
         height: 1,
@@ -422,55 +422,75 @@ class _ChatTabState extends State<ChatTab> {
         color: Color(0xFFE0E0E0),
       ),
       itemBuilder: (context, index) {
-        final chat = combinedChats[index];
+        final chat = _activeChats[index];
+        final bondLevel = (chat['bond_hearts'] ?? 0).toString();
+
         return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           leading: CircleAvatar(
+            radius: 28,
             backgroundColor: _parseColor(chat['color']),
             backgroundImage: chat['image_url'] != null ? NetworkImage(chat['image_url']) : null,
             child: chat['image_url'] == null 
               ? Text(
                   (chat['name'] as String).isNotEmpty ? (chat['name'] as String)[0].toUpperCase() : '?',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
                 )
               : null,
           ),
           title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(chat['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  if (_isBirthday(chat['birthday']))
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Text('🎂', style: TextStyle(fontSize: 14)),
-                    ),
-                  // Render Bond Hearts (Max 5 for UI simplicity, but can be more)
-                  if (chat['bond_hearts'] != null && chat['bond_hearts'] > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: Row(
-                        children: List.generate(
-                          (chat['bond_hearts'] as num).toInt().clamp(1, 5), 
-                          (i) => const Icon(Icons.favorite, color: Colors.pinkAccent, size: 12)
-                        ),
-                      ),
-                    ),
-                ],
+              Text(
+                chat['name'], 
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF2D3748))
               ),
+              if (_isBirthday(chat['birthday']))
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Text('🎂', style: TextStyle(fontSize: 14)),
+                ),
+              const Spacer(),
               Text(chat['time'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 4),
-              Text(chat['lastMessage'], maxLines: 1, overflow: TextOverflow.ellipsis),
-            ],
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              chat['lastMessage'],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFF718096), fontSize: 15),
+            ),
+          ),
+          trailing: Container(
+            width: 45,
+            height: 45,
+            margin: const EdgeInsets.only(left: 8),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(
+                  Icons.favorite, 
+                  color: Color(0xFFFBB6CE), // Soft pink
+                  size: 42,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2), // Adjust number position
+                  child: Text(
+                    bondLevel,
+                    style: const TextStyle(
+                      color: Color(0xFF135ACF), // Deep Blue/Standard Blue Archive text color
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           onTap: () async {
             final prefs = await SharedPreferences.getInstance();
-            final provider = prefs.getString('default_provider') ?? 'Groq (System)';
+            final provider = prefs.getString('default_provider') ?? 'System';
             
             if (!mounted) return;
             Navigator.push(

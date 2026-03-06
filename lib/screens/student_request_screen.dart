@@ -112,8 +112,9 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF135ACF),
                         foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 50),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                       ),
                       child: _isSubmitting 
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
