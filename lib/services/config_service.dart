@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter/foundation.dart';
 
 class ConfigService {
   static const String _configUrl = 'https://raw.githubusercontent.com/rafiq8k-moga/bluetalk-app_repo/refs/heads/main/bluetalk-app-endpoint.json';
@@ -39,7 +40,10 @@ class ConfigService {
   }
 
   static Future<void> _checkVersion(String? remoteVer) async {
-    if (remoteVer == null) return;
+    if (remoteVer == null || kDebugMode) {
+      _needsUpdate = false;
+      return;
+    }
 
     try {
       final packageInfo = await PackageInfo.fromPlatform();
