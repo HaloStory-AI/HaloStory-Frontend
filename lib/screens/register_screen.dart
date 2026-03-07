@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
@@ -18,11 +20,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
+  bool _isAgreed = false;
+
+  Future<void> _launchURL(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not launch $url')),
+        );
+      }
+    }
+  }
 
   Future<void> _handleRegister() async {
+    if (_passwordController.text.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password minimal 8 karakter')),
+      );
+      return;
+    }
+
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Passwords do not match')),
+      );
+      return;
+    }
+
+    if (!_isAgreed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Harap setujui syarat dan kebijakan kami.')),
       );
       return;
     }
@@ -100,6 +128,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icon(Icons.lock_reset),
                 ),
                 obscureText: true,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _isAgreed,
+                    onChanged: (val) {
+                      setState(() {
+                        _isAgreed = val ?? false;
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87,
+                          fontSize: 13,
+                        ),
+                        children: [
+                          const TextSpan(text: "Sensei buat akun dan pakai BlueTalk berarti setuju ya sama "),
+                          TextSpan(
+                            text: "TOS",
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => _launchURL("https://bluetalk.my-bini.my.id/terms"),
+                          ),
+                          const TextSpan(text: " dan "),
+                          TextSpan(
+                            text: "kebijakan pivasi",
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => _launchURL("https://bluetalk.my-bini.my.id/privacy"),
+                          ),
+                          const TextSpan(text: " ya..."),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 32),
               _isLoading

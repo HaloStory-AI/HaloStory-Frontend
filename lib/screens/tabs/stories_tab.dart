@@ -57,7 +57,7 @@ class _StoriesTabState extends State<StoriesTab> {
       List<Map<String, dynamic>> enrichedStories = [];
       for (var s in stories) {
         final seen = await _storyService.isSeen(s['id'].toString());
-        enrichedStories.add({...s, 'Diliat': seen});
+        enrichedStories.add({...s, 'isSeen': seen});
       }
 
       if (mounted) {

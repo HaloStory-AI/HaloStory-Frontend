@@ -192,18 +192,15 @@ class StoryService {
     if (kIsWeb) return null;
     try {
       final cacheDir = await _getCacheDir();
-      
-      // Auto Cleanup: Hapus file yang lebih tua dari 24 jam (seperti WA)
       _cleanupOldCache(cacheDir);
 
-      final fileName = url.split('/').last.split('?').first; // Remove query params
+      final fileName = url.split('/').last.split('?').first;
       final localFile = File('${cacheDir.path}/$fileName');
 
       if (localFile.existsSync() && localFile.lengthSync() > 0) {
         return localFile;
       }
 
-      // Download if not exists
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
       if (response.statusCode == 200) {
         await localFile.writeAsBytes(response.bodyBytes);
@@ -213,6 +210,44 @@ class StoryService {
       print("DEBUG: Local Cache Error: $e");
     }
     return null;
+  }
+
+  // Stream for Progress Tracking
+  Stream<double> getMediaDownloadProgress(String url) async* {
+    if (kIsWeb) yield 1.0;
+    
+    final cacheDir = await _getCacheDir();
+    final fileName = url.split('/').last.split('?').first;
+    final localFile = File('${cacheDir.path}/$fileName');
+
+    if (localFile.existsSync() && localFile.lengthSync() > 0) {
+      yield 1.0;
+      return;
+    }
+
+    try {
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse(url));
+      final response = await client.send(request).timeout(const Duration(seconds: 45));
+      
+      final total = response.contentLength ?? 0;
+      int received = 0;
+      final List<int> bytes = [];
+
+      await for (final chunk in response.stream) {
+        bytes.addAll(chunk);
+        received += chunk.length;
+        if (total > 0) {
+          yield received / total;
+        }
+      }
+      
+      await localFile.writeAsBytes(bytes);
+      yield 1.0;
+    } catch (e) {
+      print("DEBUG: Download Stream Error: $e");
+      yield -1.0; // Error indicator
+    }
   }
 
   Future<void> _cleanupOldCache(Directory cacheDir) async {

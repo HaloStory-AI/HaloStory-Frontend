@@ -32,6 +32,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
   Timer? _timer;
   bool _isSaving = false;
   bool _isLoadingMedia = true;
+  double _downloadProgress = 0.0;
   
   VideoPlayerController? _videoController;
   File? _localFile;
@@ -64,10 +65,22 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                url.toLowerCase().endsWith('.mov') || 
                url.toLowerCase().endsWith('.avi');
 
-    // 1. Get from Local Cache (.statustemp)
-    final file = await _storyService.getLocalMedia(url);
-    
+    // 1. Get from Stream for Progress
+    await for (final progress in _storyService.getMediaDownloadProgress(url)) {
+      if (!mounted) return;
+      if (progress < 0) break; // Error
+      
+      setState(() {
+        _downloadProgress = progress;
+      });
+
+      if (progress >= 1.0) break;
+    }
+
     if (!mounted) return;
+
+    // Check if file exists now
+    final file = await _storyService.getLocalMedia(url);
     
     if (file != null) {
       _localFile = file;
@@ -90,7 +103,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
         }
       }
     } else {
-      // Fallback to Network if cache fails
+      // Final Fallback to Network if everything fails
       if (_isVideo) {
         _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
         await _videoController!.initialize();
@@ -324,11 +337,19 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
               ? Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const CircularProgressIndicator(color: Colors.white),
+                    SizedBox(
+                      width: 150,
+                      child: LinearProgressIndicator(
+                        value: _downloadProgress,
+                        backgroundColor: Colors.white12,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
-                      'Loading Sensei\'s memory...',
-                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+                      'Loading Sensei\'s memory... ${(_downloadProgress * 100).toInt()}%',
+                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                   ],
                 )
