@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfile();
-    
+
     // Show donation popup on first entry
     if (!_hasShownDonationPopup) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -49,7 +49,10 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Halo Sensei!',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF135ACF),
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -62,14 +65,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: () => launchUrl(Uri.parse('https://trakteer.id/r8kstudio')),
+              onPressed: () =>
+                  launchUrl(Uri.parse('https://trakteer.id/r8kstudio')),
               icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
               label: const Text('Donasi di Trakteer'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFF0F5FF),
                 foregroundColor: const Color(0xFF135ACF),
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -77,7 +83,10 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Nanti Deh', style: TextStyle(color: Colors.grey)),
+            child: const Text(
+              'Nanti Deh',
+              style: TextStyle(color: Colors.grey),
+            ),
           ),
         ],
       ),
@@ -92,10 +101,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   final List<Widget> _tabs = [
-    const ChatTab(),       // Index 0
-    const CreateTab(),     // Index 1
-    const StoriesTab(),    // Index 2
-    const CalendarTab(),   // Index 3
+    const ChatTab(), // Index 0
+    const CreateTab(), // Index 1
+    const StoriesTab(), // Index 2
+    const CalendarTab(), // Index 3
   ];
 
   void _showLogoutDialog() {
@@ -103,26 +112,36 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text(
             'Confirm Logout',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF135ACF),
+            ),
           ),
-          content: const Text('Are you sure you want to sign out from BlueTalk?'),
+          content: const Text(
+            'Are you sure you want to sign out from BlueTalk?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('No, Stay', style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                'No, Stay',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
             ElevatedButton(
               onPressed: () async {
                 await _authService.logout();
-                  if (mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const SplashScreen()),
-                      (route) => false,
-                    );
-                  }
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const SplashScreen()),
+                    (route) => false,
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
@@ -140,7 +159,10 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Disclaimer', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Disclaimer',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: const SingleChildScrollView(
           child: Text(
             'BlueTalk is not affiliated, associated, authorized, endorsed by, or in any way officially connected with Blue Archive, Nexon Games, or any of their subsidiaries or affiliates.\n\n'
@@ -151,7 +173,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('I Understand')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('I Understand'),
+          ),
         ],
       ),
     );
@@ -162,7 +187,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFFB8D8F8),
-        iconTheme: const IconThemeData(color: Colors.white), // Drawer icon white
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+        ), // Drawer icon white
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu),
@@ -224,29 +251,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
                 );
               },
               child: UserAccountsDrawerHeader(
                 decoration: const BoxDecoration(
                   color: Color(0xFFB8D8F8),
-                  borderRadius: BorderRadius.only(topRight: Radius.circular(20)),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(20),
+                  ),
                 ),
                 currentAccountPicture: CircleAvatar(
                   backgroundColor: Colors.white,
                   child: Text(
-                    (_userProfile?['name'] != null && _userProfile!['name'].isNotEmpty)
+                    (_userProfile?['name'] != null &&
+                            _userProfile!['name'].isNotEmpty)
                         ? _userProfile!['name'][0].toUpperCase()
                         : 'S',
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF135ACF),
+                    ),
                   ),
                 ),
                 accountName: Text(
                   _userProfile?['name'] ?? 'Sensei',
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold, 
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    shadows: [Shadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
                 accountEmail: Text(
@@ -257,25 +299,76 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             if (_userProfile?['role'] == 'admin')
               ListTile(
-                leading: const Icon(Icons.admin_panel_settings, color: Colors.amber),
-                title: const Text('Admin Panel', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+                leading: const Icon(
+                  Icons.admin_panel_settings,
+                  color: Colors.amber,
+                ),
+                title: const Text(
+                  'Admin Panel',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const AdminScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const AdminScreen(),
+                    ),
                   );
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.add_task_rounded, color: Color(0xFF135ACF)),
+              leading: const Icon(
+                Icons.add_task_rounded,
+                color: Color(0xFF135ACF),
+              ),
               title: const Text('Saranin Murid'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const StudentRequestScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const StudentRequestScreen(),
+                  ),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.favorite_rounded,
+                color: Colors.pinkAccent,
+              ),
+              title: const Text('Donasi (Trakteer)'),
+              onTap: () {
+                Navigator.pop(context);
+                launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.settings_outlined,
+                color: Color(0xFF135ACF),
+              ),
+              title: const Text('Settings'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help_outline, color: Color(0xFF135ACF)),
+              title: const Text('Butuh Bantuan...'),
+              onTap: () {
+                Navigator.pop(context);
+                launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
               },
             ),
             ListTile(
@@ -285,57 +378,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AppInfoScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const AppInfoScreen(),
+                  ),
                 );
               },
-            ),
-            ListTile(
-              leading: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent),
-              title: const Text('Donasi (Trakteer)'),
-              onTap: () {
-                Navigator.pop(context);
-                launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined, color: Color(0xFF135ACF)),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.pop(context); // Close drawer
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline, color: Color(0xFF135ACF)),
-              title: const Text('Help & Support'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, color: Color(0xFF135ACF)),
-              title: const Text('About App'),
-              onTap: () => Navigator.pop(context),
             ),
             const Spacer(), // Pushes logout to bottom
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
+              title: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.redAccent),
+              ),
               onTap: () {
                 Navigator.pop(context); // Close drawer first
-                _showLogoutDialog();    // Then show confirm
+                _showLogoutDialog(); // Then show confirm
               },
             ),
             const SizedBox(height: 20),
           ],
         ),
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _tabs,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _tabs),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [

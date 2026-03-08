@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../services/story_service.dart';
@@ -157,25 +158,32 @@ class _StoriesTabState extends State<StoriesTab> {
                           margin: const EdgeInsets.only(right: 12),
                           child: Column(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: hasUnseen ? const Color(0xFF135ACF) : Colors.grey.shade300,
-                                    width: 2.5,
+                              // Segmented story ring (WhatsApp style)
+                              SizedBox(
+                                width: 76,
+                                height: 76,
+                                child: CustomPaint(
+                                  painter: StoryRingPainter(
+                                    stories: botStories,
                                   ),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 32,
-                                  backgroundColor: Colors.grey.shade200,
-                                  backgroundImage: latestStory['bot_avatar'] != null 
-                                      ? NetworkImage(latestStory['bot_avatar']) 
-                                      : null,
-                                  child: latestStory['bot_avatar'] == null 
-                                      ? Text(latestStory['bot_name'][0].toUpperCase(), 
-                                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)) 
-                                      : null,
+                                  child: Center(
+                                    child: CircleAvatar(
+                                      radius: 32,
+                                      backgroundColor: Colors.grey.shade200,
+                                      backgroundImage: latestStory['bot_avatar'] != null
+                                          ? NetworkImage(latestStory['bot_avatar'])
+                                          : null,
+                                      child: latestStory['bot_avatar'] == null
+                                          ? Text(
+                                              latestStory['bot_name'][0].toUpperCase(),
+                                              style: const TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -310,5 +318,74 @@ class _StoriesTabState extends State<StoriesTab> {
         ],
       ),
     );
+  }
+}
+
+/// Menggambar lingkaran segmen (WhatsApp-style) di sekeliling avatar.
+/// Setiap segmen = 1 story. Biru = belum dilihat, abu = sudah dilihat.
+class StoryRingPainter extends CustomPainter {
+  final List<Map<String, dynamic>> stories;
+
+  static const Color _unseenColor = Color(0xFF135ACF);
+  static const Color _seenColor   = Color(0xFFCCCCCC);
+  static const double _strokeWidth = 3.0;
+  // Gap antar segmen dalam derajat
+  static const double _gapDeg = 6.0;
+
+  const StoryRingPainter({required this.stories});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final int count = stories.length;
+    if (count == 0) return;
+
+    final double cx = size.width / 2;
+    final double cy = size.height / 2;
+    final double radius = (size.width / 2) - (_strokeWidth / 2);
+    final Rect rect = Rect.fromCircle(center: Offset(cx, cy), radius: radius);
+
+    // Kalau hanya 1 story, gambar lingkaran penuh (tanpa gap)
+    if (count == 1) {
+      final bool seen = stories[0]['isSeen'] ?? false;
+      final paint = Paint()
+        ..color = seen ? _seenColor : _unseenColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true;
+
+      canvas.drawCircle(Offset(cx, cy), radius, paint);
+      return;
+    }
+
+    // Mulai dari atas (-90 derajat)
+    final double gapRad   = _gapDeg * math.pi / 180;
+    final double totalGap = gapRad * count;
+    final double segRad   = (2 * math.pi - totalGap) / count;
+
+    for (int i = 0; i < count; i++) {
+      final bool seen = stories[i]['isSeen'] ?? false;
+      final paint = Paint()
+        ..color = seen ? _seenColor : _unseenColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true;
+
+      // Posisi awal tiap segmen
+      final double startAngle = -math.pi / 2 + i * (segRad + gapRad) + gapRad / 2;
+
+      canvas.drawArc(rect, startAngle, segRad, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(StoryRingPainter oldDelegate) {
+    // Repaint kalau ada perubahan status seen
+    if (oldDelegate.stories.length != stories.length) return true;
+    for (int i = 0; i < stories.length; i++) {
+      if (oldDelegate.stories[i]['isSeen'] != stories[i]['isSeen']) return true;
+    }
+    return false;
   }
 }

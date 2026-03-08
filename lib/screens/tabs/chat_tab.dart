@@ -22,6 +22,8 @@ class _ChatTabState extends State<ChatTab> {
   List<Map<String, dynamic>> _availableBots = [];
   bool _isLoadingBots = true;
   bool _isLoadingChats = true;
+  String _sortBy = 'Newest';
+  bool _sortAscending = false;
 
   Color _parseColor(dynamic color) {
     if (color == null) return Colors.blueGrey;
@@ -75,7 +77,7 @@ class _ChatTabState extends State<ChatTab> {
 
     // 1. Load bots first (Now very fast because of SharedPreferences cache in BotService)
     await _loadAvailableBots(force: force);
-    
+
     // 2. Then load chats, so we can match them with the bot avatars/colors
     await _loadActiveChats();
   }
@@ -96,37 +98,53 @@ class _ChatTabState extends State<ChatTab> {
 
   Future<void> _loadActiveChats() async {
     final chatMetadata = await _localChatService.getAllChatMetadata();
-    
-    // Sort metadata by lastModified descending
-    chatMetadata.sort((a, b) => (b['lastModified'] as DateTime).compareTo(a['lastModified'] as DateTime));
 
     List<Map<String, dynamic>> loadedChats = [];
-    
+
     for (var meta in chatMetadata) {
       final id = meta['id'];
       final history = await _localChatService.loadChat(id);
-      
+
       final bot = _availableBots.firstWhere(
-        (b) => b['id'] == id, 
+        (b) => b['id'] == id,
         orElse: () => {
           'id': id,
           'name': id,
           'avatar': null,
           'color': '0xFF607D8B',
-        }
+        },
       );
-      
+
       if (history.isNotEmpty) {
         loadedChats.add({
           ...bot,
           'lastMessage': history.last['content'],
-          'time': _formatDateTime(meta['lastModified']), 
+          'time': _formatDateTime(meta['lastModified']),
           'provider': 'Global Config',
           'lastModified': meta['lastModified'],
         });
       }
     }
-    
+
+    // Sort the list based on state
+    if (_sortBy == 'Newest') {
+      loadedChats.sort(
+        (a, b) => (a['lastModified'] as DateTime).compareTo(
+          b['lastModified'] as DateTime,
+        ),
+      );
+    } else if (_sortBy == 'Name') {
+      loadedChats.sort(
+        (a, b) => (a['name'] as String).toLowerCase().compareTo(
+          (b['name'] as String).toLowerCase(),
+        ),
+      );
+    }
+
+    if (!_sortAscending) {
+      loadedChats = loadedChats.reversed.toList();
+    }
+
     if (mounted) {
       setState(() {
         _activeChats = loadedChats;
@@ -138,7 +156,7 @@ class _ChatTabState extends State<ChatTab> {
   void _showAddChatSheet() {
     // Refresh bots from API to ensure new contacts appear
     // We don't await this so the sheet opens immediately with cached data
-    _loadAvailableBots(force: true); 
+    _loadAvailableBots(force: true);
 
     showModalBottomSheet(
       context: context,
@@ -197,14 +215,19 @@ class _ChatTabState extends State<ChatTab> {
                           },
                           decoration: InputDecoration(
                             hintText: 'Cariin murid kesayanganku...',
-                            prefixIcon: const Icon(Icons.search, color: Color(0xFF135ACF)),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: Color(0xFF135ACF),
+                            ),
                             filled: true,
                             fillColor: Colors.grey[100],
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -213,7 +236,10 @@ class _ChatTabState extends State<ChatTab> {
                             const Expanded(
                               child: Text(
                                 'Data murid mungkin belum lengkap. ada murid yang tidak ada?',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -222,16 +248,33 @@ class _ChatTabState extends State<ChatTab> {
                                 Navigator.pop(context);
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => const StudentRequestScreen()),
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const StudentRequestScreen(),
+                                  ),
                                 );
                               },
-                              icon: const Icon(Icons.add_task_rounded, size: 16),
-                              label: const Text('Saranin dong', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              icon: const Icon(
+                                Icons.add_task_rounded,
+                                size: 16,
+                              ),
+                              label: const Text(
+                                'Saranin dong',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               style: TextButton.styleFrom(
                                 foregroundColor: const Color(0xFF135ACF),
                                 backgroundColor: const Color(0xFFF0F5FF),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                             ),
                           ],
@@ -240,67 +283,113 @@ class _ChatTabState extends State<ChatTab> {
                     ),
                   ),
                   Expanded(
-                    child: _isLoadingBots 
-                      ? const ChatListSkeleton() 
-                      : (filteredBots.isEmpty 
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.person_search_rounded, size: 64, color: Colors.grey[300]),
-                                  const SizedBox(height: 16),
-                                  Text('Lah... ga nemu?', style: TextStyle(color: Colors.grey[600])),
-                                ],
-                              ),
-                            )
-                          : ListView.separated(
-                              itemCount: filteredBots.length,
-                              separatorBuilder: (context, index) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final bot = filteredBots[index];
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: _parseColor(bot['color']),
-                                    backgroundImage: bot['image_url'] != null ? NetworkImage(bot['image_url']) : null,
-                                    child: bot['image_url'] == null 
-                                      ? Text(
-                                          (bot['name'] as String).isNotEmpty ? (bot['name'] as String)[0].toUpperCase() : '?',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                        )
-                                      : null,
-                                  ),
-                                  title: Row(
+                    child: _isLoadingBots
+                        ? const ChatListSkeleton()
+                        : (filteredBots.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text(bot['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      if (_isBirthday(bot['birthday']))
-                                        const Padding(
-                                          padding: EdgeInsets.only(left: 4),
-                                          child: Text('🎂', style: TextStyle(fontSize: 14)),
+                                      Icon(
+                                        Icons.person_search_rounded,
+                                        size: 64,
+                                        color: Colors.grey[300],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Lah... ga nemu?',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
                                         ),
+                                      ),
                                     ],
                                   ),
-                                  subtitle: Text(bot['description'], maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  trailing: const Icon(Icons.add_circle_outline, color: Color(0xFF135ACF)),
-                                  onTap: () async {
-                                    Navigator.pop(context);
-                                    
-                                    // 1. Recruit the bot (Initialize bond in DB)
-                                    _botService.recruitBot(bot['id']);
-
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final provider = prefs.getString('default_provider') ?? 'System';
-                                    
-                                    if (!mounted) return;
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
+                                )
+                              : ListView.separated(
+                                  itemCount: filteredBots.length,
+                                  separatorBuilder: (context, index) =>
+                                      const Divider(height: 1),
+                                  itemBuilder: (context, index) {
+                                    final bot = filteredBots[index];
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: _parseColor(
+                                          bot['color'],
+                                        ),
+                                        backgroundImage:
+                                            bot['image_url'] != null
+                                            ? NetworkImage(bot['image_url'])
+                                            : null,
+                                        child: bot['image_url'] == null
+                                            ? Text(
+                                                (bot['name'] as String)
+                                                        .isNotEmpty
+                                                    ? (bot['name'] as String)[0]
+                                                          .toUpperCase()
+                                                    : '?',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              )
+                                            : null,
                                       ),
-                                    ).then((_) => _loadActiveChats());
+                                      title: Row(
+                                        children: [
+                                          Text(
+                                            bot['name'],
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          if (_isBirthday(bot['birthday']))
+                                            const Padding(
+                                              padding: EdgeInsets.only(left: 4),
+                                              child: Text(
+                                                '🎂',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      subtitle: Text(
+                                        bot['description'],
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      trailing: const Icon(
+                                        Icons.add_circle_outline,
+                                        color: Color(0xFF135ACF),
+                                      ),
+                                      onTap: () async {
+                                        Navigator.pop(context);
+
+                                        // 1. Recruit the bot (Initialize bond in DB)
+                                        _botService.recruitBot(bot['id']);
+
+                                        final prefs =
+                                            await SharedPreferences.getInstance();
+                                        final provider =
+                                            prefs.getString(
+                                              'default_provider',
+                                            ) ??
+                                            'System';
+
+                                        if (!mounted) return;
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ChatDetailScreen(
+                                                  bot: bot,
+                                                  provider: provider,
+                                                ),
+                                          ),
+                                        ).then((_) => _loadActiveChats());
+                                      },
+                                    );
                                   },
-                                );
-                              },
-                            )),
+                                )),
                   ),
                 ],
               ),
@@ -315,10 +404,7 @@ class _ChatTabState extends State<ChatTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        child: _buildBody(),
-      ),
+      body: RefreshIndicator(onRefresh: _handleRefresh, child: _buildBody()),
       floatingActionButton: FloatingActionButton(
         heroTag: 'chat_fab',
         onPressed: _showAddChatSheet,
@@ -338,36 +424,92 @@ class _ChatTabState extends State<ChatTab> {
           child: Row(
             children: [
               Text(
-                'Chats (${_activeChats.length})', 
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                'Chats (${_activeChats.length})',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Newest', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    Icon(Icons.arrow_drop_down, size: 20, color: Color(0xFF135ACF)),
-                  ],
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  setState(() {
+                    _sortBy = value;
+                    _loadActiveChats();
+                  });
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'Newest', child: Text('Newest')),
+                  const PopupMenuItem(value: 'Name', child: Text('Name')),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _sortBy,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_drop_down,
+                        size: 20,
+                        color: Color(0xFF135ACF),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _sortAscending = !_sortAscending;
+                    _loadActiveChats();
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _sortAscending
+                        ? Icons.keyboard_double_arrow_up_rounded
+                        : Icons.keyboard_double_arrow_down_rounded,
+                    size: 20,
+                    color: const Color(0xFF135ACF),
+                  ),
                 ),
-                child: const Icon(Icons.format_list_bulleted_rounded, size: 20, color: Color(0xFF135ACF)),
               ),
             ],
           ),
@@ -376,33 +518,50 @@ class _ChatTabState extends State<ChatTab> {
         Expanded(
           child: _isLoadingChats && _activeChats.isEmpty
               ? const ChatListSkeleton()
-              : _activeChats.isEmpty 
-                  ? _buildEmptyState() 
-                  : _buildChatList(),
+              : _activeChats.isEmpty
+              ? _buildEmptyState()
+              : _buildChatList(),
         ),
       ],
     );
   }
 
   Widget _buildEmptyState() {
-    return ListView( // Wrap in ListView to enable RefreshIndicator
+    return ListView(
+      // Wrap in ListView to enable RefreshIndicator
       children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.6,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.chat_bubble_outline, size: 100, color: Colors.grey[300]),
+              Icon(
+                Icons.chat_bubble_outline,
+                size: 100,
+                color: Colors.grey[300],
+              ),
               const SizedBox(height: 24),
-              const Text('No Active Chats', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey)),
+              const Text(
+                'No Active Chats',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
               const SizedBox(height: 8),
-              const Text('Start a new conversation with AI bots.', style: TextStyle(color: Colors.grey)),
+              const Text(
+                'Start a new conversation with AI bots.',
+                style: TextStyle(color: Colors.grey),
+              ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: _showAddChatSheet,
                 icon: const Icon(Icons.add),
                 label: const Text('New Chat'),
-                style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(200, 50),
+                ),
               ),
             ],
           ),
@@ -426,23 +585,38 @@ class _ChatTabState extends State<ChatTab> {
         final bondLevel = (chat['bond_hearts'] ?? 0).toString();
 
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
           leading: CircleAvatar(
             radius: 28,
             backgroundColor: _parseColor(chat['color']),
-            backgroundImage: chat['image_url'] != null ? NetworkImage(chat['image_url']) : null,
-            child: chat['image_url'] == null 
-              ? Text(
-                  (chat['name'] as String).isNotEmpty ? (chat['name'] as String)[0].toUpperCase() : '?',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-                )
-              : null,
+            backgroundImage: chat['image_url'] != null
+                ? NetworkImage(chat['image_url'])
+                : null,
+            child: chat['image_url'] == null
+                ? Text(
+                    (chat['name'] as String).isNotEmpty
+                        ? (chat['name'] as String)[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  )
+                : null,
           ),
           title: Row(
             children: [
               Text(
-                chat['name'], 
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF2D3748))
+                chat['name'],
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Color(0xFF2D3748),
+                ),
               ),
               if (_isBirthday(chat['birthday']))
                 const Padding(
@@ -450,7 +624,10 @@ class _ChatTabState extends State<ChatTab> {
                   child: Text('🎂', style: TextStyle(fontSize: 14)),
                 ),
               const Spacer(),
-              Text(chat['time'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(
+                chat['time'],
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
           ),
           subtitle: Padding(
@@ -470,16 +647,20 @@ class _ChatTabState extends State<ChatTab> {
               alignment: Alignment.center,
               children: [
                 const Icon(
-                  Icons.favorite, 
+                  Icons.favorite,
                   color: Color(0xFFFBB6CE), // Soft pink
                   size: 42,
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 2), // Adjust number position
+                  padding: const EdgeInsets.only(
+                    bottom: 2,
+                  ), // Adjust number position
                   child: Text(
                     bondLevel,
                     style: const TextStyle(
-                      color: Color(0xFF135ACF), // Deep Blue/Standard Blue Archive text color
+                      color: Color(
+                        0xFF135ACF,
+                      ), // Deep Blue/Standard Blue Archive text color
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -491,12 +672,13 @@ class _ChatTabState extends State<ChatTab> {
           onTap: () async {
             final prefs = await SharedPreferences.getInstance();
             final provider = prefs.getString('default_provider') ?? 'System';
-            
+
             if (!mounted) return;
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ChatDetailScreen(bot: chat, provider: provider),
+                builder: (context) =>
+                    ChatDetailScreen(bot: chat, provider: provider),
               ),
             ).then((_) => _loadActiveChats());
           },

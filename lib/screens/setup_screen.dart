@@ -52,17 +52,8 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _completeSetup() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('app_language', _selectedLanguage);
-    await prefs.setString('default_provider', _selectedProvider);
+    await prefs.setString('default_provider', 'System'); // Selalu default ke System
     
-    if (_selectedProvider == 'BYOK') {
-      await prefs.setString('byok_api_key', _apiKeyController.text);
-      await prefs.setString('byok_model', _modelController.text.isEmpty ? 'gpt-3.5-turbo' : _modelController.text);
-      await prefs.setString('byok_base_url', _baseUrlController.text.isEmpty ? 'https://api.openai.com/v1/chat/completions' : _baseUrlController.text);
-    } else if (_selectedProvider == 'BYOM') {
-      await prefs.setString('byom_endpoint', _baseUrlController.text.isEmpty ? 'http://localhost:11434/v1/chat/completions' : _baseUrlController.text);
-      await prefs.setString('byom_model', _modelController.text.isEmpty ? 'llama3' : _modelController.text);
-    }
-
     await prefs.setBool('is_setup_completed', true);
 
     if (!mounted) return;
@@ -107,9 +98,6 @@ class _SetupScreenState extends State<SetupScreen> {
     String subTitle = 'Pilih bahasa yang kamu sukai untuk tampilan dan respon AI.';
     
     if (_currentStep == 1) {
-      title = 'Pilih Mesin AI';
-      subTitle = 'Pilih cara kamu terhubung ke AI. Mode System adalah yang termudah.';
-    } else if (_currentStep == 2) {
       title = 'Izin Aplikasi';
       subTitle = 'Berikan izin yang diperlukan untuk pengalaman yang lebih baik.';
     }
@@ -151,7 +139,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   else
                     const SizedBox.shrink(),
                   
-                  if (_currentStep < 2)
+                  if (_currentStep < 1)
                     ElevatedButton(
                       onPressed: () => setState(() => _currentStep++),
                       style: ElevatedButton.styleFrom(
@@ -191,8 +179,7 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget _buildCurrentStepView() {
     switch (_currentStep) {
       case 0: return _buildLanguageSelection();
-      case 1: return _buildProviderSelection();
-      case 2: return _buildPermissionsView();
+      case 1: return _buildPermissionsView();
       default: return const SizedBox.shrink();
     }
   }
@@ -324,99 +311,4 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildProviderSelection() {
-    return Column(
-      children: [
-        ..._providers.map((p) {
-          final isSelected = _selectedProvider == p;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: InkWell(
-              onTap: () => setState(() => _selectedProvider = p),
-              borderRadius: BorderRadius.circular(16),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF135ACF).withOpacity(0.05) : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFF135ACF) : Colors.transparent,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      p,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? const Color(0xFF135ACF) : Colors.black87,
-                      ),
-                    ),
-                    if (isSelected)
-                      const Icon(Icons.check_circle, color: Color(0xFF135ACF))
-                    else
-                      const Icon(Icons.circle_outlined, color: Colors.grey),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-        if (_selectedProvider != 'System')
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Column(
-              children: [
-                if (_selectedProvider == 'BYOK')
-                  _buildSetupField(
-                    controller: _apiKeyController,
-                    hint: 'Masukkan API Key',
-                    icon: Icons.vpn_key_outlined,
-                    obscure: true,
-                  ),
-                const SizedBox(height: 12),
-                _buildSetupField(
-                  controller: _modelController,
-                  hint: _selectedProvider == 'BYOK' ? 'Model (cth: gpt-4o)' : 'Model Lokal (cth: llama3)',
-                  icon: Icons.model_training_outlined,
-                ),
-                const SizedBox(height: 12),
-                _buildSetupField(
-                  controller: _baseUrlController,
-                  hint: _selectedProvider == 'BYOK' ? 'URL Dasar (Opsional)' : 'URL Endpoint Lokal',
-                  icon: Icons.link_outlined,
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildSetupField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    bool obscure = false,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 20),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      ),
-    );
-  }
 }

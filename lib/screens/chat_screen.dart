@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:external_path/external_path.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/ai_service.dart';
 import '../services/local_chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,8 +14,14 @@ import 'package:intl/intl.dart';
 class ChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> bot;
   final String provider;
+  final String? initialMessage;
 
-  const ChatDetailScreen({super.key, required this.bot, required this.provider});
+  const ChatDetailScreen({
+    super.key,
+    required this.bot,
+    required this.provider,
+    this.initialMessage,
+  });
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -48,6 +59,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _messages = history;
     });
     _scrollToBottom();
+
+    // Jika ada pesan awal (dari reply story), kirim langsung
+    if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
+      _messageController.text = widget.initialMessage!;
+      _sendMessage();
+    }
   }
 
   void _scrollToBottom() {
@@ -122,6 +139,87 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _scrollToBottom();
   }
 
+  Future<void> _exportChat(String format) async {
+    if (_messages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada pesan untuk di-export.')),
+      );
+      return;
+    }
+
+    if (!kIsWeb) {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Izin penyimpanan ditolak')),
+        );
+        return;
+      }
+    }
+
+    try {
+      String content = '';
+      if (format == 'json') {
+        content = jsonEncode(_messages);
+      } else {
+        // TXT format
+        final sb = StringBuffer();
+        sb.writeln('=== Chat dengan ${widget.bot['name']} ===');
+        sb.writeln('Provider: ${widget.provider}');
+        sb.writeln('Diexport pada: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now())}');
+        sb.writeln('====================================\n');
+        
+        for (var msg in _messages) {
+          final role = msg['role'] == 'user' ? 'Sensei' : widget.bot['name'];
+          final time = msg['timestamp'] != null 
+             ? DateFormat('HH:mm').format(DateTime.parse(msg['timestamp'])) 
+             : '';
+          sb.writeln('[$time] $role:');
+          sb.writeln('${msg['content']}\n');
+        }
+        content = sb.toString();
+      }
+
+      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+      final safeName = widget.bot['name'].toString().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final fileName = 'BlueTalk_Chat_${safeName}_$dateStr.$format';
+
+      if (kIsWeb) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('Export belum didukung di Web'))
+        );
+        return;
+      } else {
+        final paths = await ExternalPath.getExternalStorageDirectories();
+        if (paths == null || paths.isEmpty) throw Exception("Penyimpanan tidak ditemukan");
+        final root = paths.first;
+        
+        final downloadDir = Directory('$root/Download');
+        if (!await downloadDir.exists()) {
+          await downloadDir.create(recursive: true);
+        }
+        
+        final file = File('${downloadDir.path}/$fileName');
+        await file.writeAsString(content);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Berhasil diexport ke folder Download:\n$fileName'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal export: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -188,12 +286,51 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined, color: Colors.grey),
-            onPressed: () async {
-              await _localChatService.deleteChat(widget.bot['id']);
-              setState(() => _messages = []);
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.grey),
+            onSelected: (value) async {
+              if (value == 'export_txt') {
+                await _exportChat('txt');
+              } else if (value == 'export_json') {
+                await _exportChat('json');
+              } else if (value == 'delete') {
+                await _localChatService.deleteChat(widget.bot['id']);
+                setState(() => _messages = []);
+              }
             },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'export_txt',
+                child: Row(
+                  children: [
+                    Icon(Icons.description_outlined, color: Colors.black54, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export as TXT'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'export_json',
+                child: Row(
+                  children: [
+                    Icon(Icons.data_object_outlined, color: Colors.black54, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export as JSON'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_outlined, color: Colors.redAccent, size: 20),
+                    SizedBox(width: 8),
+                    Text('Hapus Chat', style: TextStyle(color: Colors.redAccent)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
