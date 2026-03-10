@@ -17,7 +17,7 @@ class AIService {
     final token = await _authService.getToken();
     if (token == null) return null;
 
-    final actualLanguage = language ?? LocalizationService().currentLocale;
+    final actualLanguage = language ?? LocalizationService().currentLanguageName;
     final prefs = await SharedPreferences.getInstance();
 
     // Normalize provider for legacy support if needed

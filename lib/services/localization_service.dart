@@ -13,6 +13,16 @@ class LocalizationService extends ChangeNotifier {
 
   String get currentLocale => _currentLocale;
 
+  final Map<String, String> _localeToName = {
+    'id': 'Indonesian',
+    'en': 'English',
+    'zh': 'Chinese',
+    'ja': 'Japanese',
+    'ko': 'Korean',
+  };
+
+  String get currentLanguageName => _localeToName[_currentLocale] ?? 'Indonesian';
+
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _currentLocale = prefs.getString('app_language') ?? 'id';

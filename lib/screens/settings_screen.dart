@@ -151,6 +151,18 @@ class _SettingsScreenState extends State<SettingsScreen>
                   value: 'en',
                   child: Text(tr('settings_language_en')),
                 ),
+                DropdownMenuItem(
+                  value: 'zh',
+                  child: Text(tr('settings_language_zh')),
+                ),
+                DropdownMenuItem(
+                  value: 'ja',
+                  child: Text(tr('settings_language_ja')),
+                ),
+                DropdownMenuItem(
+                  value: 'ko',
+                  child: Text(tr('settings_language_ko')),
+                ),
               ],
               onChanged: (v) {
                 if (v != null) {
