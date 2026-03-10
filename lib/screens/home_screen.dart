@@ -12,6 +12,9 @@ import 'settings_screen.dart';
 import 'student_request_screen.dart';
 import '../services/story_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/localization_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,7 +24,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static bool _hasShownDonationPopup = false;
   int _currentIndex = 0;
   final AuthService _authService = AuthService();
   final StoryService _storyService = StoryService();
@@ -31,44 +33,73 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    _checkDonation();
+  }
 
-    // Show donation popup on first entry
-    if (!_hasShownDonationPopup) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showDonationPopup();
-        _hasShownDonationPopup = true;
-      });
+  Future<void> _checkDonation() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastShown = prefs.getString('last_donation_popup') ?? '';
+    final now = DateTime.now().toIso8601String().split('T')[0];
+
+    if (lastShown != now) {
+      _showDonationPopup();
+      await prefs.setString('last_donation_popup', now);
     }
   }
 
   void _showDonationPopup() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Halo Sensei!',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
-          ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        content: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              "BlueTalk tidak akan ada tanpa dukungan kalian. Makasih ya... \n\n"
-              "Btw kalau kalian ingin donasi agar BlueTalk bisa berkembang, boleh kok, tuh klik aja tombol itu!",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14),
+            Container(
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/image/notice_image.png',
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              tr('donation_title'),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF135ACF),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tr('donation_content'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF4A5568), height: 1.5),
+            ),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () =>
                   launchUrl(Uri.parse('https://trakteer.id/r8kstudio')),
               icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
-              label: const Text('Donasi di Trakteer'),
+              label: Text(tr('donation_button')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFF0F5FF),
                 foregroundColor: const Color(0xFF135ACF),
@@ -76,19 +107,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 0,
               ),
             ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                tr('donation_later'),
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Nanti Deh',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -404,6 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: IndexedStack(index: _currentIndex, children: _tabs),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -414,36 +447,30 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+          onTap: (index) => setState(() => _currentIndex = index),
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           selectedItemColor: const Color(0xFF135ACF),
-          unselectedItemColor: Colors.grey.withOpacity(0.6),
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          items: const [
+          unselectedItemColor: Colors.grey,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          elevation: 0,
+          items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline),
-              activeIcon: Icon(Icons.chat_bubble),
-              label: 'Chat',
+              icon: const Icon(Icons.chat_bubble_rounded),
+              label: tr('tab_chat'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.add_circle_outline),
-              activeIcon: Icon(Icons.add_circle),
-              label: 'Create',
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: tr('tab_create'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.style_outlined),
-              activeIcon: Icon(Icons.style),
-              label: 'Stories',
+              icon: const Icon(Icons.auto_stories_rounded),
+              label: tr('tab_stories'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_outlined),
-              activeIcon: Icon(Icons.calendar_month),
-              label: 'Calendar',
+              icon: const Icon(Icons.calendar_month_rounded),
+              label: tr('tab_calendar'),
             ),
           ],
         ),

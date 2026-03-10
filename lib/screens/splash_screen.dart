@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/localization_service.dart';
 import '../services/auth_service.dart';
 import '../services/bot_service.dart';
-import '../services/story_service.dart';
 import '../services/config_service.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
@@ -19,19 +19,19 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
-  
+
   final AuthService _authService = AuthService();
   final BotService _botService = BotService();
-  final StoryService _storyService = StoryService();
 
   @override
   void initState() {
     super.initState();
-    
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -72,24 +72,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // 2. Simultan: Cek Auth dan Warm-up Cache (Bots & Stories)
     final results = await Future.wait([
       _authService.isLoggedIn(),
-      _botService.getBots(), 
-      Future.delayed(const Duration(seconds: 2)), 
+      _botService.getBots(),
+      Future.delayed(const Duration(seconds: 2)),
     ]);
 
     final bool isLoggedIn = results[0] as bool;
     final prefs = await SharedPreferences.getInstance();
     final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
 
-    // Check permissions
-    bool permissionsGranted = true;
-    if (isSetupCompleted && !kIsWeb) {
-      final photoStatus = await Permission.photos.status;
-      final notificationStatus = await Permission.notification.status;
-      if (!photoStatus.isGranted || !notificationStatus.isGranted) {
-        permissionsGranted = false;
-      }
-    }
-
+    // 3. Navigate
     if (!mounted) return;
 
     // Pindah ke screen selanjutnya
@@ -116,33 +107,47 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Update Tersedia!',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+        title: Text(
+          tr('update_title'),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF135ACF),
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Versi baru BlueTalk sudah rilis! Kamu perlu memperbarui aplikasi untuk terus menggunakan fitur terbaru.",
-              style: TextStyle(fontSize: 14),
+            Text(
+              tr('update_desc'),
+              style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 12),
             Text(
-              "Versi Terbaru: v${ConfigService.remoteVersion}",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+              "${tr('update_version')}: v${ConfigService.remoteVersion}",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.grey,
+              ),
             ),
           ],
         ),
         actions: [
           ElevatedButton(
             onPressed: () => launchUrl(
-              Uri.parse('https://github.com/rafiq8k-moga/bluetalk-app_repo/releases'),
+              Uri.parse(
+                'https://github.com/rafiq8k-moga/bluetalk-app_repo/releases',
+              ),
               mode: LaunchMode.externalApplication,
             ),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF135ACF)),
-            child: const Text('Download Update', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF135ACF),
+            ),
+            child: Text(
+              tr('update_btn'),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -150,26 +155,75 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   void _showMaintenanceDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Pemeliharaan Sistem',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent),
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        content: Text(
-          ConfigService.maintenanceMsg,
-          style: const TextStyle(fontSize: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/image/maintenance_image.png',
+                height: 220,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              tr('maintenance_title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.redAccent,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tr('maintenance_info'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              ConfigService.maintenanceMsg,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => SystemNavigator.pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  tr('exit_app'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => SystemNavigator.pop(),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Keluar Aplikasi', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
@@ -200,7 +254,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/localization_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -8,25 +10,29 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProviderStateMixin {
+class _SettingsScreenState extends State<SettingsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final List<String> _providers = ['System', 'BYOK', 'BYOM'];
 
   String _selectedProvider = 'System';
-  
+  String _currentLanguage = 'id';
+
   // BYOK Controllers
   final TextEditingController _byokApiKeyController = TextEditingController();
   final TextEditingController _byokModelController = TextEditingController();
   final TextEditingController _byokBaseUrlController = TextEditingController();
-  
+
   // BYOM Controllers
   final TextEditingController _byomEndpointController = TextEditingController();
   final TextEditingController _byomModelController = TextEditingController();
+  final TextEditingController _byomApiKeyController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _currentLanguage = LocalizationService().currentLocale;
     _loadSettings();
   }
 
@@ -38,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
     _byokBaseUrlController.dispose();
     _byomEndpointController.dispose();
     _byomModelController.dispose();
+    _byomApiKeyController.dispose();
     super.dispose();
   }
 
@@ -45,31 +52,33 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _selectedProvider = prefs.getString('default_provider') ?? 'System';
-      
+
       _byokApiKeyController.text = prefs.getString('byok_api_key') ?? '';
-      _byokModelController.text = prefs.getString('byok_model') ?? 'gpt-3.5-turbo';
-      _byokBaseUrlController.text = prefs.getString('byok_base_url') ?? 'https://api.openai.com/v1/chat/completions';
-      
-      _byomEndpointController.text = prefs.getString('byom_endpoint') ?? 'http://localhost:11434/v1/chat/completions';
-      _byomModelController.text = prefs.getString('byom_model') ?? 'llama3';
+      _byokModelController.text = prefs.getString('byok_model') ?? '';
+      _byokBaseUrlController.text = prefs.getString('byok_base_url') ?? '';
+
+      _byomEndpointController.text = prefs.getString('byom_endpoint') ?? '';
+      _byomModelController.text = prefs.getString('byom_model') ?? '';
+      _byomApiKeyController.text = prefs.getString('byom_api_key') ?? '';
     });
   }
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('default_provider', _selectedProvider);
-    
+
     await prefs.setString('byok_api_key', _byokApiKeyController.text);
     await prefs.setString('byok_model', _byokModelController.text);
     await prefs.setString('byok_base_url', _byokBaseUrlController.text);
-    
+
     await prefs.setString('byom_endpoint', _byomEndpointController.text);
     await prefs.setString('byom_model', _byomModelController.text);
+    await prefs.setString('byom_api_key', _byomApiKeyController.text);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pengaturan berhasil disimpan!'),
+        SnackBar(
+          content: Text(tr('settings_saved_success')),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
@@ -81,30 +90,27 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pengaturan'),
+        title: Text(tr('settings_title')),
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFF135ACF),
           unselectedLabelColor: Colors.grey,
           indicatorColor: const Color(0xFF135ACF),
-          tabs: const [
-            Tab(icon: Icon(Icons.tune), text: 'Umum'),
-            Tab(icon: Icon(Icons.api), text: 'Mesin AI'),
+          tabs: [
+            Tab(icon: const Icon(Icons.tune), text: tr('settings_tab_general')),
+            Tab(icon: const Icon(Icons.api), text: tr('settings_tab_ai')),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildGeneralTab(),
-          _buildProvidersTab(),
-        ],
+        children: [_buildGeneralTab(), _buildProvidersTab()],
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ElevatedButton(
           onPressed: _saveSettings,
-          child: const Text('Simpan Semua Perubahan'),
+          child: Text(tr('settings_save_btn')),
         ),
       ),
     );
@@ -114,12 +120,58 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text(
-          'Mesin AI Aktif',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+        Text(
+          tr('settings_language'),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF135ACF),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+            ],
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: _currentLanguage,
+              items: [
+                DropdownMenuItem(
+                  value: 'id',
+                  child: Text(tr('settings_language_id')),
+                ),
+                DropdownMenuItem(
+                  value: 'en',
+                  child: Text(tr('settings_language_en')),
+                ),
+              ],
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() => _currentLanguage = v);
+                  LocalizationService().load(v);
+                }
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+        Text(
+          tr('settings_ai_active'),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF135ACF),
+          ),
         ),
         const SizedBox(height: 8),
-        const Text('Pilih mode yang ingin digunakan untuk percakapan AI.'),
+        Text(tr('settings_ai_active_desc')),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -134,47 +186,59 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
             child: DropdownButton<String>(
               isExpanded: true,
               value: _selectedProvider,
-              items: _providers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+              items: _providers
+                  .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                  .toList(),
               onChanged: (v) => setState(() => _selectedProvider = v!),
             ),
           ),
         ),
         const SizedBox(height: 30),
-        const Text(
-          'Tentang Mode AI',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        Text(
+          tr('settings_about_mode'),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
-        _buildModeInfo('System', 'Menggunakan model yang sudah dikonfigurasi otomatis dengan fallback. Disarankan untuk kemudahan.'),
-        _buildModeInfo('BYOK', 'Gunakan API Key sendiri. Mendukung API OpenAI (OpenAI, Groq, OpenRouter, dll).'),
-        _buildModeInfo('BYOM', 'Gunakan model lokal. Hubungkan ke mesin lokal seperti Ollama, LM Studio, atau LocalAI.'),
+        _buildModeInfo('System', tr('settings_mode_system_desc')),
+        _buildModeInfo('BYOK', tr('settings_mode_byok_desc')),
+        _buildModeInfo('BYOM', tr('settings_mode_byom_desc')),
       ],
     );
   }
 
   Widget _buildModeInfo(String title, String desc) {
-     return Padding(
-       padding: const EdgeInsets.only(bottom: 12),
-       child: Column(
-         crossAxisAlignment: CrossAxisAlignment.start,
-         children: [
-           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-           Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-         ],
-       ),
-     );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.blueGrey,
+            ),
+          ),
+          Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
   }
 
   Widget _buildProvidersTab() {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text(
-          'Konfigurasi Mesin',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+        Text(
+          tr('settings_engine_config'),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF135ACF),
+          ),
         ),
         const SizedBox(height: 20),
-        
+
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -193,15 +257,18 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
             }).toList(),
           ),
         ),
-        
+
         const SizedBox(height: 30),
-        
+
         if (_selectedProvider == 'BYOK') ...[
-          const Text('Konfigurasi BYOK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            tr('settings_byok_config_title'),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           const SizedBox(height: 20),
           _buildTextField(
             controller: _byokApiKeyController,
-            label: 'API Key',
+            label: tr('settings_api_key'),
             hint: 'sk-xxxx...',
             obscure: true,
             icon: Icons.vpn_key,
@@ -209,41 +276,56 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
           const SizedBox(height: 16),
           _buildTextField(
             controller: _byokModelController,
-            label: 'Nama Model',
-            hint: 'cth: gpt-4o, llama-3-70b',
+            label: tr('settings_model_name'),
+            hint: tr('settings_model_name_hint'),
             icon: Icons.model_training,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _byokBaseUrlController,
-            label: 'URL Dasar',
+            label: tr('settings_base_url'),
             hint: 'https://api.openai.com/v1/chat/completions',
             icon: Icons.link,
           ),
+          const SizedBox(height: 24),
+          _buildHelpLink(),
         ] else if (_selectedProvider == 'BYOM') ...[
-          const Text('Konfigurasi BYOM (Lokal)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            tr('settings_byom_config_title'),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           const SizedBox(height: 20),
           _buildTextField(
             controller: _byomEndpointController,
-            label: 'Endpoint Lokal',
+            label: tr('settings_local_endpoint'),
             hint: 'http://localhost:11434/v1/chat/completions',
             icon: Icons.computer,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _byomModelController,
-            label: 'Nama Model Lokal',
-            hint: 'cth: llama3, mistral',
+            label: tr('settings_local_model_name'),
+            hint: tr('settings_local_model_name_hint'),
             icon: Icons.model_training,
           ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _byomApiKeyController,
+            label: tr('settings_api_key_optional'),
+            hint: 'cth: sk-xxxx...',
+            obscure: true,
+            icon: Icons.vpn_key,
+          ),
+          const SizedBox(height: 24),
+          _buildHelpLink(),
         ] else
-          const Center(
+          Center(
             child: Padding(
-              padding: EdgeInsets.all(40),
+              padding: const EdgeInsets.all(40),
               child: Text(
-                'Mode System menggunakan model yang dioptimalkan dengan fallback otomatis. Tidak perlu konfigurasi.',
+                tr('settings_system_mode_info'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
           ),
@@ -261,7 +343,10 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -271,10 +356,35 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
             prefixIcon: Icon(icon, size: 20),
             filled: true,
             fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHelpLink() {
+    return Center(
+      child: TextButton.icon(
+        onPressed: () => launchUrl(
+          Uri.parse(
+            'http://docs.my-bini.my.id/books/bluetalk-advance/page/set-up-byok-and-byom',
+          ),
+          mode: LaunchMode.externalApplication,
+        ),
+        icon: const Icon(Icons.help_outline, size: 18),
+        label: Text(
+          tr('settings_help_docs'),
+          style: const TextStyle(
+            decoration: TextDecoration.underline,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: TextButton.styleFrom(foregroundColor: const Color(0xFF135ACF)),
+      ),
     );
   }
 }
