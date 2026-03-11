@@ -118,7 +118,7 @@ class _ChatTabState extends State<ChatTab> {
       if (history.isNotEmpty) {
         loadedChats.add({
           ...bot,
-          'lastMessage': history.last['content'],
+          'lastMessage': history.last['content'] ?? '...',
           'time': _formatDateTime(meta['lastModified']),
           'provider': 'Global Config',
           'lastModified': meta['lastModified'],

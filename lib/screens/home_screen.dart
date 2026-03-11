@@ -12,7 +12,6 @@ import 'settings_screen.dart';
 import 'student_request_screen.dart';
 import '../services/story_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/localization_service.dart';
 
@@ -37,14 +36,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkDonation() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastShown = prefs.getString('last_donation_popup') ?? '';
-    final now = DateTime.now().toIso8601String().split('T')[0];
-
-    if (lastShown != now) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       _showDonationPopup();
-      await prefs.setString('last_donation_popup', now);
-    }
+    });
   }
 
   void _showDonationPopup() {
@@ -92,7 +86,11 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               tr('donation_content'),
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF4A5568), height: 1.5),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF4A5568),
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(

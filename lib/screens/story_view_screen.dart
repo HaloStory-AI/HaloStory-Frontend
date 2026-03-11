@@ -334,8 +334,10 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     }
 
     if (Platform.isAndroid) {
+      // Android 13+: READ_MEDIA_IMAGES maps to Permission.photos
+      // Android ≤12: Permission.photos still works
+      // Do NOT fallback to Permission.storage — always denied on Android 11+
       status = await Permission.photos.request();
-      if (!status.isGranted) status = await Permission.storage.request();
     } else {
       status = await Permission.photos.request();
     }

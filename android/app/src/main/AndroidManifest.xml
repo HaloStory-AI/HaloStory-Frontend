@@ -6,6 +6,7 @@
     <!-- Network State: For checking connectivity before requests -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Storage: For saving images to gallery (Android < 10) -->
+    <!-- Storage: For saving images to gallery (Android < 10) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <!-- Media: For reading/saving images on Android 10+ -->

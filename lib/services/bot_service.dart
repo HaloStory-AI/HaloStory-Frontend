@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import 'auth_service.dart';
+import 'config_service.dart';
 
 class BotService {
   final AuthService _authService = AuthService();
@@ -99,6 +100,8 @@ class BotService {
         await prefs.setString(_botsTimeKey, now.toIso8601String());
 
         return _cachedBots!;
+      } else if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
       }
     } catch (e) {
       print('DEBUG: BotService API Error: $e');
@@ -130,6 +133,9 @@ class BotService {
         body: jsonEncode({'bot_id': botId}),
       );
 
+      if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
+      }
       return response.statusCode == 200;
     } catch (e) {
       print('DEBUG: recruitBot Error: $e');

@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:external_path/external_path.dart';
 import '../constants.dart';
 import 'auth_service.dart';
 import 'local_chat_service.dart';
@@ -175,27 +174,11 @@ class StoryService {
   Future<Directory> _getCacheDir() async {
     if (kIsWeb) throw UnsupportedError("Web not supported for local caching");
 
-    String path;
-    if (Platform.isAndroid) {
-      try {
-        // Use external_path for /storage/emulated/0
-        // Version 2.2.0+ returns a list of storage paths (Internal & SD Card)
-        final paths = await ExternalPath.getExternalStorageDirectories();
-        if (paths == null || paths.isEmpty)
-          throw Exception("No storage paths found");
-        String root = paths[0]; // Primary internal storage
-        path = '$root/BlueTalk/media/.statustmp';
-      } catch (e) {
-        // Fallback to app doc dir if something fails
-        final appDir = await getApplicationDocumentsDirectory();
-        path = '${appDir.path}/.statustmp';
-      }
-    } else {
-      final appDir = await getApplicationDocumentsDirectory();
-      path = '${appDir.path}/.statustmp';
-    }
-
-    final dir = Directory(path);
+    // Use getTemporaryDirectory() — works on ALL Android versions without any
+    // storage permission. OS cleans it up automatically when storage is low.
+    // Perfect for temp story media (short-lived cache anyway).
+    final tempDir = await getTemporaryDirectory();
+    final dir = Directory('${tempDir.path}/bluetalk_story_cache');
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }

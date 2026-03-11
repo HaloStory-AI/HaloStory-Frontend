@@ -8,8 +8,9 @@ import 'home_screen.dart';
 import 'setup_screen.dart';
 import 'welcome_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:url_launcher/url_launcher.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -69,7 +70,10 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // 2. Simultan: Cek Auth dan Warm-up Cache (Bots & Stories)
+    // 2. Request Permissions (Requested by user to be forced here)
+    await _requestPermissions();
+
+    // 3. Simultan: Cek Auth dan Warm-up Cache (Bots & Stories)
     final results = await Future.wait([
       _authService.isLoggedIn(),
       _botService.getBots(),
@@ -83,8 +87,11 @@ class _SplashScreenState extends State<SplashScreen>
     // 3. Navigate
     if (!mounted) return;
 
-    // Pindah ke screen selanjutnya
     if (isLoggedIn) {
+      // Show notice about email security (0.8.0 requirement)
+      await _showEmailNotice();
+      if (!mounted) return;
+
       if (isSetupCompleted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -99,6 +106,92 @@ class _SplashScreenState extends State<SplashScreen>
         MaterialPageRoute(builder: (_) => const WelcomeScreen()),
       );
     }
+  }
+
+  Future<void> _showEmailNotice() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/image/notice_image.png',
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              tr('splash_email_notice_title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF135ACF),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tr('splash_email_notice_body'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF4A5568),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _LoadingNoticeButton(
+              onPressed: () async {
+                // Simulasi delay sedikit agar user melihat loading (opsional)
+                // atau jika ada proses async lain di masa depan.
+                // Untuk saat ini kita hanya menutup dialog.
+                await Future.delayed(
+                  const Duration(milliseconds: 500),
+                );
+                if (context.mounted) Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _requestPermissions() async {
+    if (kIsWeb) return;
+    await [
+      Permission.photos,
+      Permission.storage,
+      Permission.notification,
+      Permission.manageExternalStorage, // Penting untuk menyimpan file ke folder Download
+    ].request();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('permissions_requested', true);
   }
 
   void _showUpdateDialog() {
@@ -118,10 +211,7 @@ class _SplashScreenState extends State<SplashScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              tr('update_desc'),
-              style: const TextStyle(fontSize: 14),
-            ),
+            Text(tr('update_desc'), style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 12),
             Text(
               "${tr('update_version')}: v${ConfigService.remoteVersion}",
@@ -136,9 +226,7 @@ class _SplashScreenState extends State<SplashScreen>
         actions: [
           ElevatedButton(
             onPressed: () => launchUrl(
-              Uri.parse(
-                'https://github.com/rafiq8k-moga/bluetalk-app_repo/releases',
-              ),
+              Uri.parse('https://bluetalk.my-bini.my.id/download'),
               mode: LaunchMode.externalApplication,
             ),
             style: ElevatedButton.styleFrom(
@@ -294,6 +382,54 @@ class _SplashScreenState extends State<SplashScreen>
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LoadingNoticeButton extends StatefulWidget {
+  final Future<void> Function() onPressed;
+
+  const _LoadingNoticeButton({required this.onPressed});
+
+  @override
+  State<_LoadingNoticeButton> createState() => _LoadingNoticeButtonState();
+}
+
+class _LoadingNoticeButtonState extends State<_LoadingNoticeButton> {
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: _isLoading
+          ? null
+          : () async {
+              setState(() => _isLoading = true);
+              await widget.onPressed();
+              if (mounted) setState(() => _isLoading = false);
+            },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFF0F5FF),
+        foregroundColor: const Color(0xFF135ACF),
+        minimumSize: const Size(double.infinity, 50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 0,
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF135ACF),
+              ),
+            )
+          : Text(
+              tr('system_notice_btn'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
     );
   }
 }

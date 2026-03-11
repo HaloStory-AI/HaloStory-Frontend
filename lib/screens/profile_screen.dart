@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/localization_service.dart';
 import '../widgets/skeleton_loader.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -25,11 +26,301 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  void _showChangePasswordDialog() {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            top: 24,
+            left: 24,
+            right: 24,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr('profile_change_password'),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF135ACF),
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: currentPasswordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: tr('profile_current_password'),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: tr('profile_new_password'),
+                  prefixIcon: const Icon(Icons.lock_reset),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: tr('profile_confirm_password'),
+                  prefixIcon: const Icon(Icons.check_circle_outline),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setDialogState(() => isLoading = true);
+                          final result = await _authService.updatePassword(
+                            currentPasswordController.text,
+                            newPasswordController.text,
+                            confirmPasswordController.text,
+                          );
+
+                          if (!mounted) return;
+                          setDialogState(() => isLoading = false);
+
+                          if (result['success']) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(tr('profile_update_success')),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  tr('profile_update_failed') +
+                                      result['message'],
+                                ),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(tr('profile_update_btn')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChangeEmailDialog(String currentEmail) {
+    final emailController = TextEditingController(text: currentEmail);
+    final passwordController = TextEditingController();
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            top: 24,
+            left: 24,
+            right: 24,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr('profile_change_email'),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF135ACF),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Update your email for verification version 0.8.0',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: tr('profile_new_email'),
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: tr('profile_current_password'),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setDialogState(() => isLoading = true);
+                          final result = await _authService.updateEmail(
+                            emailController.text,
+                            passwordController.text,
+                          );
+
+                          if (!mounted) return;
+                          setDialogState(() => isLoading = false);
+
+                          if (result['success']) {
+                            Navigator.pop(context);
+                            _refreshProfile();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(tr('profile_update_success')),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  tr('profile_update_failed') +
+                                      result['message'],
+                                ),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(tr('profile_update_btn')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sensei Profile'),
+        title: Text(tr('profile_title')),
         backgroundColor: const Color(0xFFB8D8F8),
         centerTitle: true,
       ),
@@ -45,7 +336,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
+                  const Icon(
+                    Icons.error_outline,
+                    size: 60,
+                    color: Colors.redAccent,
+                  ),
                   const SizedBox(height: 16),
                   const Text('Failed to load profile data'),
                   const SizedBox(height: 8),
@@ -77,17 +372,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         backgroundColor: const Color(0xFF135ACF),
                         child: Text(
                           initial,
-                          style: const TextStyle(fontSize: 40, color: Colors.white, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 40,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         name,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF212121)),
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF212121),
+                        ),
                       ),
                       Text(
                         email,
-                        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -95,31 +401,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 40),
 
                 // Account Info Section
-                const Text(
-                  'Account Information',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+                Text(
+                  tr('profile_account_info'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF135ACF),
+                  ),
                 ),
                 const SizedBox(height: 15),
-                _buildInfoTile(Icons.person_outline, 'Full Name', name),
-                _buildInfoTile(Icons.email_outlined, 'Email Address', email),
-                _buildInfoTile(Icons.calendar_today_outlined, 'Joined', user['created_at_human'] ?? 'Recently'),
+                _buildInfoTile(
+                  Icons.person_outline,
+                  tr('profile_full_name'),
+                  name,
+                ),
+                _buildInfoTile(
+                  Icons.email_outlined,
+                  tr('profile_email_address'),
+                  email,
+                ),
+                _buildInfoTile(
+                  Icons.calendar_today_outlined,
+                  tr('profile_joined'),
+                  user['created_at_human'] ?? 'Recently',
+                ),
 
                 const SizedBox(height: 30),
 
                 // Security Section
-                const Text(
-                  'Security',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+                Text(
+                  tr('profile_security'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF135ACF),
+                  ),
                 ),
                 const SizedBox(height: 15),
                 ListTile(
-                  leading: const Icon(Icons.lock_outline, color: Color(0xFF135ACF)),
-                  title: const Text('Change Password'),
+                  leading: const Icon(
+                    Icons.lock_outline,
+                    color: Color(0xFF135ACF),
+                  ),
+                  title: Text(tr('profile_change_password')),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
+                  onTap: _showChangePasswordDialog,
                 ),
                 ListTile(
-                  leading: const Icon(Icons.verified_user_outlined, color: Color(0xFF135ACF)),
+                  leading: const Icon(
+                    Icons.email_outlined,
+                    color: Color(0xFF135ACF),
+                  ),
+                  title: Text(tr('profile_change_email')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showChangeEmailDialog(email),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.verified_user_outlined,
+                    color: Color(0xFF135ACF),
+                  ),
                   title: const Text('Account Verification'),
                   subtitle: const Text('Verified'),
                   trailing: const Icon(Icons.check_circle, color: Colors.green),
@@ -152,12 +493,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Icon(icon, color: const Color(0xFF135ACF), size: 24),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

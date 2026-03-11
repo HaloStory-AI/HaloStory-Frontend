@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import 'auth_service.dart';
 import 'localization_service.dart';
+import 'config_service.dart';
 
 class AIService {
   final AuthService _authService = AuthService();
@@ -87,6 +88,9 @@ class AIService {
       }),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
+    if (response.statusCode == 503) {
+      ConfigService.enterMaintenance();
+    }
     return null;
   }
 
@@ -115,6 +119,9 @@ class AIService {
       }),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
+    if (response.statusCode == 503) {
+      ConfigService.enterMaintenance();
+    }
     return null;
   }
 
@@ -136,6 +143,8 @@ class AIService {
     String systemPrompt = "";
     if (promptResponse.statusCode == 200) {
       systemPrompt = jsonDecode(promptResponse.body)['system_prompt'] ?? "";
+    } else if (promptResponse.statusCode == 503) {
+      ConfigService.enterMaintenance();
     }
 
     // 2. Format messages for local model
@@ -162,6 +171,9 @@ class AIService {
     );
 
     if (response.statusCode == 200) return jsonDecode(response.body);
+    if (response.statusCode == 503) {
+      ConfigService.enterMaintenance();
+    }
     return null;
   }
 }

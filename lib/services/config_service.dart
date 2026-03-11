@@ -4,7 +4,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/foundation.dart';
 
 class ConfigService {
-  static const String _configUrl = 'https://raw.githubusercontent.com/rafiq8k-moga/bluetalk-app_repo/refs/heads/main/bluetalk-app-endpoint.json';
+  static const String _configUrl =
+      'https://api-bluetalk.my-bini.my.id/api/app/status';
 
   static String? _baseUrl;
   static bool _isMaintenance = false;
@@ -12,16 +13,35 @@ class ConfigService {
   static String _remoteVersion = "0.0.0";
   static bool _needsUpdate = false;
 
-  static String get baseUrl => _baseUrl ?? 'https://moutogami.com/bluetalk_backend/api';
+  static String get baseUrl =>
+      _baseUrl ??
+      'https://moutogami.com/bluetalk_backend/api'; // Menggunakan base url default yang baru
   static bool get isMaintenance => _isMaintenance;
   static String get maintenanceMsg => _maintenanceMsg;
   static String get remoteVersion => _remoteVersion;
   static bool get needsUpdate => _needsUpdate;
 
-  /// Fetch configuration from GitHub (No Cache)
+  /// Manually trigger maintenance mode (e.g. on 503 error)
+  static void enterMaintenance([String? msg]) {
+    _isMaintenance = true;
+    if (msg != null) _maintenanceMsg = msg;
+    print("DEBUG: ConfigService - Entered Maintenance Mode via 503");
+  }
+
+  /// Fetch configuration from Laravel API
   static Future<void> initConfig() async {
     try {
-      final response = await http.get(Uri.parse(_configUrl)).timeout(const Duration(seconds: 10));
+      final packageInfo = await PackageInfo.fromPlatform();
+      final localVer = packageInfo.version;
+
+      // Prevent caching by adding a timestamp, also pass local version
+      final String antiCacheUrl =
+          '$_configUrl?app-ver=$localVer&t=${DateTime.now().millisecondsSinceEpoch}';
+
+      final response = await http
+          .get(Uri.parse(antiCacheUrl), headers: {'Cache-Control': 'no-cache'})
+          .timeout(const Duration(seconds: 10));
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         _applyConfig(data);
@@ -40,7 +60,7 @@ class ConfigService {
   }
 
   static Future<void> _checkVersion(String? remoteVer) async {
-    if (remoteVer == null || kDebugMode) {
+    if (remoteVer == null) {
       _needsUpdate = false;
       return;
     }
@@ -59,17 +79,20 @@ class ConfigService {
       // Comparison logic:
       // SuperMajor [0] or Major [1] requires update.
       // Minor [2] does NOT require update (Silent).
-      
+
       bool superMajorUpdate = remoteParts[0] > localParts[0];
-      bool majorUpdate = remoteParts[0] == localParts[0] && remoteParts[1] > localParts[1];
+      bool majorUpdate =
+          remoteParts[0] == localParts[0] && remoteParts[1] > localParts[1];
 
       if (superMajorUpdate || majorUpdate) {
         _needsUpdate = true;
       } else {
         _needsUpdate = false;
       }
-      
-      print("DEBUG: Version Check - Local: $localVer, Remote: $remoteVer, NeedsUpdate: $_needsUpdate");
+
+      print(
+        "DEBUG: Version Check - Local: $localVer, Remote: $remoteVer, NeedsUpdate: $_needsUpdate",
+      );
     } catch (e) {
       print("DEBUG: Version check error: $e");
     }

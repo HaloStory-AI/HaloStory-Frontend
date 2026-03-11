@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:external_path/external_path.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/ai_service.dart';
 import '../services/local_chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -95,7 +97,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               Text(
                 tr('system_notice_content'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF4A5568), height: 1.5),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF4A5568),
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -181,7 +187,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     // Prepare messages for AI (Role-based)
     // We no longer inject system instruction here; the backend builds it from latest_sys.md
+    // Filter out any messages with null content (old corrupted saves) before sending
     List<Map<String, String>> aiMessages = _messages
+        .where((m) => m['content'] != null)
         .map(
           (m) => {
             'role': m['role'] as String,
@@ -205,11 +213,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final aiTimestamp = DateTime.now().toIso8601String();
       if (response != null && response['choices'] != null) {
         final aiContent = response['choices'][0]['message']['content'];
-        _messages.add({
-          'role': 'assistant',
-          'content': aiContent,
-          'timestamp': aiTimestamp,
-        });
+        // Guard: backend should never return null here after sanitization,
+        // but defend on the client side too.
+        if (aiContent != null && (aiContent as String).isNotEmpty) {
+          _messages.add({
+            'role': 'assistant',
+            'content': aiContent,
+            'timestamp': aiTimestamp,
+          });
+        } else {
+          // Treat null/empty AI content as an error
+          String errorMsg =
+              'Error: Failed to get response from ${widget.provider}.';
+          if (widget.provider == 'System') {
+            errorMsg =
+                'Sensei... All AI models are busy. Try switching to BYOK or BYOM for better performance.';
+          }
+          _messages.add({
+            'role': 'system',
+            'content': errorMsg,
+            'timestamp': aiTimestamp,
+          });
+        }
       } else {
         String errorMsg =
             'Error: Failed to get response from ${widget.provider}.';
@@ -230,22 +255,89 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _scrollToBottom();
   }
 
+  void _showMessageOptions(int index, String content) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Rewind option
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFFFF3E0),
+                child: Icon(
+                  Icons.fast_rewind_rounded,
+                  color: Color(0xFFE65100),
+                ),
+              ),
+              title: const Text(
+                'Rewind ke sini',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                'Hapus semua pesan setelah bubble ini',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              onTap: () async {
+                Navigator.pop(ctx);
+                // Keep messages 0..index (inclusive), remove everything after
+                final trimmed = _messages.sublist(0, index + 1);
+                setState(() => _messages = trimmed);
+                await _localChatService.saveChat(widget.bot['id'], _messages);
+                _scrollToBottom();
+              },
+            ),
+            const Divider(height: 1),
+            // Copy option
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFF0F5FF),
+                child: Icon(Icons.copy_rounded, color: Color(0xFF135ACF)),
+              ),
+              title: const Text(
+                'Copy teks',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: content));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Teks disalin ke clipboard'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _exportChat(String format) async {
     if (_messages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tidak ada pesan untuk di-export.')),
       );
       return;
-    }
-
-    if (!kIsWeb) {
-      final status = await Permission.storage.request();
-      if (!status.isGranted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Izin penyimpanan ditolak')),
-        );
-        return;
-      }
     }
 
     try {
@@ -286,16 +378,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         );
         return;
       } else {
-        final paths = await ExternalPath.getExternalStorageDirectories();
-        if (paths == null || paths.isEmpty)
-          throw Exception("Penyimpanan tidak ditemukan");
-        final root = paths.first;
-
-        final downloadDir = Directory('$root/Download');
-        if (!await downloadDir.exists()) {
-          await downloadDir.create(recursive: true);
-        }
-
+        final downloadDir = await _getDownloadDir();
         final file = File('${downloadDir.path}/$fileName');
         await file.writeAsString(content);
 
@@ -315,6 +398,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
       }
     }
+  }
+
+  /// Returns the best available Download directory across Android versions.
+  /// - Android ≤10: WRITE_EXTERNAL_STORAGE granted → uses external /Download
+  /// - Android 11+: permission always denied → falls back to getDownloadsDirectory()
+  /// - Ultimate fallback: app documents directory
+  Future<Directory> _getDownloadDir() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.storage.request();
+      if (status.isGranted) {
+        // Android ≤10: pakai external path ke /Download
+        try {
+          final paths = await ExternalPath.getExternalStorageDirectories();
+          if (paths != null && paths.isNotEmpty) {
+            final dir = Directory('${paths.first}/Download');
+            if (!await dir.exists()) await dir.create(recursive: true);
+            return dir;
+          }
+        } catch (_) {}
+      }
+      // Android 11+: getDownloadsDirectory (no permission needed)
+      final dl = await getDownloadsDirectory();
+      if (dl != null) return dl;
+    }
+    // Final fallback: app documents directory
+    return getApplicationDocumentsDirectory();
   }
 
   @override
@@ -491,11 +600,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       ? DateTime.parse(msg['timestamp'])
                       : null;
 
-                  if (isUser) {
-                    return _buildUserBubble(msg['content'], timestamp);
-                  } else {
-                    return _buildBotBubble(msg['content'], timestamp);
-                  }
+                  final content = msg['content']?.toString() ?? '';
+
+                  final bubble = isUser
+                      ? _buildUserBubble(content, timestamp)
+                      : _buildBotBubble(content, timestamp);
+
+                  return GestureDetector(
+                    onLongPress: () => _showMessageOptions(index, content),
+                    child: bubble,
+                  );
                 },
               ),
             ),
@@ -639,7 +753,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                     em: const TextStyle(
-                      color: Colors.white,
+                      color: Color(0xDBDBDBDB),
                       fontStyle: FontStyle.italic,
                     ),
                     listBullet: const TextStyle(color: Colors.white),
@@ -760,7 +874,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                             em: const TextStyle(
-                              color: Colors.white,
+                              color: Color(0xDBDBDBDB),
                               fontStyle: FontStyle.italic,
                             ),
                             code: const TextStyle(

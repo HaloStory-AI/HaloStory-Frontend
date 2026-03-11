@@ -75,5 +75,22 @@
     "btn_back": "戻る",
     "btn_next": "次へ",
     "btn_skip": "スキップ",
-    "btn_finish": "完了"
+    "btn_finish": "完了",
+    "profile_title": "先生のプロフィール",
+    "profile_account_info": "アカウント情報",
+    "profile_security": "セキュリティ",
+    "profile_full_name": "氏名",
+    "profile_email_address": "メールアドレス",
+    "profile_joined": "参加日",
+    "profile_change_password": "パスワードを変更",
+    "profile_change_email": "メールを変更",
+    "profile_current_password": "現在のパスワード",
+    "profile_new_password": "新しいパスワード",
+    "profile_confirm_password": "パスワードの確認",
+    "profile_new_email": "新しいメール",
+    "profile_update_btn": "今すぐ更新",
+    "profile_update_success": "更新に成功しました！",
+    "profile_update_failed": "更新に失敗しました: ",
+    "splash_email_notice_title": "🛡️ 重要なお知らせ",
+    "splash_email_notice_body": "次回の0.8.0アップデートから、BlueTalkではメール認証が必須となります。現在はまだ0.7.0ですので、メール変更機能を開放しました。今すぐBlueTalkアカウントを保護してください！"
 }
