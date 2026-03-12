@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/localization_service.dart';
 import '../../widgets/skeleton_loader.dart';
 
 class ProfileTab extends StatefulWidget {
@@ -41,11 +42,11 @@ class _ProfileTabState extends State<ProfileTab> {
               children: [
                 const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
                 const SizedBox(height: 16),
-                const Text('Failed to load profile data'),
+                Text(tr('profile_load_error')),
                 const SizedBox(height: 8),
                 ElevatedButton(
                   onPressed: _refreshProfile,
-                  child: const Text('Retry'),
+                  child: Text(tr('btn_retry')),
                 ),
               ],
             ),
@@ -89,33 +90,33 @@ class _ProfileTabState extends State<ProfileTab> {
               const SizedBox(height: 40),
 
               // Account Info Section
-              const Text(
-                'Account Information',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+              Text(
+                tr('profile_account_info'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
               ),
               const SizedBox(height: 15),
-              _buildInfoTile(Icons.person_outline, 'Full Name', name),
-              _buildInfoTile(Icons.email_outlined, 'Email Address', email),
-              _buildInfoTile(Icons.calendar_today_outlined, 'Joined', user['created_at_human'] ?? 'Recently'),
+              _buildInfoTile(Icons.person_outline, tr('profile_full_name'), name),
+              _buildInfoTile(Icons.email_outlined, tr('profile_email_address'), email),
+              _buildInfoTile(Icons.calendar_today_outlined, tr('profile_joined'), user['created_at_human'] ?? tr('recently')),
 
               const SizedBox(height: 30),
 
               // Security Section
-              const Text(
-                'Security',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
+              Text(
+                tr('profile_security'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF135ACF)),
               ),
               const SizedBox(height: 15),
               ListTile(
                 leading: const Icon(Icons.lock_outline, color: Color(0xFF135ACF)),
-                title: const Text('Change Password'),
+                title: Text(tr('profile_change_password')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {},
               ),
               ListTile(
                 leading: const Icon(Icons.verified_user_outlined, color: Color(0xFF135ACF)),
-                title: const Text('Account Verification'),
-                subtitle: const Text('Verified'),
+                title: Text(tr('profile_account_verification')),
+                subtitle: Text(tr('profile_verified')),
                 trailing: const Icon(Icons.check_circle, color: Colors.green),
                 onTap: () {},
               ),

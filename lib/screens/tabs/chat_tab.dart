@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
+import '../../services/localization_service.dart';
 import '../chat_screen.dart';
 import '../student_request_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -198,8 +199,8 @@ class _ChatTabState extends State<ChatTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Buat dialog baru',
+                        Text(
+                          tr('new_dialog_title'),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -214,7 +215,7 @@ class _ChatTabState extends State<ChatTab> {
                             });
                           },
                           decoration: InputDecoration(
-                            hintText: 'Cariin murid kesayanganku...',
+                            hintText: tr('search_hint'),
                             prefixIcon: const Icon(
                               Icons.search,
                               color: Color(0xFF135ACF),
@@ -233,10 +234,10 @@ class _ChatTabState extends State<ChatTab> {
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                'Data murid mungkin belum lengkap. ada murid yang tidak ada?',
-                                style: TextStyle(
+                                tr('suggest_student_desc'),
+                                style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
                                 ),
@@ -258,8 +259,8 @@ class _ChatTabState extends State<ChatTab> {
                                 Icons.add_task_rounded,
                                 size: 16,
                               ),
-                              label: const Text(
-                                'Saranin dong',
+                              label: Text(
+                                tr('suggest_student'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -297,7 +298,7 @@ class _ChatTabState extends State<ChatTab> {
                                       ),
                                       const SizedBox(height: 16),
                                       Text(
-                                        'Lah... ga nemu?',
+                                        tr('no_bots_found'),
                                         style: TextStyle(
                                           color: Colors.grey[600],
                                         ),
@@ -440,8 +441,8 @@ class _ChatTabState extends State<ChatTab> {
                   });
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'Newest', child: Text('Newest')),
-                  const PopupMenuItem(value: 'Name', child: Text('Name')),
+                  PopupMenuItem(value: 'Newest', child: Text(tr('sort_newest'))),
+                  PopupMenuItem(value: 'Name', child: Text(tr('sort_name'))),
                 ],
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -541,8 +542,8 @@ class _ChatTabState extends State<ChatTab> {
                 color: Colors.grey[300],
               ),
               const SizedBox(height: 24),
-              const Text(
-                'No Active Chats',
+              Text(
+                tr('tab_chat_empty_title'),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -550,15 +551,15 @@ class _ChatTabState extends State<ChatTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Start a new conversation with AI bots.',
+              Text(
+                tr('tab_chat_empty_subtitle'),
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: _showAddChatSheet,
                 icon: const Icon(Icons.add),
-                label: const Text('New Chat'),
+                label: Text(tr('tab_chat_new_chat')),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(200, 50),
                 ),

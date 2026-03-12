@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../services/bot_service.dart';
+import '../../services/localization_service.dart';
 import 'package:intl/intl.dart';
 
 class CalendarTab extends StatefulWidget {
@@ -121,20 +122,20 @@ class _CalendarTabState extends State<CalendarTab> {
           bottomRight: Radius.circular(32),
         ),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Kalender Murid',
-            style: TextStyle(
+            tr('tab_calendar_title'),
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Color(0xFF135ACF),
             ),
           ),
           Text(
-            'Yakali kamu mau ninggalin ulang tahun berharga muridmu',
-            style: TextStyle(color: Colors.grey),
+            tr('tab_calendar_subtitle'),
+            style: const TextStyle(color: Colors.grey),
           ),
         ],
       ),
@@ -151,9 +152,9 @@ class _CalendarTabState extends State<CalendarTab> {
           children: [
             Icon(Icons.event_available, size: 64, color: Colors.grey.withOpacity(0.3)),
             const SizedBox(height: 16),
-            const Text(
-              'Yah... gaada yang ultah :(',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
+            Text(
+              tr('tab_calendar_no_birthday'),
+              style: const TextStyle(color: Colors.grey, fontSize: 16),
             ),
           ],
         ),
@@ -197,13 +198,13 @@ class _CalendarTabState extends State<CalendarTab> {
                         fontSize: 18,
                       ),
                     ),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.cake, size: 14, color: Colors.pinkAccent),
-                        SizedBox(width: 4),
+                        const Icon(Icons.cake, size: 14, color: Colors.pinkAccent),
+                        const SizedBox(width: 4),
                         Text(
-                          'Ultah Murid',
-                          style: TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                          tr('tab_calendar_birthday_label'),
+                          style: const TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ],
                     ),

@@ -145,22 +145,20 @@ class _HomeScreenState extends State<HomeScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text(
-            'Confirm Logout',
-            style: TextStyle(
+          title: Text(
+            tr('logout_confirm_title'),
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Color(0xFF135ACF),
             ),
           ),
-          content: const Text(
-            'Are you sure you want to sign out from BlueTalk?',
-          ),
+          content: Text(tr('logout_confirm_content')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'No, Stay',
-                style: TextStyle(color: Colors.grey),
+              child: Text(
+                tr('logout_no'),
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
             ElevatedButton(
@@ -177,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 backgroundColor: Colors.redAccent,
                 minimumSize: const Size(100, 40),
               ),
-              child: const Text('Yes, Logout'),
+              child: Text(tr('logout_yes')),
             ),
           ],
         );
@@ -189,23 +187,15 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text(
-          'Disclaimer',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          tr('disclaimer_title'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: const SingleChildScrollView(
-          child: Text(
-            'BlueTalk is not affiliated, associated, authorized, endorsed by, or in any way officially connected with Blue Archive, Nexon Games, or any of their subsidiaries or affiliates.\n\n'
-            'All names, characters, trademarks, and related assets referenced remain the property of their respective copyright and trademark holders.\n\n'
-            'BlueTalk is an independent, non-commercial project created solely for educational and personal development purposes.\n\n'
-            'This application is developed by Rafiq8K, Founder of R8KStudio.\n\n'
-            'Contact: r8kstudio@gmail.com',
-          ),
-        ),
+        content: SingleChildScrollView(child: Text(tr('disclaimer_content'))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('I Understand'),
+            child: Text(tr('disclaimer_understand')),
           ),
         ],
       ),
@@ -333,9 +323,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icons.admin_panel_settings,
                   color: Colors.amber,
                 ),
-                title: const Text(
-                  'Admin Panel',
-                  style: TextStyle(
+                title: Text(
+                  tr('sidebar_admin_panel'),
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.amber,
                   ),
@@ -355,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icons.add_task_rounded,
                 color: Color(0xFF135ACF),
               ),
-              title: const Text('Saranin Murid'),
+              title: Text(tr('sidebar_suggest_student')),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -371,7 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icons.favorite_rounded,
                 color: Colors.pinkAccent,
               ),
-              title: const Text('Donasi (Trakteer)'),
+              title: Text(tr('sidebar_donation')),
               onTap: () {
                 Navigator.pop(context);
                 launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
@@ -382,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icons.settings_outlined,
                 color: Color(0xFF135ACF),
               ),
-              title: const Text('Settings'),
+              title: Text(tr('sidebar_settings')),
               onTap: () {
                 Navigator.pop(context); // Close drawer
                 Navigator.push(
@@ -395,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.help_outline, color: Color(0xFF135ACF)),
-              title: const Text('Butuh Bantuan...'),
+              title: Text(tr('sidebar_help')),
               onTap: () {
                 Navigator.pop(context);
                 launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
@@ -403,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.info_outline, color: Color(0xFF135ACF)),
-              title: const Text('Info Aplikasi'),
+              title: Text(tr('sidebar_info')),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -418,9 +408,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.redAccent),
+              title: Text(
+                tr('sidebar_logout'),
+                style: const TextStyle(color: Colors.redAccent),
               ),
               onTap: () {
                 Navigator.pop(context); // Close drawer first

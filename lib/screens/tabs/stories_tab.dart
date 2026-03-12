@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../services/story_service.dart';
+import '../../services/localization_service.dart';
 import '../story_view_screen.dart';
 
 class StoriesTab extends StatefulWidget {
@@ -98,7 +99,7 @@ class _StoriesTabState extends State<StoriesTab> {
   Widget build(BuildContext context) {
     // Dummy channels data
     final List<Map<String, String>> channels = [
-      {'name': 'Coming Soon', 'message': 'Fitur Channel akan segera hadir!', 'date': '--/--/--', 'icon': '?', 'pinned': 'false'},
+      {'name': tr('coming_soon'), 'message': tr('tab_stories_channels_soon_desc'), 'date': '--/--/--', 'icon': '?', 'pinned': 'false'},
     ];
 
     return SingleChildScrollView(
@@ -211,9 +212,9 @@ class _StoriesTabState extends State<StoriesTab> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Saluran',
-                  style: TextStyle(
+                Text(
+                  tr('tab_stories_channels'),
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF212121),
@@ -242,8 +243,8 @@ class _StoriesTabState extends State<StoriesTab> {
                       if (_isReloading) const SizedBox(width: 8),
                       Text(
                         _remainingSeconds > 0 
-                            ? 'Reload in ${_formatCooldown(_remainingSeconds)}'
-                            : _isReloading ? 'Loading...' : 'Reload Stories',
+                            ? '${tr('btn_reload_in')} ${_formatCooldown(_remainingSeconds)}'
+                            : _isReloading ? tr('loading') : tr('btn_reload_stories'),
                         style: TextStyle(
                           color: (_isReloading || _remainingSeconds > 0) ? Colors.grey : Colors.black87,
                           fontSize: 13,

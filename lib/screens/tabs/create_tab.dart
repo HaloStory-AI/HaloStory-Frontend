@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/local_create_service.dart';
 import '../../services/bot_service.dart';
+import '../../services/localization_service.dart';
 import '../manual_chat_screen.dart';
 
 import '../../widgets/skeleton_loader.dart';
@@ -137,8 +138,8 @@ class _CreateTabState extends State<CreateTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Buat Kisah Manual',
+                        Text(
+                          tr('tab_create_manual_title'),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -153,7 +154,7 @@ class _CreateTabState extends State<CreateTab> {
                             });
                           },
                           decoration: InputDecoration(
-                            hintText: 'Cariin murid kesayanganku...',
+                            hintText: tr('search_hint'),
                             prefixIcon: const Icon(
                               Icons.search,
                               color: Colors.orange,
@@ -187,7 +188,7 @@ class _CreateTabState extends State<CreateTab> {
                                       ),
                                       const SizedBox(height: 16),
                                       Text(
-                                        'lah... gaada?',
+                                        tr('tab_create_no_dialogues'),
                                         style: TextStyle(
                                           color: Colors.grey[600],
                                         ),
@@ -225,8 +226,8 @@ class _CreateTabState extends State<CreateTab> {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      subtitle: const Text(
-                                        'New Manual Session',
+                                      subtitle: Text(
+                                        tr('tab_create_new_session'),
                                       ),
                                       trailing: const Icon(
                                         Icons.edit_note,
@@ -280,7 +281,7 @@ class _CreateTabState extends State<CreateTab> {
       child: Row(
         children: [
           Text(
-            'Manual Chats (${_activeDialogues.length})',
+            tr('tab_create_manual_chats') + ' (${_activeDialogues.length})',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -296,8 +297,8 @@ class _CreateTabState extends State<CreateTab> {
               });
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'Newest', child: Text('Newest')),
-              const PopupMenuItem(value: 'Name', child: Text('Name')),
+              PopupMenuItem(value: 'Newest', child: Text(tr('sort_newest'))),
+              PopupMenuItem(value: 'Name', child: Text(tr('sort_name'))),
             ],
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -396,8 +397,8 @@ class _CreateTabState extends State<CreateTab> {
                         size: 100,
                         color: Colors.grey[200],
                       ),
-                      const Text(
-                        'Lah... gaada?',
+                      Text(
+                        tr('tab_create_no_dialogues'),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -405,15 +406,15 @@ class _CreateTabState extends State<CreateTab> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'buatlah MyKisah Sendiri :v.',
+                      Text(
+                        tr('tab_create_empty_subtitle'),
                         style: TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 32),
                       ElevatedButton.icon(
                         onPressed: _showAddDialogueSheet,
                         icon: const Icon(Icons.add),
-                        label: const Text('Buat Dialog'),
+                        label: Text(tr('tab_create_new_dialog')),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
                           foregroundColor: Colors.white,
