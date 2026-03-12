@@ -207,7 +207,10 @@ class StoryService {
 
   // Stream for Progress Tracking
   Stream<double> getMediaDownloadProgress(String url) async* {
-    if (kIsWeb) yield 1.0;
+    if (kIsWeb) {
+      yield 1.0;
+      return;
+    }
 
     final cacheDir = await _getCacheDir();
     final fileName = url.split('/').last.split('?').first;
@@ -217,6 +220,9 @@ class StoryService {
       yield 1.0;
       return;
     }
+
+    // Yield 0.0 to indicate download started (fixes stuck at 0%)
+    yield 0.0;
 
     try {
       final client = http.Client();
@@ -237,10 +243,13 @@ class StoryService {
           if (p >= 0.99)
             p = 0.99; // Cap so we don't break stream early before saving
           yield p;
+        } else {
+          // Indeterminate progress - server didn't provide content length
+          yield -2.0;
         }
       }
 
-      await localFile.writeAsBytes(bytes);
+      await localFile.writeAsBytes(bytes, flush: true);
       client.close();
       yield 1.0;
     } catch (e) {

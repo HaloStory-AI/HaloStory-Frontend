@@ -81,10 +81,11 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     // 1. Stream download progress — bail out if generation changed
     await for (final progress in _storyService.getMediaDownloadProgress(url)) {
       if (!mounted || _loadGen != myGen) return; // stale — user already skipped
-      if (progress < 0) break; // Error
+      if (progress < 0 && progress != -2.0) break; // Error (-1.0), but -2.0 is indeterminate
 
       setState(() {
-        _downloadProgress = progress;
+        // -2.0 means indeterminate (server didn't provide content length)
+        _downloadProgress = progress == -2.0 ? 0.0 : progress;
       });
 
       if (progress >= 1.0) break;
@@ -456,7 +457,9 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Loading Sensei\'s memory... ${(_downloadProgress * 100).toInt()}%',
+                          _downloadProgress == 0.0
+                              ? 'Loading Sensei\'s memory...'
+                              : 'Loading Sensei\'s memory... ${(_downloadProgress * 100).toInt()}%',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.8),
                             fontSize: 13,
