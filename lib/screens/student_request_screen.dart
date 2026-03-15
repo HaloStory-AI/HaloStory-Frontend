@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/student_request_service.dart';
+import '../services/localization_service.dart';
 
 class StudentRequestScreen extends StatefulWidget {
   const StudentRequestScreen({super.key});
@@ -42,12 +43,12 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
     if (success) {
       _studentNameController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request berhasil dikirim, Makasih Sensei!')),
+        SnackBar(content: Text(tr('request_student_success'))),
       );
       _loadRequests();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kirim request gagal, coba lagi nanti.')),
+        SnackBar(content: Text(tr('request_student_failed'))),
       );
     }
     
@@ -67,7 +68,7 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Request Murid Baru', style: TextStyle(color: Color(0xFF135ACF), fontWeight: FontWeight.bold)),
+        title: Text(tr('request_student_title'), style: const TextStyle(color: Color(0xFF135ACF), fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFF135ACF)),
@@ -84,9 +85,14 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Siapa murid yang Sensei pengen?',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF135ACF)),
+                Text(
+                  tr('request_student_question'),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF135ACF)),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  tr('request_student_note'),
+                  style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade600, height: 1.3),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -95,7 +101,7 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
                       child: TextField(
                         controller: _studentNameController,
                         decoration: InputDecoration(
-                          hintText: 'Nama lengkap murid (misal: "Shiromi Iori")',
+                          hintText: tr('request_student_hint'),
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
@@ -167,7 +173,7 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Diusulkan oleh: ${req['user_name']}',
+                                    '${tr('request_student_by')}${req['user_name']}',
                                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                   ),
                                 ],

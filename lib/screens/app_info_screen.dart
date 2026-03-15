@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../services/localization_service.dart';
 
 class AppInfoScreen extends StatefulWidget {
   const AppInfoScreen({super.key});
@@ -9,7 +10,7 @@ class AppInfoScreen extends StatefulWidget {
 }
 
 class _AppInfoScreenState extends State<AppInfoScreen> {
-  String _version = 'Loading...';
+  String _version = '...';
 
   @override
   void initState() {
@@ -29,7 +30,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Info Aplikasi', style: TextStyle(color: Colors.black, fontSize: 18)),
+        title: Text(tr('sidebar_info'), style: const TextStyle(color: Colors.black, fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -64,7 +65,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
             
             // Version
             Text(
-              'Versi $_version',
+              '${tr('app_info_version')} $_version',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey.shade600,
@@ -97,7 +98,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
                   ),
                 );
               },
-              child: const Text('Lisensi Perangkat Lunak', style: TextStyle(color: Color(0xFF135ACF))),
+              child: Text(tr('app_info_license'), style: const TextStyle(color: Color(0xFF135ACF))),
             ),
           ],
         ),

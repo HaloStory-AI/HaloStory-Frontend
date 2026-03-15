@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/localization_service.dart';
@@ -7,11 +8,11 @@ import '../services/config_service.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
 import 'welcome_screen.dart';
+import 'verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:url_launcher/url_launcher.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -88,8 +89,15 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (isLoggedIn) {
-      // Show notice about email security (0.8.0 requirement)
-      await _showEmailNotice();
+      if (!_authService.isEmailVerified) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+        );
+        return;
+      }
+
+      // Show contributor notice (0.8.0 contributor recruitment)
+      await _showContributorNotice();
       if (!mounted) return;
 
       if (isSetupCompleted) {
@@ -108,7 +116,14 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
-  Future<void> _showEmailNotice() async {
+  Future<void> _showContributorNotice() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Use a versioned key so we can force show new notices in the future
+    const noticeId = 'contributor_recruitment_v1';
+    final hasShown = prefs.getBool('notice_shown_$noticeId') ?? false;
+    
+    if (hasShown) return;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -144,7 +159,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
             const SizedBox(height: 24),
             Text(
-              tr('splash_email_notice_title'),
+              tr('contributor_notice_title'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 20,
@@ -154,7 +169,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              tr('splash_email_notice_body'),
+              tr('contributor_notice_content'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 14,
@@ -163,32 +178,61 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const SizedBox(height: 24),
-            _LoadingNoticeButton(
+            ElevatedButton(
               onPressed: () async {
-                // Simulasi delay sedikit agar user melihat loading (opsional)
-                // atau jika ada proses async lain di masa depan.
-                // Untuk saat ini kita hanya menutup dialog.
-                await Future.delayed(
-                  const Duration(milliseconds: 500),
+                await launchUrl(
+                  Uri.parse('https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html'),
+                  mode: LaunchMode.externalApplication,
                 );
                 if (context.mounted) Navigator.pop(context);
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF135ACF),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(tr('contributor_notice_yes'), style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              child: Text(
+                tr('contributor_notice_no'),
+                style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+              ),
             ),
             const SizedBox(height: 12),
           ],
         ),
       ),
     );
+
+    await prefs.setBool('notice_shown_$noticeId', true);
   }
 
   Future<void> _requestPermissions() async {
     if (kIsWeb) return;
-    await [
-      Permission.photos,
-      Permission.storage,
-      Permission.notification,
-      Permission.manageExternalStorage, // Penting untuk menyimpan file ke folder Download
-    ].request();
+
+    // Explicitly request storage/media permissions
+    if (Platform.isAndroid) {
+      await [
+        Permission.storage,
+        Permission.photos,
+        Permission.videos,
+        Permission.audio,
+        Permission.notification,
+        Permission.manageExternalStorage, // For Android 11+ /Download access
+      ].request();
+    } else {
+      await [
+        Permission.photos,
+        Permission.notification,
+      ].request();
+    }
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('permissions_requested', true);
@@ -412,9 +456,7 @@ class _LoadingNoticeButtonState extends State<_LoadingNoticeButton> {
         backgroundColor: const Color(0xFFF0F5FF),
         foregroundColor: const Color(0xFF135ACF),
         minimumSize: const Size(double.infinity, 50),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
       ),
       child: _isLoading

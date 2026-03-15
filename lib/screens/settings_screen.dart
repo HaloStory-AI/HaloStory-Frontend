@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'splash_screen.dart';
 import '../services/localization_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   String _selectedProvider = 'System';
   String _currentLanguage = 'id';
+  bool _isLanguageChanged = false;
 
   // BYOK Controllers
   final TextEditingController _byokApiKeyController = TextEditingController();
@@ -76,13 +78,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     await prefs.setString('byom_api_key', _byomApiKeyController.text);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('settings_saved_success')),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (_isLanguageChanged) {
+        // Force restart to apply language change everywhere
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const SplashScreen()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('settings_saved_success')),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -166,7 +176,10 @@ class _SettingsScreenState extends State<SettingsScreen>
               ],
               onChanged: (v) {
                 if (v != null) {
-                  setState(() => _currentLanguage = v);
+                  setState(() {
+                    _currentLanguage = v;
+                    _isLanguageChanged = true;
+                  });
                   LocalizationService().load(v);
                 }
               },

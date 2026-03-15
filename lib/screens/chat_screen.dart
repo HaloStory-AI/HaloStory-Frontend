@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:external_path/external_path.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/ai_service.dart';
@@ -226,8 +225,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           String errorMsg =
               'Error: Failed to get response from ${widget.provider}.';
           if (widget.provider == 'System') {
-            errorMsg =
-                'Sensei... All AI models are busy. Try switching to BYOK or BYOM for better performance.';
+            errorMsg = tr('error_busy');
           }
           _messages.add({
             'role': 'system',
@@ -239,8 +237,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         String errorMsg =
             'Error: Failed to get response from ${widget.provider}.';
         if (widget.provider == 'System') {
-          errorMsg =
-              'Sensei... All AI models are busy. Try switching to BYOK or BYOM for better performance.';
+          errorMsg = tr('error_busy');
         }
         _messages.add({
           'role': 'system',
@@ -286,13 +283,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   color: Color(0xFFE65100),
                 ),
               ),
-              title: const Text(
-                'Rewind ke sini',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                tr('chat_rewind_title'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: const Text(
-                'Hapus semua pesan setelah bubble ini',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              subtitle: Text(
+                tr('chat_rewind_subtitle'),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -310,17 +307,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 backgroundColor: Color(0xFFF0F5FF),
                 child: Icon(Icons.copy_rounded, color: Color(0xFF135ACF)),
               ),
-              title: const Text(
-                'Copy teks',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                tr('chat_copy_text'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
                 Navigator.pop(ctx);
                 Clipboard.setData(ClipboardData(text: content));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Teks disalin ke clipboard'),
-                    duration: Duration(seconds: 2),
+                  SnackBar(
+                    content: Text(tr('chat_copy_success')),
+                    duration: const Duration(seconds: 2),
                   ),
                 );
               },
@@ -334,9 +331,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Future<void> _exportChat(String format) async {
     if (_messages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tidak ada pesan untuk di-export.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('chat_export_empty'))));
       return;
     }
 
@@ -373,9 +370,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final fileName = 'BlueTalk_Chat_${safeName}_$dateStr.$format';
 
       if (kIsWeb) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Export belum didukung di Web')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(tr('chat_export_web_error'))));
         return;
       } else {
         final downloadDir = await _getDownloadDir();
@@ -385,7 +382,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Berhasil diexport ke folder Download:\n$fileName'),
+              content: Text('${tr('chat_export_success')}\n$fileName'),
               duration: const Duration(seconds: 4),
             ),
           );
@@ -393,9 +390,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${tr('chat_export_failed')} $e')),
+        );
       }
     }
   }
@@ -405,25 +402,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   /// - Android 11+: permission always denied → falls back to getDownloadsDirectory()
   /// - Ultimate fallback: app documents directory
   Future<Directory> _getDownloadDir() async {
+    Directory? baseDir;
     if (Platform.isAndroid) {
-      final status = await Permission.storage.request();
-      if (status.isGranted) {
-        // Android ≤10: pakai external path ke /Download
-        try {
-          final paths = await ExternalPath.getExternalStorageDirectories();
-          if (paths != null && paths.isNotEmpty) {
-            final dir = Directory('${paths.first}/Download');
-            if (!await dir.exists()) await dir.create(recursive: true);
-            return dir;
-          }
-        } catch (_) {}
+      // Construction for public Download folder on Android
+      baseDir = Directory('/storage/emulated/0/Download/BlueTalk');
+    } else {
+      baseDir = await getDownloadsDirectory();
+      if (baseDir != null) {
+        baseDir = Directory('${baseDir.path}/BlueTalk');
       }
-      // Android 11+: getDownloadsDirectory (no permission needed)
-      final dl = await getDownloadsDirectory();
-      if (dl != null) return dl;
     }
-    // Final fallback: app documents directory
-    return getApplicationDocumentsDirectory();
+
+    if (baseDir != null && !await baseDir.exists()) {
+      await baseDir.create(recursive: true);
+    }
+
+    return baseDir ?? await getApplicationDocumentsDirectory();
   }
 
   @override
@@ -543,19 +537,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.delete_sweep_outlined,
                       color: Colors.redAccent,
                       size: 20,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      'Hapus Chat',
-                      style: TextStyle(color: Colors.redAccent),
+                      tr('chat_delete_confirm'),
+                      style: const TextStyle(color: Colors.redAccent),
                     ),
                   ],
                 ),
@@ -904,46 +898,61 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Widget _buildInputArea() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: TextField(
-                  controller: _messageController,
-                  decoration: InputDecoration(
-                    hintText: 'Cet si ${widget.bot['name']}',
-                    hintStyle: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontSize: 14,
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: InputDecoration(
+                        hintText: '${tr('tab_chat')} ${widget.bot['name']}',
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 14,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
-                  onSubmitted: (_) => _sendMessage(),
                 ),
-              ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: _sendMessage,
+                  child: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.grey,
+                    size: 28,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: _sendMessage,
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.grey,
-                size: 28,
+            const SizedBox(height: 8),
+            Text(
+              tr('chat_fictional_disclaimer'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey.shade500,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],

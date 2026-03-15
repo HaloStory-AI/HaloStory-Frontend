@@ -4,7 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:video_player/video_player.dart';
-import 'package:gallery_saver_plus/gallery_saver.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -326,7 +327,6 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     if (_isSaving) return;
     final url = widget.stories[_currentIndex]['image_url'] as String;
 
-    PermissionStatus status;
     if (kIsWeb) {
       if (await canLaunchUrl(Uri.parse(url))) {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -334,62 +334,77 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
       return;
     }
 
+    // Request permissions
     if (Platform.isAndroid) {
-      // Android 13+: READ_MEDIA_IMAGES maps to Permission.photos
-      // Android ≤12: Permission.photos still works
-      // Do NOT fallback to Permission.storage — always denied on Android 11+
-      status = await Permission.photos.request();
-    } else {
-      status = await Permission.photos.request();
-    }
-
-    if (!status.isGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Permission required to save.')),
-        );
+      // For Android 13+, we need specific media permissions to write to public folders sometimes,
+      // but for Download folder, managed storage might be enough.
+      // However, the most compatible way for modern Android is to just use Permission.storage.
+      if (await Permission.storage.request().isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ Storage permission required to save.')),
+          );
+        }
+        return;
       }
-      return;
     }
 
     setState(() => _isSaving = true);
     _timer?.cancel();
-    _videoController?.pause();
+    if (_isVideo) _videoController?.pause();
 
     try {
-      bool? success;
-      // Optimization: If local file exists, use it instead of URL to avoid slow Backblaze download
-      final String? cachedPath = await _storyService.getCachedPath(url);
-      final String source = cachedPath ?? url;
-
-      if (_isVideo) {
-        success = await GallerySaver.saveVideo(
-          source,
-          albumName: 'BlueTalk',
-          toDcim: true,
-        );
+      final dio = Dio();
+      final fileName = url.split('/').last.split('?').first;
+      
+      // Determine Download/BlueTalk path
+      Directory? downloadDir;
+      if (Platform.isAndroid) {
+        // Construct path manually as path_provider's getDownloadsDirectory is restrictive on Android 11+
+        downloadDir = Directory('/storage/emulated/0/Download/BlueTalk');
       } else {
-        success = await GallerySaver.saveImage(
-          source,
-          albumName: 'BlueTalk',
-          toDcim: true,
-        );
+        downloadDir = await getDownloadsDirectory();
+        if (downloadDir != null) {
+          downloadDir = Directory('${downloadDir.path}/BlueTalk');
+        }
+      }
+
+      if (downloadDir != null && !await downloadDir.exists()) {
+        await downloadDir.create(recursive: true);
+      }
+
+      final savePath = '${downloadDir?.path ?? (await getTemporaryDirectory()).path}/$fileName';
+
+      // Check if we already have it in cache to save bandwidth
+      final String? cachedPath = await _storyService.getCachedPath(url);
+      
+      if (cachedPath != null) {
+        // Copy from cache
+        await File(cachedPath).copy(savePath);
+      } else {
+        // Download using Dio
+        await dio.download(url, savePath);
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              success == true ? '✅ Saved to gallery!' : '❌ Failed to save.',
-            ),
+            content: Text('✅ Saved to Download/BlueTalk!\n$fileName'),
+            backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      print("DEBUG: Save error: $e");
-      if (mounted) {
+      print("DEBUG: Download error: $e");
+      // Fallback: Open in browser if download fails
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ An error occurred while saving.')),
+          const SnackBar(
+            content: Text('❌ Failed to save file.'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {

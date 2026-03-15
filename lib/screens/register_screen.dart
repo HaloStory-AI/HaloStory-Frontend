@@ -4,7 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
+import 'verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/localization_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -26,9 +28,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not launch $url')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not launch $url')));
       }
     }
   }
@@ -36,27 +38,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (_passwordController.text.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password minimal 8 karakter')),
+        SnackBar(content: Text(tr('register_password_min_length'))),
       );
       return;
     }
 
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
+        SnackBar(content: Text(tr('register_passwords_not_match'))),
       );
       return;
     }
 
     if (!_isAgreed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Harap setujui syarat dan kebijakan kami.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('register_agree_required'))));
       return;
     }
 
     setState(() => _isLoading = true);
-    
+
     final success = await _authService.register(
       _nameController.text,
       _emailController.text,
@@ -68,27 +70,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (success && mounted) {
       final prefs = await SharedPreferences.getInstance();
-      final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
+      final bool isSetupCompleted =
+          prefs.getBool('is_setup_completed') ?? false;
 
       if (!mounted) return;
 
+      if (!_authService.isEmailVerified) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => isSetupCompleted ? const HomeScreen() : const SetupScreen()
+          builder: (_) =>
+              isSetupCompleted ? const HomeScreen() : const SetupScreen(),
         ),
         (route) => false,
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registration failed.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('register_failed'))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
+      appBar: AppBar(title: Text(tr('btn_register'))),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -97,35 +109,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 20),
               TextField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  hintText: 'Full Name',
-                  prefixIcon: Icon(Icons.person_outline),
+                decoration: InputDecoration(
+                  hintText: tr('register_full_name_hint'),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(
-                  hintText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
+                decoration: InputDecoration(
+                  hintText: tr('login_email_hint'),
+                  prefixIcon: const Icon(Icons.email_outlined),
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
-                  hintText: 'Password',
-                  prefixIcon: Icon(Icons.lock_outline),
+                decoration: InputDecoration(
+                  hintText: tr('login_password_hint'),
+                  prefixIcon: const Icon(Icons.lock_outline),
                 ),
                 obscureText: true,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _confirmPasswordController,
-                decoration: const InputDecoration(
-                  hintText: 'Confirm Password',
-                  prefixIcon: Icon(Icons.lock_reset),
+                decoration: InputDecoration(
+                  hintText: tr('register_confirm_password_hint'),
+                  prefixIcon: const Icon(Icons.lock_reset),
                 ),
                 obscureText: true,
               ),
@@ -144,33 +156,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: RichText(
                       text: TextSpan(
                         style: TextStyle(
-                          color: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87,
+                          color:
+                              Theme.of(context).textTheme.bodyMedium?.color ??
+                              Colors.black87,
                           fontSize: 13,
                         ),
                         children: [
-                          const TextSpan(text: "Sensei buat akun dan pakai BlueTalk berarti setuju ya sama "),
+                          TextSpan(text: tr('register_terms_agree')),
                           TextSpan(
-                            text: "TOS",
+                            text: tr('register_terms_tos'),
                             style: const TextStyle(
                               color: Colors.blue,
                               fontWeight: FontWeight.bold,
                               decoration: TextDecoration.underline,
                             ),
                             recognizer: TapGestureRecognizer()
-                              ..onTap = () => _launchURL("https://bluetalk.my-bini.my.id/terms"),
+                              ..onTap = () => _launchURL(
+                                "https://bluetalk.my-bini.my.id/terms",
+                              ),
                           ),
-                          const TextSpan(text: " dan "),
+                          TextSpan(text: tr('register_terms_and')),
                           TextSpan(
-                            text: "kebijakan pivasi",
+                            text: tr('register_terms_privacy'),
                             style: const TextStyle(
                               color: Colors.blue,
                               fontWeight: FontWeight.bold,
                               decoration: TextDecoration.underline,
                             ),
                             recognizer: TapGestureRecognizer()
-                              ..onTap = () => _launchURL("https://bluetalk.my-bini.my.id/privacy"),
+                              ..onTap = () => _launchURL(
+                                "https://bluetalk.my-bini.my.id/privacy",
+                              ),
                           ),
-                          const TextSpan(text: " ya..."),
+                          TextSpan(text: tr('register_terms_suffix')),
                         ],
                       ),
                     ),
@@ -182,7 +200,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
                       onPressed: _handleRegister,
-                      child: const Text('Register'),
+                      child: Text(tr('btn_register')),
                     ),
             ],
           ),

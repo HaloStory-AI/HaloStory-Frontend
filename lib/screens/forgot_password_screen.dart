@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/localization_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -13,9 +14,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   final _authService = AuthService();
-  
+
   bool _isLoading = false;
   bool _isOtpSent = false;
   bool _obscurePassword = true;
@@ -44,7 +45,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _sendOtp() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      _showError('Email tidak boleh kosong');
+      _showError(tr('forgot_password_otp_empty'));
       return;
     }
 
@@ -56,9 +57,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     if (result['success']) {
       setState(() => _isOtpSent = true);
-      _showSuccess(result['message'] ?? 'OTP terkirim ke email Anda.');
+      _showSuccess(result['message'] ?? tr('forgot_password_otp_sent'));
     } else {
-      _showError(result['message'] ?? 'Gagal mengirim OTP.');
+      _showError(result['message'] ?? tr('forgot_password_otp_failed'));
     }
   }
 
@@ -69,29 +70,34 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final confirmPassword = _confirmPasswordController.text;
 
     if (otp.length != 6) {
-      _showError('OTP harus 6 karakter digit');
+      _showError(tr('reset_password_otp_length_error'));
       return;
     }
     if (password.length < 8) {
-      _showError('Password minimal 8 karakter');
+      _showError(tr('register_password_min_length'));
       return;
     }
     if (password != confirmPassword) {
-      _showError('Password tidak sama');
+      _showError(tr('register_passwords_not_match'));
       return;
     }
 
     setState(() => _isLoading = true);
 
-    final result = await _authService.resetPassword(email, otp, password, confirmPassword);
+    final result = await _authService.resetPassword(
+      email,
+      otp,
+      password,
+      confirmPassword,
+    );
 
     setState(() => _isLoading = false);
 
     if (result['success']) {
-      _showSuccess(result['message'] ?? 'Password berhasil direset!');
+      _showSuccess(result['message'] ?? tr('reset_password_success'));
       Navigator.pop(context); // Kembali ke form login
     } else {
-      _showError(result['message'] ?? 'Gagal reset password.');
+      _showError(result['message'] ?? tr('reset_password_failed'));
     }
   }
 
@@ -99,9 +105,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Lupa Password?',
-          style: TextStyle(
+        Text(
+          tr('login_forgot_password'),
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
             color: Color(0xFF1B2541),
@@ -109,17 +115,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
-        const Text(
-          'Masukkan email akun Anda untuk mendapatkan kode OTP reset password.',
+        Text(
+          tr('forgot_password_subtitle'),
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
+          style: const TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
         ),
         const SizedBox(height: 48),
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           decoration: InputDecoration(
-            labelText: 'Email',
+            labelText: tr('login_email_hint'),
             prefixIcon: const Icon(Icons.email_outlined),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
             filled: true,
@@ -142,11 +148,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
                   )
-                : const Text(
-                    'Kirim OTP',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                : Text(
+                    tr('forgot_password_send_otp'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
           ),
         ),
@@ -158,9 +171,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Reset Password',
-          style: TextStyle(
+        Text(
+          tr('reset_password_title'),
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
             color: Color(0xFF1B2541),
@@ -171,12 +184,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
-            style: const TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+              height: 1.5,
+            ),
             children: [
-              const TextSpan(text: 'Masukkan kode OTP yang dikirim ke\n'),
+              TextSpan(text: tr('reset_password_otp_sent_to') + '\n'),
               TextSpan(
                 text: _emailController.text,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B2541)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B2541),
+                ),
               ),
             ],
           ),
@@ -187,10 +207,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           keyboardType: TextInputType.number,
           maxLength: 6,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 24,
+            letterSpacing: 8,
+            fontWeight: FontWeight.bold,
+          ),
           decoration: InputDecoration(
             counterText: '',
-            hintText: '000000',
+            hintText: tr('reset_password_otp_hint'),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
             filled: true,
             fillColor: Colors.grey.shade50,
@@ -201,11 +225,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           decoration: InputDecoration(
-            labelText: 'Password Baru',
+            labelText: tr('reset_password_new_password_hint'),
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
-              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+              ),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
             filled: true,
@@ -221,11 +248,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             if (!_isLoading) _resetPassword();
           },
           decoration: InputDecoration(
-            labelText: 'Konfirmasi Password Baru',
+            labelText: tr('reset_password_confirm_password_hint'),
             prefixIcon: const Icon(Icons.lock_clock_outlined),
             suffixIcon: IconButton(
-              icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+              icon: Icon(
+                _obscureConfirmPassword
+                    ? Icons.visibility_off
+                    : Icons.visibility,
+              ),
+              onPressed: () => setState(
+                () => _obscureConfirmPassword = !_obscureConfirmPassword,
+              ),
             ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
             filled: true,
@@ -248,11 +281,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
                   )
-                : const Text(
-                    'Simpan Password Baru',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                : Text(
+                    tr('reset_password_save_btn'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
           ),
         ),

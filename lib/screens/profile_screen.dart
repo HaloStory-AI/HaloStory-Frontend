@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/localization_service.dart';
 import '../widgets/skeleton_loader.dart';
+import 'verify_email_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -219,9 +220,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Update your email for verification version 0.8.0',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+              Text(
+                tr('profile_update_email_info'),
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -342,11 +343,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Colors.redAccent,
                   ),
                   const SizedBox(height: 16),
-                  const Text('Failed to load profile data'),
+                  Text(tr('profile_load_error')),
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: _refreshProfile,
-                    child: const Text('Retry'),
+                    child: Text(tr('btn_retry')),
                   ),
                 ],
               ),
@@ -461,10 +462,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.verified_user_outlined,
                     color: Color(0xFF135ACF),
                   ),
-                  title: const Text('Account Verification'),
-                  subtitle: const Text('Verified'),
-                  trailing: const Icon(Icons.check_circle, color: Colors.green),
-                  onTap: () {},
+                  title: Text(tr('profile_account_verification')),
+                  subtitle: Text(
+                    user['email_verified_at'] != null
+                        ? tr('profile_verified')
+                        : 'Unverified',
+                  ),
+                  trailing: user['email_verified_at'] != null
+                      ? const Icon(Icons.check_circle, color: Colors.green)
+                      : const Icon(Icons.warning, color: Colors.orange),
+                  onTap: user['email_verified_at'] != null
+                      ? null
+                      : () {
+                          // Already verified check is done in the backend
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const VerifyEmailScreen(),
+                            ),
+                          ).then((_) => _refreshProfile());
+                        },
                 ),
               ],
             ),

@@ -36,6 +36,8 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await _saveToken(data['access_token']);
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
         return true;
       }
       if (response.statusCode == 503) {
@@ -66,6 +68,8 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await _saveToken(data['access_token']);
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
         return true;
       }
       if (response.statusCode == 503) {
@@ -99,7 +103,10 @@ class AuthService {
       if (response.statusCode == 200) {
         return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
       }
-      return {'success': false, 'message': data['message'] ?? 'Gagal memproses.'};
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Gagal memproses.',
+      };
     } catch (e) {
       return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
     }
@@ -134,6 +141,64 @@ class AuthService {
         return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
       }
       return {'success': false, 'message': data['message'] ?? 'Gagal mereset.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> sendVerificationOtp() async {
+    final token = await getToken();
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/email/verify/send'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
+      }
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Gagal memproses.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyEmail(String otp) async {
+    final token = await getToken();
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/email/verify'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'otp': otp}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        // Cache the updated user profile
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
+        return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
+      }
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Gagal memverifikasi.',
+      };
     } catch (e) {
       return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
     }
@@ -214,6 +279,11 @@ class AuthService {
     final token = await getToken();
     if (token == null) return false;
     return await validateTokenWithServer(token);
+  }
+
+  bool get isEmailVerified {
+    if (_userProfileCache == null) return false;
+    return _userProfileCache!['email_verified_at'] != null;
   }
 
   // --- Profile Caching ---

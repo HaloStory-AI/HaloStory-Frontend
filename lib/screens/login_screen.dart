@@ -4,7 +4,9 @@ import '../services/auth_service.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
+import 'verify_email_screen.dart';
 import 'forgot_password_screen.dart';
+import '../services/localization_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     setState(() => _isLoading = true);
-    
+
     final success = await _authService.login(
       _emailController.text,
       _passwordController.text,
@@ -31,20 +33,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success && mounted) {
       final prefs = await SharedPreferences.getInstance();
-      final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
-      
+      final bool isSetupCompleted =
+          prefs.getBool('is_setup_completed') ?? false;
+
       if (!mounted) return;
-      
+
+      if (!_authService.isEmailVerified) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => isSetupCompleted ? const HomeScreen() : const SetupScreen()
+          builder: (_) =>
+              isSetupCompleted ? const HomeScreen() : const SetupScreen(),
         ),
         (route) => false,
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login failed. Please check your credentials.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('login_failed'))));
     }
   }
 
@@ -58,34 +70,34 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                'Welcome Back',
-                style: TextStyle(
+              Text(
+                tr('login_welcome_back'),
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF135ACF),
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Please sign in to continue',
-                style: TextStyle(color: Colors.grey),
+              Text(
+                tr('login_please_sign_in'),
+                style: const TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 48),
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(
-                  hintText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
+                decoration: InputDecoration(
+                  hintText: tr('login_email_hint'),
+                  prefixIcon: const Icon(Icons.email_outlined),
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
-                  hintText: 'Password',
-                  prefixIcon: Icon(Icons.lock_outline),
+                decoration: InputDecoration(
+                  hintText: tr('login_password_hint'),
+                  prefixIcon: const Icon(Icons.lock_outline),
                 ),
                 obscureText: true,
               ),
@@ -94,18 +106,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
                       onPressed: _handleLogin,
-                      child: const Text('Login'),
+                      child: Text(tr('btn_login')),
                     ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordScreen(),
+                    ),
                   );
                 },
-                child: const Text(
-                  'Lupa Password?',
-                  style: TextStyle(color: Color(0xFF135ACF), fontWeight: FontWeight.bold),
+                child: Text(
+                  tr('login_forgot_password'),
+                  style: const TextStyle(
+                    color: Color(0xFF135ACF),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -115,9 +132,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     MaterialPageRoute(builder: (_) => const RegisterScreen()),
                   );
                 },
-                child: const Text(
-                  'Don\'t have an account? Register',
-                  style: TextStyle(color: Color(0xFF135ACF)),
+                child: Text(
+                  tr('login_dont_have_account'),
+                  style: const TextStyle(color: Color(0xFF135ACF)),
                 ),
               ),
             ],

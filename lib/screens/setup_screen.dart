@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import '../services/localization_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -40,6 +43,16 @@ class _SetupScreenState extends State<SetupScreen> {
   ];
 
   Future<void> _completeSetup() async {
+    // Explicitly request permissions before finishing
+    if (!kIsWeb) {
+      await [
+        Permission.photos,
+        Permission.storage,
+        Permission.notification,
+        if (Platform.isAndroid) Permission.manageExternalStorage,
+      ].request();
+    }
+
     final prefs = await SharedPreferences.getInstance();
     // app_language is already saved by LocalizationService().load()
     await prefs.setString(

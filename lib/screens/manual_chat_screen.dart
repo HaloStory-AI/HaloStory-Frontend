@@ -3,6 +3,7 @@ import '../services/local_create_service.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:intl/intl.dart';
+import '../services/localization_service.dart';
 
 class ManualChatScreen extends StatefulWidget {
   final Map<String, dynamic> bot;
@@ -92,7 +93,7 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
                   widget.bot['name'],
                   style: const TextStyle(color: Color(0xFF4A5568), fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const Text('Manual Creator Mode', style: TextStyle(fontSize: 10, color: Colors.orange)),
+                Text(tr('chat_manual_mode'), style: const TextStyle(fontSize: 10, color: Colors.orange)),
               ],
             ),
           ],
@@ -302,7 +303,7 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
             TextField(
               controller: _messageController,
               decoration: InputDecoration(
-                hintText: 'Type manual dialogue...',
+                hintText: tr('chat_manual_hint'),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 filled: true,
                 fillColor: Colors.grey[100],
@@ -317,7 +318,7 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => _addMessage('assistant'),
                     icon: const Icon(Icons.arrow_back),
-                    label: const Text('Penerima'),
+                    label: Text(tr('chat_manual_recipient')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[200],
                       foregroundColor: Colors.black,
@@ -330,7 +331,7 @@ class _ManualChatScreenState extends State<ManualChatScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => _addMessage('user'),
                     icon: const Icon(Icons.arrow_forward),
-                    label: const Text('Pengirim'),
+                    label: Text(tr('chat_manual_sender')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF135ACF),
                       foregroundColor: Colors.white,

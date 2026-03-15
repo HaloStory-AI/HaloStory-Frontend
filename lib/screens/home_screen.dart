@@ -10,7 +10,6 @@ import 'tabs/calendar_tab.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 import 'student_request_screen.dart';
-import '../services/story_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/localization_service.dart';
@@ -25,7 +24,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final AuthService _authService = AuthService();
-  final StoryService _storyService = StoryService();
   Map<String, dynamic>? _userProfile;
 
   @override
@@ -365,6 +363,17 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.pop(context);
                 launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.people_outline_rounded,
+                color: Color(0xFF135ACF),
+              ),
+              title: Text(tr('sidebar_contributor')),
+              onTap: () {
+                Navigator.pop(context);
+                launchUrl(Uri.parse('https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html'));
               },
             ),
             ListTile(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
 import 'package:intl/intl.dart';
 import 'admin/bot_editor.dart';
+import '../services/localization_service.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -26,7 +27,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Future<void> _loadAllData() async {
     setState(() => _isLoading = true);
-    
+
     final results = await Future.wait([
       _adminService.getUsers(),
       _adminService.getBots(),
@@ -42,7 +43,9 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -51,18 +54,24 @@ class _AdminScreenState extends State<AdminScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Admin Panel'),
+          title: Text(tr('admin_panel_title')),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _loadAllData,
-            )
+            ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.people), text: 'Users'),
-              Tab(icon: Icon(Icons.smart_toy), text: 'Bots'),
-              Tab(icon: Icon(Icons.inbox), text: 'Requests'),
+              Tab(icon: const Icon(Icons.people), text: tr('admin_tab_users')),
+              Tab(
+                icon: const Icon(Icons.smart_toy),
+                text: tr('admin_tab_bots'),
+              ),
+              Tab(
+                icon: const Icon(Icons.inbox),
+                text: tr('admin_tab_requests'),
+              ),
             ],
           ),
         ),
@@ -90,7 +99,10 @@ class _AdminScreenState extends State<AdminScreen> {
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: isAdmin ? Colors.amber : Colors.blue,
-            child: Icon(isAdmin ? Icons.admin_panel_settings : Icons.person, color: Colors.white),
+            child: Icon(
+              isAdmin ? Icons.admin_panel_settings : Icons.person,
+              color: Colors.white,
+            ),
           ),
           title: Text(user['name']),
           subtitle: Text('${user['email']}\nRole: ${user['role']}'),
@@ -99,30 +111,47 @@ class _AdminScreenState extends State<AdminScreen> {
             onSelected: (String result) async {
               if (result == 'make_admin' || result == 'make_sensei') {
                 final newRole = result == 'make_admin' ? 'admin' : 'Sensei';
-                final success = await _adminService.changeUserRole(user['id'], newRole);
+                final success = await _adminService.changeUserRole(
+                  user['id'],
+                  newRole,
+                );
                 if (success) {
-                  _showSnackBar('Role updated to $newRole');
+                  _showSnackBar('${tr('admin_role_updated')}$newRole');
                   _loadAllData();
                 } else {
-                  _showSnackBar('Failed to update role');
+                  _showSnackBar(tr('admin_role_failed'));
                 }
               } else if (result == 'delete') {
-                final confirm = await _showConfirmDialog('Delete User', 'Are you sure you want to delete ${user['name']}?');
+                final confirm = await _showConfirmDialog(
+                  tr('admin_delete_confirm_title'),
+                  '${tr('admin_delete_user_confirm')}${user['name']}?',
+                );
                 if (confirm == true) {
                   final success = await _adminService.deleteUser(user['id']);
                   if (success) {
-                    _showSnackBar('User deleted');
+                    _showSnackBar(tr('admin_user_deleted'));
                     _loadAllData();
                   } else {
-                    _showSnackBar('Failed to delete user');
+                    _showSnackBar(tr('admin_user_delete_failed'));
                   }
                 }
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              if (!isAdmin) const PopupMenuItem<String>(value: 'make_admin', child: Text('Make Admin')),
-              if (isAdmin) const PopupMenuItem<String>(value: 'make_sensei', child: Text('Revoke Admin')),
-              const PopupMenuItem<String>(value: 'delete', child: Text('Delete User', style: TextStyle(color: Colors.red))),
+              if (!isAdmin)
+                const PopupMenuItem<String>(
+                  value: 'make_admin',
+                  child: Text('Make Admin'),
+                ),
+              if (isAdmin)
+                const PopupMenuItem<String>(
+                  value: 'make_sensei',
+                  child: Text('Revoke Admin'),
+                ),
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Text('Delete User', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
         );
@@ -138,7 +167,7 @@ class _AdminScreenState extends State<AdminScreen> {
           padding: const EdgeInsets.all(8.0),
           child: ElevatedButton.icon(
             icon: const Icon(Icons.add),
-            label: const Text('Tambah Murid Baru'),
+            label: Text(tr('admin_add_bot')),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               backgroundColor: const Color(0xFF135ACF),
@@ -154,24 +183,33 @@ class _AdminScreenState extends State<AdminScreen> {
               final bot = _bots[index];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: bot['avatar'] != null ? NetworkImage(bot['avatar']) : null,
-                  child: bot['avatar'] == null ? const Icon(Icons.smart_toy) : null,
+                  backgroundImage: bot['avatar'] != null
+                      ? NetworkImage(bot['avatar'])
+                      : null,
+                  child: bot['avatar'] == null
+                      ? const Icon(Icons.smart_toy)
+                      : null,
                 ),
                 title: Text(bot['name']),
-                subtitle: Text('SBR: ${bot['sbr'] ?? 'N/A'}\nID: ${bot['bot_id']}'),
+                subtitle: Text(
+                  'SBR: ${bot['sbr'] ?? 'N/A'}\nID: ${bot['bot_id']}',
+                ),
                 isThreeLine: true,
                 onTap: () => _showBotEditor(bot),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () async {
-                    final confirm = await _showConfirmDialog('Delete Bot', 'Yakin ingin menghapus ${bot['name']}?');
+                    final confirm = await _showConfirmDialog(
+                      tr('admin_delete_confirm_title'),
+                      '${tr('admin_delete_bot_confirm')}${bot['name']}?',
+                    );
                     if (confirm == true) {
                       final success = await _adminService.deleteBot(bot['id']);
                       if (success) {
-                        _showSnackBar('Bot deleted');
+                        _showSnackBar(tr('admin_bot_deleted'));
                         _loadAllData();
                       } else {
-                        _showSnackBar('Failed to delete bot');
+                        _showSnackBar(tr('admin_bot_delete_failed'));
                       }
                     }
                   },
@@ -189,11 +227,11 @@ class _AdminScreenState extends State<AdminScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => BotEditorModal(
-        botData: botData,
-        onSaved: _loadAllData,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (context) =>
+          BotEditorModal(botData: botData, onSaved: _loadAllData),
     );
   }
 
@@ -217,42 +255,69 @@ class _AdminScreenState extends State<AdminScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Murid: ${req['student_name']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      'Murid: ${req['student_name']}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     Chip(
-                      label: Text(req['status'].toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.white)),
+                      label: Text(
+                        req['status'].toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                        ),
+                      ),
                       backgroundColor: statusColor,
                       padding: EdgeInsets.zero,
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('Requested by: ${req['user']?['name'] ?? 'Unknown'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                Text('Date: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(req['created_at']))}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(
+                  'Requested by: ${req['user']?['name'] ?? 'Unknown'}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                Text(
+                  'Date: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(req['created_at']))}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
                 if (req['status'] == 'pending') ...[
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton.icon(
-                        icon: const Icon(Icons.close, color: Colors.red, size: 18),
-                        label: const Text('Reject', style: TextStyle(color: Colors.red)),
-                        onPressed: () => _updateRequestStatus(req['id'], 'rejected'),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Reject',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        onPressed: () =>
+                            _updateRequestStatus(req['id'], 'rejected'),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Approve'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green, 
+                          backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
                           minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
-                        onPressed: () => _updateRequestStatus(req['id'], 'approved'),
+                        onPressed: () =>
+                            _updateRequestStatus(req['id'], 'approved'),
                       ),
                     ],
                   ),
-                ]
+                ],
               ],
             ),
           ),
@@ -264,10 +329,14 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _updateRequestStatus(int id, String status) async {
     final success = await _adminService.updateRequestStatus(id, status);
     if (success) {
-      _showSnackBar('Request $status');
+      _showSnackBar(
+        status == 'approved'
+            ? tr('admin_request_approved')
+            : tr('admin_request_rejected'),
+      );
       _loadAllData();
     } else {
-      _showSnackBar('Failed to update request');
+      _showSnackBar(tr('admin_request_failed'));
     }
   }
 
@@ -278,8 +347,14 @@ class _AdminScreenState extends State<AdminScreen> {
         title: Text(title),
         content: Text(content),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
