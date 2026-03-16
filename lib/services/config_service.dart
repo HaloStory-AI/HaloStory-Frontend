@@ -15,8 +15,8 @@ class ConfigService {
 
   static String get baseUrl =>
       _baseUrl ??
-      'https://moutogami.com/bluetalk_backend/api'; // Menggunakan base url default yang baru
-  static bool get isMaintenance => _isMaintenance;
+      'https://imouto-fansub.my.id/bluetalk_backend/api'; // Menggunakan base url default yang baru
+  static bool get isMaintenance => kDebugMode ? false : _isMaintenance;
   static String get maintenanceMsg => _maintenanceMsg;
   static String get remoteVersion => _remoteVersion;
   static bool get needsUpdate => _needsUpdate;

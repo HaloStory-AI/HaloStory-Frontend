@@ -30,6 +30,24 @@ class _SettingsScreenState extends State<SettingsScreen>
   final TextEditingController _byomModelController = TextEditingController();
   final TextEditingController _byomApiKeyController = TextEditingController();
 
+  // Advanced AI Controllers
+  final TextEditingController _aiTempController = TextEditingController();
+  final TextEditingController _aiResponseLengthController =
+      TextEditingController();
+  final TextEditingController _aiMaxTokenController = TextEditingController();
+  final TextEditingController _aiTopPController = TextEditingController();
+  final TextEditingController _aiTopAController = TextEditingController();
+  final TextEditingController _aiTopKController = TextEditingController();
+  final TextEditingController _aiRepPenaltyController =
+      TextEditingController();
+  final TextEditingController _aiContextLimitController =
+      TextEditingController();
+  final TextEditingController _aiLtmBudgetController = TextEditingController();
+  final TextEditingController _aiEmbedBudgetController =
+      TextEditingController();
+  final TextEditingController _aiHistoryDepthController =
+      TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +65,17 @@ class _SettingsScreenState extends State<SettingsScreen>
     _byomEndpointController.dispose();
     _byomModelController.dispose();
     _byomApiKeyController.dispose();
+    _aiTempController.dispose();
+    _aiResponseLengthController.dispose();
+    _aiMaxTokenController.dispose();
+    _aiTopPController.dispose();
+    _aiTopAController.dispose();
+    _aiTopKController.dispose();
+    _aiRepPenaltyController.dispose();
+    _aiContextLimitController.dispose();
+    _aiLtmBudgetController.dispose();
+    _aiEmbedBudgetController.dispose();
+    _aiHistoryDepthController.dispose();
     super.dispose();
   }
 
@@ -62,6 +91,25 @@ class _SettingsScreenState extends State<SettingsScreen>
       _byomEndpointController.text = prefs.getString('byom_endpoint') ?? '';
       _byomModelController.text = prefs.getString('byom_model') ?? '';
       _byomApiKeyController.text = prefs.getString('byom_api_key') ?? '';
+
+      _aiTempController.text = (prefs.getDouble('ai_temp') ?? 0.7).toString();
+      _aiResponseLengthController.text =
+          (prefs.getInt('ai_response_length') ?? 1024).toString();
+      _aiMaxTokenController.text =
+          (prefs.getInt('ai_max_token') ?? 1024).toString();
+      _aiTopPController.text = (prefs.getDouble('ai_top_p') ?? 0.9).toString();
+      _aiTopAController.text = (prefs.getDouble('ai_top_a') ?? 0.0).toString();
+      _aiTopKController.text = (prefs.getInt('ai_top_k') ?? 40).toString();
+      _aiRepPenaltyController.text =
+          (prefs.getDouble('ai_rep_penalty') ?? 1.1).toString();
+      _aiContextLimitController.text =
+          (prefs.getInt('ai_context_limit') ?? 1500).toString();
+      _aiLtmBudgetController.text =
+          (prefs.getInt('ai_ltm_budget') ?? 300).toString();
+      _aiEmbedBudgetController.text =
+          (prefs.getInt('ai_embed_budget') ?? 200).toString();
+      _aiHistoryDepthController.text =
+          (prefs.getInt('ai_history_depth') ?? 5).toString();
     });
   }
 
@@ -76,6 +124,51 @@ class _SettingsScreenState extends State<SettingsScreen>
     await prefs.setString('byom_endpoint', _byomEndpointController.text);
     await prefs.setString('byom_model', _byomModelController.text);
     await prefs.setString('byom_api_key', _byomApiKeyController.text);
+
+    await prefs.setDouble(
+      'ai_temp',
+      double.tryParse(_aiTempController.text) ?? 0.7,
+    );
+    await prefs.setInt(
+      'ai_response_length',
+      int.tryParse(_aiResponseLengthController.text) ?? 1024,
+    );
+    await prefs.setInt(
+      'ai_max_token',
+      int.tryParse(_aiMaxTokenController.text) ?? 1024,
+    );
+    await prefs.setDouble(
+      'ai_top_p',
+      double.tryParse(_aiTopPController.text) ?? 0.9,
+    );
+    await prefs.setDouble(
+      'ai_top_a',
+      double.tryParse(_aiTopAController.text) ?? 0.0,
+    );
+    await prefs.setInt(
+      'ai_top_k',
+      int.tryParse(_aiTopKController.text) ?? 40,
+    );
+    await prefs.setDouble(
+      'ai_rep_penalty',
+      double.tryParse(_aiRepPenaltyController.text) ?? 1.1,
+    );
+    await prefs.setInt(
+      'ai_context_limit',
+      int.tryParse(_aiContextLimitController.text) ?? 1500,
+    );
+    await prefs.setInt(
+      'ai_ltm_budget',
+      int.tryParse(_aiLtmBudgetController.text) ?? 300,
+    );
+    await prefs.setInt(
+      'ai_embed_budget',
+      int.tryParse(_aiEmbedBudgetController.text) ?? 200,
+    );
+    await prefs.setInt(
+      'ai_history_depth',
+      int.tryParse(_aiHistoryDepthController.text) ?? 5,
+    );
 
     if (mounted) {
       if (_isLanguageChanged) {
@@ -286,11 +379,6 @@ class _SettingsScreenState extends State<SettingsScreen>
         const SizedBox(height: 30),
 
         if (_selectedProvider == 'BYOK') ...[
-          Text(
-            tr('settings_byok_config_title'),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 20),
           _buildTextField(
             controller: _byokApiKeyController,
             label: tr('settings_api_key'),
@@ -312,14 +400,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             hint: 'https://api.openai.com/v1/chat/completions',
             icon: Icons.link,
           ),
-          const SizedBox(height: 24),
-          _buildHelpLink(),
         ] else if (_selectedProvider == 'BYOM') ...[
-          Text(
-            tr('settings_byom_config_title'),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 20),
           _buildTextField(
             controller: _byomEndpointController,
             label: tr('settings_local_endpoint'),
@@ -341,8 +422,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             obscure: true,
             icon: Icons.vpn_key,
           ),
-          const SizedBox(height: 24),
-          _buildHelpLink(),
         ] else
           Center(
             child: Padding(
@@ -354,6 +433,140 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
             ),
           ),
+
+        const SizedBox(height: 30),
+        const Divider(),
+        const SizedBox(height: 10),
+
+        ExpansionTile(
+          title: Text(
+            tr('settings_advanced_title'),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          leading: const Icon(Icons.settings_suggest, color: Color(0xFF135ACF)),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 10),
+                  Text(
+                    tr('settings_gen_params'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumericField(_aiTempController, tr('settings_temp'), '0.7'),
+                  const SizedBox(height: 12),
+                  _buildNumericField(
+                    _aiResponseLengthController,
+                    tr('settings_response_length'),
+                    '1024',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildNumericField(
+                    _aiMaxTokenController,
+                    tr('settings_max_token'),
+                    '1024',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildNumericField(_aiTopPController, tr('settings_top_p'), '0.9'),
+                  const SizedBox(height: 12),
+                  _buildNumericField(_aiTopAController, tr('settings_top_a'), '0.0'),
+                  const SizedBox(height: 12),
+                  _buildNumericField(_aiTopKController, tr('settings_top_k'), '40'),
+                  const SizedBox(height: 12),
+                  _buildNumericField(
+                    _aiRepPenaltyController,
+                    tr('settings_rep_penalty'),
+                    '1.1',
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    tr('settings_memory_params'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildNumericField(
+                    _aiContextLimitController,
+                    tr('settings_context_limit'),
+                    '1500',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildNumericField(
+                    _aiLtmBudgetController,
+                    tr('settings_ltm_budget'),
+                    '300',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildNumericField(
+                    _aiEmbedBudgetController,
+                    tr('settings_embed_budget'),
+                    '200',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildNumericField(
+                    _aiHistoryDepthController,
+                    tr('settings_history_depth'),
+                    '5',
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 24),
+        _buildHelpLink(),
+      ],
+    );
+  }
+
+  Widget _buildNumericField(
+    TextEditingController controller,
+    String label,
+    String hint,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 2,
+          child: SizedBox(
+            height: 40,
+            child: TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: hint,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                filled: true,
+                fillColor: Colors.grey.withOpacity(0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

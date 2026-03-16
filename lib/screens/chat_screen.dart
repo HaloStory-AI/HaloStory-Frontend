@@ -732,7 +732,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ),
                 child: MarkdownBody(
                   data: content,
-                  selectable: true,
+                  selectable: false, // Matikan agar tidak bentrok dengan context menu (Regenerate/Rewind)
                   extensionSet: md.ExtensionSet(
                     md.ExtensionSet.gitHubFlavored.blockSyntaxes,
                     <md.InlineSyntax>[
@@ -849,7 +849,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ),
                         child: MarkdownBody(
                           data: part,
-                          selectable: true,
+                          selectable: false, // Sama seperti di bubble user
                           extensionSet: md.ExtensionSet(
                             md.ExtensionSet.gitHubFlavored.blockSyntaxes,
                             <md.InlineSyntax>[

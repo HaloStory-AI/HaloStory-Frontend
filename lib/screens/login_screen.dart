@@ -24,14 +24,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     setState(() => _isLoading = true);
 
-    final success = await _authService.login(
+    final result = await _authService.login(
       _emailController.text,
       _passwordController.text,
     );
 
     setState(() => _isLoading = false);
 
-    if (success && mounted) {
+    bool isSuccess = result['success'] == true;
+    if (isSuccess && mounted) {
       final prefs = await SharedPreferences.getInstance();
       final bool isSetupCompleted =
           prefs.getBool('is_setup_completed') ?? false;
@@ -56,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(tr('login_failed'))));
+      ).showSnackBar(SnackBar(content: Text(result['message'] ?? tr('login_failed'))));
     }
   }
 

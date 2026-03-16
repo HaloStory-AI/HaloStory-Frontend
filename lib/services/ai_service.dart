@@ -18,7 +18,8 @@ class AIService {
     final token = await _authService.getToken();
     if (token == null) return null;
 
-    final actualLanguage = language ?? LocalizationService().currentLanguageName;
+    final actualLanguage =
+        language ?? LocalizationService().currentLanguageName;
     final prefs = await SharedPreferences.getInstance();
 
     // Normalize provider for legacy support if needed
@@ -29,9 +30,50 @@ class AIService {
       mode = 'System'; // Fallback for old selections
     }
 
+    // Load Advanced Params
+    final double temp = prefs.getDouble('ai_temp') ?? _getDefault(mode, 'temp');
+    final int responseLength =
+        prefs.getInt('ai_response_length') ?? _getDefault(mode, 'max_token');
+    final int maxTokens =
+        prefs.getInt('ai_max_token') ?? _getDefault(mode, 'max_token');
+    final double topP = prefs.getDouble('ai_top_p') ?? _getDefault(mode, 'top_p');
+    final double topA = prefs.getDouble('ai_top_a') ?? _getDefault(mode, 'top_a');
+    final int topK = prefs.getInt('ai_top_k') ?? _getDefault(mode, 'top_k');
+    final double repPenalty =
+        prefs.getDouble('ai_rep_penalty') ?? _getDefault(mode, 'rep_penalty');
+
+    final int contextLimit =
+        prefs.getInt('ai_context_limit') ?? _getDefault(mode, 'context_limit');
+    final int ltmBudget =
+        prefs.getInt('ai_ltm_budget') ?? _getDefault(mode, 'ltm_budget');
+    final int embedBudget =
+        prefs.getInt('ai_embed_budget') ?? _getDefault(mode, 'embed_budget');
+    final int historyDepth =
+        prefs.getInt('ai_history_depth') ?? _getDefault(mode, 'history_depth');
+
+    final Map<String, dynamic> advancedParams = {
+      'temperature': temp,
+      'response_length': responseLength,
+      'max_tokens': maxTokens,
+      'top_p': topP,
+      'top_a': topA,
+      'top_k': topK,
+      'repetition_penalty': repPenalty,
+      'context_limit': contextLimit,
+      'ltm_budget': ltmBudget,
+      'embedding_budget': embedBudget,
+      'history_depth': historyDepth,
+    };
+
     try {
       if (mode == 'System') {
-        return await _sendSystemMessage(token, messages, botId, actualLanguage);
+        return await _sendSystemMessage(
+          token,
+          messages,
+          botId,
+          actualLanguage,
+          advancedParams,
+        );
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
         final model = prefs.getString('byok_model') ?? 'gpt-3.5-turbo';
@@ -46,6 +88,7 @@ class AIService {
           apiKey,
           model,
           baseUrl,
+          advancedParams,
         );
       } else if (mode == 'BYOM') {
         final endpoint =
@@ -61,10 +104,86 @@ class AIService {
           endpoint,
           model,
           apiKey,
+          advancedParams,
         );
       }
     } catch (e) {
       print('DEBUG: AIService Error: $e');
+    }
+    return null;
+  }
+
+  dynamic _getDefault(String mode, String param) {
+    if (mode == 'System') {
+      switch (param) {
+        case 'temp':
+          return 0.7;
+        case 'max_token':
+          return 1024;
+        case 'top_p':
+          return 0.9;
+        case 'top_a':
+          return 0.0;
+        case 'top_k':
+          return 40;
+        case 'rep_penalty':
+          return 1.1;
+        case 'context_limit':
+          return 1500;
+        case 'ltm_budget':
+          return 300;
+        case 'embed_budget':
+          return 200;
+        case 'history_depth':
+          return 5;
+      }
+    } else if (mode == 'BYOK') {
+      switch (param) {
+        case 'temp':
+          return 0.7;
+        case 'max_token':
+          return 4096;
+        case 'top_p':
+          return 1.0;
+        case 'top_a':
+          return 0.0;
+        case 'top_k':
+          return 50;
+        case 'rep_penalty':
+          return 1.0;
+        case 'context_limit':
+          return 3000;
+        case 'ltm_budget':
+          return 1000;
+        case 'embed_budget':
+          return 500;
+        case 'history_depth':
+          return 15;
+      }
+    } else {
+      // BYOM - Higher or No limit in UI, but we need defaults here
+      switch (param) {
+        case 'temp':
+          return 0.7;
+        case 'max_token':
+          return 8192;
+        case 'top_p':
+          return 1.0;
+        case 'top_a':
+          return 0.0;
+        case 'top_k':
+          return 100;
+        case 'rep_penalty':
+          return 1.0;
+        case 'context_limit':
+          return 16000;
+        case 'ltm_budget':
+          return 4000;
+        case 'embed_budget':
+          return 2000;
+        case 'history_depth':
+          return 30;
+      }
     }
     return null;
   }
@@ -74,6 +193,7 @@ class AIService {
     List<Map<String, String>> messages,
     String? botId,
     String? language,
+    Map<String, dynamic> advancedParams,
   ) async {
     final response = await http.post(
       Uri.parse(AppConstants.chatSystemUrl),
@@ -85,6 +205,7 @@ class AIService {
         'messages': messages,
         'bot_id': botId,
         'language': language,
+        ...advancedParams,
       }),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
@@ -102,6 +223,7 @@ class AIService {
     String apiKey,
     String model,
     String baseUrl,
+    Map<String, dynamic> advancedParams,
   ) async {
     final response = await http.post(
       Uri.parse(AppConstants.chatByokUrl),
@@ -116,6 +238,7 @@ class AIService {
         'api_key': apiKey,
         'model': model,
         'base_url': baseUrl,
+        ...advancedParams,
       }),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
@@ -133,6 +256,7 @@ class AIService {
     String endpoint,
     String model,
     String apiKey,
+    Map<String, dynamic> advancedParams,
   ) async {
     // 1. Fetch system prompt from backend
     final promptResponse = await http.get(
@@ -166,7 +290,7 @@ class AIService {
       body: jsonEncode({
         'model': model,
         'messages': localMessages,
-        'max_tokens': 4000,
+        ...advancedParams,
       }),
     );
 

@@ -59,7 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    final success = await _authService.register(
+    final result = await _authService.register(
       _nameController.text,
       _emailController.text,
       _passwordController.text,
@@ -68,7 +68,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = false);
 
-    if (success && mounted) {
+    bool isSuccess = result['success'] == true;
+    if (isSuccess && mounted) {
       final prefs = await SharedPreferences.getInstance();
       final bool isSetupCompleted =
           prefs.getBool('is_setup_completed') ?? false;
@@ -93,7 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } else if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(tr('register_failed'))));
+      ).showSnackBar(SnackBar(content: Text(result['message'] ?? tr('register_failed'))));
     }
   }
 

@@ -9,7 +9,7 @@ class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _loginDateKey = 'login_date';
 
-  Future<bool> register(
+  Future<Map<String, dynamic>> register(
     String name,
     String email,
     String password,
@@ -31,27 +31,30 @@ class AuthService {
               'password_confirmation': passwordConfirmation,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 30));
 
+      final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         await _saveToken(data['access_token']);
         _userProfileCache = data['user'];
         _lastProfileFetch = DateTime.now();
-        return true;
+        return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
       }
       if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
       }
       print('DEBUG: Register failed with status: ${response.statusCode}');
-      return false;
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Gagal mendaftar.',
+      };
     } catch (e) {
       print('DEBUG: Register error (timeout or network): $e');
-      return false;
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
     }
   }
 
-  Future<bool> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http
           .post(
@@ -63,14 +66,14 @@ class AuthService {
             },
             body: jsonEncode({'email': email, 'password': password}),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 30));
 
+      final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         await _saveToken(data['access_token']);
         _userProfileCache = data['user'];
         _lastProfileFetch = DateTime.now();
-        return true;
+        return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
       }
       if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
@@ -78,10 +81,10 @@ class AuthService {
       print(
         'DEBUG: Login failed with status: ${response.statusCode}, body: ${response.body}',
       );
-      return false;
+      return {'success': false, 'message': data['message'] ?? 'Gagal masuk.'};
     } catch (e) {
       print('DEBUG: Login error (timeout or network): $e');
-      return false;
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
     }
   }
 
