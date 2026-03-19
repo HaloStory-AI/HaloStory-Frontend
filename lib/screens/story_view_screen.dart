@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/story_service.dart';
+import '../services/ai_service.dart';
+import '../services/localization_service.dart';
 import '../services/bot_service.dart';
 import 'chat_screen.dart';
 
@@ -82,7 +84,8 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     // 1. Stream download progress — bail out if generation changed
     await for (final progress in _storyService.getMediaDownloadProgress(url)) {
       if (!mounted || _loadGen != myGen) return; // stale — user already skipped
-      if (progress < 0 && progress != -2.0) break; // Error (-1.0), but -2.0 is indeterminate
+      if (progress < 0 && progress != -2.0)
+        break; // Error (-1.0), but -2.0 is indeterminate
 
       setState(() {
         // -2.0 means indeterminate (server didn't provide content length)
@@ -289,7 +292,9 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
           Navigator.pop(sheetCtx);
 
           final prefs = await SharedPreferences.getInstance();
-          final provider = prefs.getString('default_provider') ?? 'System';
+          final provider = AIService.normalizeProvider(
+            prefs.getString('default_provider'),
+          );
 
           if (!mounted) return;
 
@@ -342,7 +347,9 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
       if (await Permission.storage.request().isDenied) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Storage permission required to save.')),
+            const SnackBar(
+              content: Text('❌ Storage permission required to save.'),
+            ),
           );
         }
         return;
@@ -356,7 +363,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     try {
       final dio = Dio();
       final fileName = url.split('/').last.split('?').first;
-      
+
       // Determine Download/BlueTalk path
       Directory? downloadDir;
       if (Platform.isAndroid) {
@@ -373,11 +380,12 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
         await downloadDir.create(recursive: true);
       }
 
-      final savePath = '${downloadDir?.path ?? (await getTemporaryDirectory()).path}/$fileName';
+      final savePath =
+          '${downloadDir?.path ?? (await getTemporaryDirectory()).path}/$fileName';
 
       // Check if we already have it in cache to save bandwidth
       final String? cachedPath = await _storyService.getCachedPath(url);
-      
+
       if (cachedPath != null) {
         // Copy from cache
         await File(cachedPath).copy(savePath);

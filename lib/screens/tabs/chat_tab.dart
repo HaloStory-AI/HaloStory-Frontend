@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
+import '../../services/ai_service.dart';
 import '../../services/bot_service.dart';
 import '../../services/localization_service.dart';
 import '../chat_screen.dart';
@@ -371,10 +372,11 @@ class _ChatTabState extends State<ChatTab> {
                                         final prefs =
                                             await SharedPreferences.getInstance();
                                         final provider =
-                                            prefs.getString(
-                                              'default_provider',
-                                            ) ??
-                                            'System';
+                                            AIService.normalizeProvider(
+                                              prefs.getString(
+                                                'default_provider',
+                                              ),
+                                            );
 
                                         if (!mounted) return;
                                         Navigator.push(
@@ -441,7 +443,10 @@ class _ChatTabState extends State<ChatTab> {
                   });
                 },
                 itemBuilder: (context) => [
-                  PopupMenuItem(value: 'Newest', child: Text(tr('sort_newest'))),
+                  PopupMenuItem(
+                    value: 'Newest',
+                    child: Text(tr('sort_newest')),
+                  ),
                   PopupMenuItem(value: 'Name', child: Text(tr('sort_name'))),
                 ],
                 child: Container(
@@ -672,7 +677,9 @@ class _ChatTabState extends State<ChatTab> {
           ),
           onTap: () async {
             final prefs = await SharedPreferences.getInstance();
-            final provider = prefs.getString('default_provider') ?? 'System';
+            final provider = AIService.normalizeProvider(
+              prefs.getString('default_provider'),
+            );
 
             if (!mounted) return;
             Navigator.push(

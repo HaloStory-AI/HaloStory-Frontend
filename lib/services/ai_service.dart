@@ -7,6 +7,15 @@ import 'localization_service.dart';
 import 'config_service.dart';
 
 class AIService {
+  static String normalizeProvider(String? p) {
+    if (p == null) return 'System';
+    if (p == 'System' || p == 'BYOK' || p == 'BYOM') return p;
+    // Legacy mapping (Gemini, Groq, etc were once types of System AI in older versions)
+    if (p.contains('Groq') || p == 'OpenAI' || p == 'Gemini') return 'System';
+    // Any other specific platforms should be treated as BYOK if not found in category list
+    return 'BYOK';
+  }
+
   final AuthService _authService = AuthService();
 
   Future<Map<String, dynamic>?> sendMessage({
@@ -23,12 +32,7 @@ class AIService {
     final prefs = await SharedPreferences.getInstance();
 
     // Normalize provider for legacy support if needed
-    String mode = provider;
-    if (provider.contains('Groq') ||
-        provider == 'OpenAI' ||
-        provider == 'Gemini') {
-      mode = 'System'; // Fallback for old selections
-    }
+    final mode = normalizeProvider(provider);
 
     // Load Advanced Params
     final double temp = prefs.getDouble('ai_temp') ?? _getDefault(mode, 'temp');
@@ -36,8 +40,10 @@ class AIService {
         prefs.getInt('ai_response_length') ?? _getDefault(mode, 'max_token');
     final int maxTokens =
         prefs.getInt('ai_max_token') ?? _getDefault(mode, 'max_token');
-    final double topP = prefs.getDouble('ai_top_p') ?? _getDefault(mode, 'top_p');
-    final double topA = prefs.getDouble('ai_top_a') ?? _getDefault(mode, 'top_a');
+    final double topP =
+        prefs.getDouble('ai_top_p') ?? _getDefault(mode, 'top_p');
+    final double topA =
+        prefs.getDouble('ai_top_a') ?? _getDefault(mode, 'top_a');
     final int topK = prefs.getInt('ai_top_k') ?? _getDefault(mode, 'top_k');
     final double repPenalty =
         prefs.getDouble('ai_rep_penalty') ?? _getDefault(mode, 'rep_penalty');
@@ -50,6 +56,8 @@ class AIService {
         prefs.getInt('ai_embed_budget') ?? _getDefault(mode, 'embed_budget');
     final int historyDepth =
         prefs.getInt('ai_history_depth') ?? _getDefault(mode, 'history_depth');
+    final bool reasoningEnabled =
+        prefs.getBool('ai_reasoning_enabled') ?? false;
 
     final Map<String, dynamic> advancedParams = {
       'temperature': temp,
@@ -63,6 +71,9 @@ class AIService {
       'ltm_budget': ltmBudget,
       'embedding_budget': embedBudget,
       'history_depth': historyDepth,
+      'reasoning': {'enabled': reasoningEnabled},
+      'reasoning_enabled':
+          reasoningEnabled, // Send as flat property for generic controllers
     };
 
     try {
@@ -76,10 +87,10 @@ class AIService {
         );
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
-        final model = prefs.getString('byok_model') ?? 'gpt-3.5-turbo';
-        final baseUrl =
-            prefs.getString('byok_base_url') ??
-            'https://api.openai.com/v1/chat/completions';
+        final model = prefs.getString('byok_model') ?? 'openai/gpt-3.5-turbo';
+        final byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
+        final baseUrl = prefs.getString('byok_base_url') ?? '';
+
         return await _sendByokMessage(
           token,
           messages,
@@ -87,6 +98,7 @@ class AIService {
           actualLanguage,
           apiKey,
           model,
+          byokProvider,
           baseUrl,
           advancedParams,
         );
@@ -222,11 +234,15 @@ class AIService {
     String? language,
     String apiKey,
     String model,
+    String byokProvider,
     String baseUrl,
     Map<String, dynamic> advancedParams,
   ) async {
+    // Dynamic endpoint for BYOK
+    final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
+
     final response = await http.post(
-      Uri.parse(AppConstants.chatByokUrl),
+      Uri.parse(endpoint),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',

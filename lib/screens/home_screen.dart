@@ -373,7 +373,11 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Text(tr('sidebar_contributor')),
               onTap: () {
                 Navigator.pop(context);
-                launchUrl(Uri.parse('https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html'));
+                launchUrl(
+                  Uri.parse(
+                    'https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html',
+                  ),
+                );
               },
             ),
             ListTile(
@@ -397,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Text(tr('sidebar_help')),
               onTap: () {
                 Navigator.pop(context);
-                launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
+                launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
               },
             ),
             ListTile(

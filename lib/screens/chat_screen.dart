@@ -174,21 +174,35 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'content': userMessage,
         'timestamp': timestamp,
       });
+    });
+    _scrollToBottom();
+
+    await _getAIResponse();
+  }
+
+  Future<void> _regenerateResponse() async {
+    if (_isLoading || _messages.isEmpty) return;
+
+    // Check if the last message is from assistant or system (error)
+    if (_messages.last['role'] == 'assistant' ||
+        _messages.last['role'] == 'system') {
+      setState(() {
+        _messages.removeLast(); // Remove the old response
+      });
+      await _getAIResponse();
+    }
+  }
+
+  Future<void> _getAIResponse() async {
+    setState(() {
       _isLoading = true;
     });
     _scrollToBottom();
 
-    // Bug Fix 1: Remove trailing system error messages before sending
-    // If the last message was a system error, we should not include it in the retry
-    while (_messages.isNotEmpty && _messages.last['role'] == 'system') {
-      _messages.removeLast();
-    }
-
     // Prepare messages for AI (Role-based)
-    // We no longer inject system instruction here; the backend builds it from latest_sys.md
-    // Filter out any messages with null content (old corrupted saves) before sending
+    // Filter out any messages with null content (old corrupted saves)
     List<Map<String, String>> aiMessages = _messages
-        .where((m) => m['content'] != null)
+        .where((m) => m['content'] != null && m['role'] != 'system')
         .map(
           (m) => {
             'role': m['role'] as String,
@@ -200,59 +214,65 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     // Get language from settings or use default
     final prefs = await SharedPreferences.getInstance();
     String language = prefs.getString('app_language') ?? 'Indonesian';
-    final response = await _aiService.sendMessage(
-      provider: widget.provider,
-      messages: aiMessages,
-      botId: widget.bot['id'],
-      language: language,
-    );
 
-    setState(() {
-      _isLoading = false;
-      final aiTimestamp = DateTime.now().toIso8601String();
-      if (response != null && response['choices'] != null) {
-        final aiContent = response['choices'][0]['message']['content'];
-        // Guard: backend should never return null here after sanitization,
-        // but defend on the client side too.
-        if (aiContent != null && (aiContent as String).isNotEmpty) {
-          _messages.add({
-            'role': 'assistant',
-            'content': aiContent,
-            'timestamp': aiTimestamp,
-          });
-        } else {
-          // Treat null/empty AI content as an error
-          String errorMsg =
-              'Error: Failed to get response from ${widget.provider}.';
-          if (widget.provider == 'System') {
-            errorMsg = tr('error_busy');
+    try {
+      final response = await _aiService.sendMessage(
+        provider: widget.provider,
+        messages: aiMessages,
+        botId: widget.bot['id'],
+        language: language,
+      );
+
+      setState(() {
+        _isLoading = false;
+        final aiTimestamp = DateTime.now().toIso8601String();
+
+        if (response != null && response['choices'] != null) {
+          final aiContent = response['choices'][0]['message']['content'];
+          if (aiContent != null && (aiContent as String).isNotEmpty) {
+            _messages.add({
+              'role': 'assistant',
+              'content': aiContent,
+              'timestamp': aiTimestamp,
+            });
+          } else {
+            _addSystemError(aiTimestamp);
           }
-          _messages.add({
-            'role': 'system',
-            'content': errorMsg,
-            'timestamp': aiTimestamp,
-          });
+        } else {
+          _addSystemError(aiTimestamp);
         }
-      } else {
-        String errorMsg =
-            'Error: Failed to get response from ${widget.provider}.';
-        if (widget.provider == 'System') {
-          errorMsg = tr('error_busy');
-        }
-        _messages.add({
-          'role': 'system',
-          'content': errorMsg,
-          'timestamp': aiTimestamp,
-        });
-      }
-    });
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _addSystemError(DateTime.now().toIso8601String());
+      });
+    }
 
     // Save to local storage
     await _localChatService.saveChat(widget.bot['id'], _messages);
     _scrollToBottom();
   }
 
+  void _addSystemError(String timestamp) {
+    String errorMsg = 'Error: Failed to get response from ${widget.provider}.';
+    if (widget.provider == 'System') {
+      errorMsg = tr('error_busy');
+    }
+    _messages.add({
+      'role': 'system',
+      'content': errorMsg,
+      'timestamp': timestamp,
+    });
+  }
+
   void _showMessageOptions(int index, String content) {
+    final bool isLastMessage = index == _messages.length - 1;
+    final String role = _messages[index]['role'] ?? '';
+    // Can regenerate if it's the last message and it's NOT from the user
+    final bool canRegenerate =
+        isLastMessage && (role == 'assistant' || role == 'system');
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -274,6 +294,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            if (canRegenerate) ...[
+              // Regenerate Response option
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE3F2FD),
+                  child: Icon(Icons.refresh_rounded, color: Color(0xFF1976D2)),
+                ),
+                title: const Text(
+                  'Regenerate Response',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Retry getting a new answer from the AI',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _regenerateResponse();
+                },
+              ),
+              const Divider(height: 1),
+            ],
             // Rewind option
             ListTile(
               leading: const CircleAvatar(
@@ -732,7 +774,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ),
                 child: MarkdownBody(
                   data: content,
-                  selectable: false, // Matikan agar tidak bentrok dengan context menu (Regenerate/Rewind)
+                  selectable:
+                      false, // Matikan agar tidak bentrok dengan context menu (Regenerate/Rewind)
                   extensionSet: md.ExtensionSet(
                     md.ExtensionSet.gitHubFlavored.blockSyntaxes,
                     <md.InlineSyntax>[

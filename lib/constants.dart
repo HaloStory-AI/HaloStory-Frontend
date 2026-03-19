@@ -3,11 +3,11 @@ import 'services/config_service.dart';
 
 class AppConstants {
   // Hardcoded string for development
-  static const String _devBaseUrl =
-      'https://imouto-fansub.my.id/bluetalk_backend/api';
+  static const String _devBaseUrl = 'https://api-bluetalk.my-bini.my.id/api';
 
   // Use hardcoded for dev, and ConfigService (GitHub dynamic) for prod
   static String get baseUrl => kDebugMode ? _devBaseUrl : ConfigService.baseUrl;
+  static String get apiUrl => baseUrl;
 
   static String get chatSystemUrl => '$baseUrl/ai/chat/system';
   static String get chatByokUrl => '$baseUrl/ai/chat/byok';

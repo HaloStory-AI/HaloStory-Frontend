@@ -54,7 +54,7 @@ class _StoriesTabState extends State<StoriesTab> {
 
     try {
       final stories = await _storyService.getStories(forceRefresh: force);
-      
+
       // Check seen status for each
       List<Map<String, dynamic>> enrichedStories = [];
       for (var s in stories) {
@@ -99,7 +99,13 @@ class _StoriesTabState extends State<StoriesTab> {
   Widget build(BuildContext context) {
     // Dummy channels data
     final List<Map<String, String>> channels = [
-      {'name': tr('coming_soon'), 'message': tr('tab_stories_channels_soon_desc'), 'date': '--/--/--', 'icon': '?', 'pinned': 'false'},
+      {
+        'name': tr('coming_soon'),
+        'message': tr('tab_stories_channels_soon_desc'),
+        'date': '--/--/--',
+        'icon': '?',
+        'pinned': 'false',
+      },
     ];
 
     return SingleChildScrollView(
@@ -119,13 +125,17 @@ class _StoriesTabState extends State<StoriesTab> {
                     itemBuilder: (_, __) => Container(
                       width: 80,
                       margin: const EdgeInsets.only(right: 12),
-                      child: const SkeletonWidget(width: 80, height: 80, borderRadius: 40),
+                      child: const SkeletonWidget(
+                        width: 80,
+                        height: 80,
+                        borderRadius: 40,
+                      ),
                     ),
                   ),
                 )
-              : _stories.isEmpty 
-                ? const SizedBox.shrink()
-                : SizedBox(
+              : _stories.isEmpty
+              ? const SizedBox.shrink()
+              : SizedBox(
                   height: 115,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
@@ -134,14 +144,21 @@ class _StoriesTabState extends State<StoriesTab> {
                     itemBuilder: (context, index) {
                       final groupedBots = _getGroupedBots();
                       final botId = groupedBots[index];
-                      final botStories = _stories.where((s) => s['bot_id'] == botId).toList();
-                      final firstStory = botStories.first; // This is the oldest due to ASC sort
+                      final botStories = _stories
+                          .where((s) => s['bot_id'] == botId)
+                          .toList();
+                      final firstStory = botStories
+                          .first; // This is the oldest due to ASC sort
                       final latestStory = botStories.last; // This is the newest
-                      final bool hasUnseen = botStories.any((s) => !(s['isSeen'] ?? false));
-                      
+                      final bool hasUnseen = botStories.any(
+                        (s) => !(s['isSeen'] ?? false),
+                      );
+
                       return GestureDetector(
                         onTap: () {
-                          int targetIndex = botStories.indexWhere((s) => !(s['isSeen'] ?? false));
+                          int targetIndex = botStories.indexWhere(
+                            (s) => !(s['isSeen'] ?? false),
+                          );
                           if (targetIndex == -1) targetIndex = 0;
 
                           Navigator.push(
@@ -171,12 +188,16 @@ class _StoriesTabState extends State<StoriesTab> {
                                     child: CircleAvatar(
                                       radius: 32,
                                       backgroundColor: Colors.grey.shade200,
-                                      backgroundImage: latestStory['bot_avatar'] != null
-                                          ? NetworkImage(latestStory['bot_avatar'])
+                                      backgroundImage:
+                                          latestStory['bot_avatar'] != null
+                                          ? NetworkImage(
+                                              latestStory['bot_avatar'],
+                                            )
                                           : null,
                                       child: latestStory['bot_avatar'] == null
                                           ? Text(
-                                              latestStory['bot_name'][0].toUpperCase(),
+                                              latestStory['bot_name'][0]
+                                                  .toUpperCase(),
                                               style: const TextStyle(
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.bold,
@@ -194,8 +215,12 @@ class _StoriesTabState extends State<StoriesTab> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: hasUnseen ? FontWeight.bold : FontWeight.normal,
-                                  color: hasUnseen ? Colors.black : Colors.grey.shade600,
+                                  fontWeight: hasUnseen
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: hasUnseen
+                                      ? Colors.black
+                                      : Colors.grey.shade600,
                                 ),
                               ),
                             ],
@@ -221,11 +246,13 @@ class _StoriesTabState extends State<StoriesTab> {
                   ),
                 ),
                 TextButton(
-                  onPressed: (_isReloading || _remainingSeconds > 0) 
-                      ? null 
+                  onPressed: (_isReloading || _remainingSeconds > 0)
+                      ? null
                       : () => _loadData(force: true),
                   style: TextButton.styleFrom(
-                    backgroundColor: (_isReloading || _remainingSeconds > 0) ? Colors.grey[200] : const Color(0xFFF0F0F0),
+                    backgroundColor: (_isReloading || _remainingSeconds > 0)
+                        ? Colors.grey[200]
+                        : const Color(0xFFF0F0F0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -238,15 +265,22 @@ class _StoriesTabState extends State<StoriesTab> {
                         const SizedBox(
                           width: 12,
                           height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF135ACF)),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF135ACF),
+                          ),
                         ),
                       if (_isReloading) const SizedBox(width: 8),
                       Text(
-                        _remainingSeconds > 0 
+                        _remainingSeconds > 0
                             ? '${tr('btn_reload_in')} ${_formatCooldown(_remainingSeconds)}'
-                            : _isReloading ? tr('loading') : tr('btn_reload_stories'),
+                            : _isReloading
+                            ? tr('loading')
+                            : tr('btn_reload_stories'),
                         style: TextStyle(
-                          color: (_isReloading || _remainingSeconds > 0) ? Colors.grey : Colors.black87,
+                          color: (_isReloading || _remainingSeconds > 0)
+                              ? Colors.grey
+                              : Colors.black87,
                           fontSize: 13,
                         ),
                       ),
@@ -271,7 +305,10 @@ class _StoriesTabState extends State<StoriesTab> {
                         backgroundColor: const Color(0xFFBDC3C7),
                         child: Text(
                           channel['icon']!,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       title: Text(
@@ -285,7 +322,11 @@ class _StoriesTabState extends State<StoriesTab> {
                         padding: const EdgeInsets.only(top: 4.0),
                         child: Row(
                           children: [
-                            const Icon(Icons.check, size: 14, color: Colors.grey),
+                            const Icon(
+                              Icons.check,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -304,11 +345,18 @@ class _StoriesTabState extends State<StoriesTab> {
                         children: [
                           Text(
                             channel['date']!,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           if (channel['pinned'] == 'true')
-                            const Icon(Icons.push_pin, size: 16, color: Colors.grey),
+                            const Icon(
+                              Icons.push_pin,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
                         ],
                       ),
                       onTap: () {},
@@ -328,7 +376,7 @@ class StoryRingPainter extends CustomPainter {
   final List<Map<String, dynamic>> stories;
 
   static const Color _unseenColor = Color(0xFF135ACF);
-  static const Color _seenColor   = Color(0xFFCCCCCC);
+  static const Color _seenColor = Color(0xFFCCCCCC);
   static const double _strokeWidth = 3.0;
   // Gap antar segmen dalam derajat
   static const double _gapDeg = 6.0;
@@ -360,9 +408,9 @@ class StoryRingPainter extends CustomPainter {
     }
 
     // Mulai dari atas (-90 derajat)
-    final double gapRad   = _gapDeg * math.pi / 180;
+    final double gapRad = _gapDeg * math.pi / 180;
     final double totalGap = gapRad * count;
-    final double segRad   = (2 * math.pi - totalGap) / count;
+    final double segRad = (2 * math.pi - totalGap) / count;
 
     for (int i = 0; i < count; i++) {
       final bool seen = stories[i]['isSeen'] ?? false;
@@ -374,7 +422,8 @@ class StoryRingPainter extends CustomPainter {
         ..isAntiAlias = true;
 
       // Posisi awal tiap segmen
-      final double startAngle = -math.pi / 2 + i * (segRad + gapRad) + gapRad / 2;
+      final double startAngle =
+          -math.pi / 2 + i * (segRad + gapRad) + gapRad / 2;
 
       canvas.drawArc(rect, startAngle, segRad, false, paint);
     }

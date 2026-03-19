@@ -1,8 +1,14 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'splash_screen.dart';
+import '../constants.dart';
 import '../services/localization_service.dart';
+import '../services/ai_service.dart';
+import '../services/auth_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,12 +19,34 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen>
     with SingleTickerProviderStateMixin {
+  final AuthService _authService = AuthService();
   late TabController _tabController;
   final List<String> _providers = ['System', 'BYOK', 'BYOM'];
 
+  final Map<String, String> _byokProvidersList = {
+    'gemini': 'Google Gemini',
+    'claude': 'Anthropic Claude',
+    'deepseek': 'DeepSeek',
+    'groq': 'Groq',
+    'mistral': 'Mistral AI',
+    'openrouter': 'OpenRouter',
+    'arli': 'Arli AI',
+    'mancer': 'Mancer',
+    'featherless': 'Featherless AI',
+    'chutes': 'Chutes AI',
+    'nanogpt': 'NanoGPT',
+    'venus': 'Venus AI',
+    'zai': 'Z.ai',
+    'novel': 'NovelAI',
+    'horde': 'AI Horde',
+    'openai-compatible': 'Custom OpenAI Compatible',
+  };
+
   String _selectedProvider = 'System';
+  String _byokProvider = 'openrouter';
   String _currentLanguage = 'id';
   bool _isLanguageChanged = false;
+  bool _aiReasoningEnabled = false;
 
   // BYOK Controllers
   final TextEditingController _byokApiKeyController = TextEditingController();
@@ -38,8 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   final TextEditingController _aiTopPController = TextEditingController();
   final TextEditingController _aiTopAController = TextEditingController();
   final TextEditingController _aiTopKController = TextEditingController();
-  final TextEditingController _aiRepPenaltyController =
-      TextEditingController();
+  final TextEditingController _aiRepPenaltyController = TextEditingController();
   final TextEditingController _aiContextLimitController =
       TextEditingController();
   final TextEditingController _aiLtmBudgetController = TextEditingController();
@@ -81,8 +108,13 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+
     setState(() {
-      _selectedProvider = prefs.getString('default_provider') ?? 'System';
+      _selectedProvider = AIService.normalizeProvider(
+        prefs.getString('default_provider'),
+      );
+      _byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
+      _aiReasoningEnabled = prefs.getBool('ai_reasoning_enabled') ?? false;
 
       _byokApiKeyController.text = prefs.getString('byok_api_key') ?? '';
       _byokModelController.text = prefs.getString('byok_model') ?? '';
@@ -95,28 +127,187 @@ class _SettingsScreenState extends State<SettingsScreen>
       _aiTempController.text = (prefs.getDouble('ai_temp') ?? 0.7).toString();
       _aiResponseLengthController.text =
           (prefs.getInt('ai_response_length') ?? 1024).toString();
-      _aiMaxTokenController.text =
-          (prefs.getInt('ai_max_token') ?? 1024).toString();
+      _aiMaxTokenController.text = (prefs.getInt('ai_max_token') ?? 1024)
+          .toString();
       _aiTopPController.text = (prefs.getDouble('ai_top_p') ?? 0.9).toString();
       _aiTopAController.text = (prefs.getDouble('ai_top_a') ?? 0.0).toString();
       _aiTopKController.text = (prefs.getInt('ai_top_k') ?? 40).toString();
-      _aiRepPenaltyController.text =
-          (prefs.getDouble('ai_rep_penalty') ?? 1.1).toString();
+      _aiRepPenaltyController.text = (prefs.getDouble('ai_rep_penalty') ?? 1.1)
+          .toString();
       _aiContextLimitController.text =
           (prefs.getInt('ai_context_limit') ?? 1500).toString();
-      _aiLtmBudgetController.text =
-          (prefs.getInt('ai_ltm_budget') ?? 300).toString();
-      _aiEmbedBudgetController.text =
-          (prefs.getInt('ai_embed_budget') ?? 200).toString();
-      _aiHistoryDepthController.text =
-          (prefs.getInt('ai_history_depth') ?? 5).toString();
+      _aiLtmBudgetController.text = (prefs.getInt('ai_ltm_budget') ?? 300)
+          .toString();
+      _aiEmbedBudgetController.text = (prefs.getInt('ai_embed_budget') ?? 200)
+          .toString();
+      _aiHistoryDepthController.text = (prefs.getInt('ai_history_depth') ?? 5)
+          .toString();
     });
+  }
+
+  void _showModelSearchBottomSheet() {
+    final apiKey = _byokApiKeyController.text;
+    final prov = _byokProvider;
+    final baseUrl = _byokBaseUrlController.text;
+
+    if (apiKey.isEmpty &&
+        prov != 'horde' &&
+        prov != 'arli' &&
+        prov != 'mancer') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('API Key required to fetch models for this provider'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        bool isFetching = true;
+        List<String> fetched = [];
+        String errorMessage = '';
+
+        return StatefulBuilder(
+          builder: (BuildContext modalContext, StateSetter setModalState) {
+            // Perform fetch once when the bottom sheet opens
+            if (isFetching && fetched.isEmpty && errorMessage.isEmpty) {
+              final requestBody = {
+                'api_key': apiKey.isEmpty ? 'guest' : apiKey,
+                'provider': prov,
+                if (prov == 'chutes' || prov == 'openai-compatible')
+                  'base_url': baseUrl,
+              };
+
+              _authService.getToken().then((token) {
+                http
+                    .post(
+                      Uri.parse('${AppConstants.apiUrl}/byok/models'),
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        if (token != null) 'Authorization': 'Bearer $token',
+                      },
+                      body: jsonEncode(requestBody),
+                    )
+                    .then((res) {
+                      if (res.statusCode == 200) {
+                        final data = jsonDecode(res.body);
+                        List<dynamic> modelList = [];
+                        if (data is List) {
+                          modelList = data;
+                        } else if (data is Map && data.containsKey('models')) {
+                          modelList = data['models'];
+                        }
+
+                        setModalState(() {
+                          fetched = modelList
+                              .map((e) => e['id'].toString())
+                              .toList();
+                          isFetching = false;
+                        });
+                      } else {
+                        setModalState(() {
+                          errorMessage = 'Failed to fetch: ${res.body}';
+                          isFetching = false;
+                        });
+                      }
+                    })
+                    .catchError((e) {
+                      setModalState(() {
+                        errorMessage = 'Error: $e';
+                        isFetching = false;
+                      });
+                    });
+              });
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(modalContext).viewInsets.bottom,
+              ),
+              child: Container(
+                height: MediaQuery.of(modalContext).size.height * 0.6,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available Models ($prov)',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (isFetching)
+                      const Expanded(
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (errorMessage.isNotEmpty)
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            errorMessage,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      )
+                    else if (fetched.isEmpty)
+                      const Expanded(
+                        child: Center(child: Text('No models found.')),
+                      )
+                    else
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: fetched.length,
+                          itemBuilder: (context, index) {
+                            final model = fetched[index];
+                            return ListTile(
+                              title: Text(model),
+                              trailing: const Icon(Icons.copy, size: 16),
+                              onTap: () {
+                                Clipboard.setData(ClipboardData(text: model));
+                                setState(() {
+                                  _byokModelController.text = model;
+                                });
+                                Navigator.pop(modalContext);
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Model "$model" tersalin ke clipboard!',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('default_provider', _selectedProvider);
+    await prefs.setString('byok_provider', _byokProvider);
+    await prefs.setBool('ai_reasoning_enabled', _aiReasoningEnabled);
 
+    // Save Keys and Endpoints locally
     await prefs.setString('byok_api_key', _byokApiKeyController.text);
     await prefs.setString('byok_model', _byokModelController.text);
     await prefs.setString('byok_base_url', _byokBaseUrlController.text);
@@ -125,67 +316,56 @@ class _SettingsScreenState extends State<SettingsScreen>
     await prefs.setString('byom_model', _byomModelController.text);
     await prefs.setString('byom_api_key', _byomApiKeyController.text);
 
-    await prefs.setDouble(
-      'ai_temp',
-      double.tryParse(_aiTempController.text) ?? 0.7,
-    );
-    await prefs.setInt(
-      'ai_response_length',
-      int.tryParse(_aiResponseLengthController.text) ?? 1024,
-    );
-    await prefs.setInt(
-      'ai_max_token',
-      int.tryParse(_aiMaxTokenController.text) ?? 1024,
-    );
-    await prefs.setDouble(
-      'ai_top_p',
-      double.tryParse(_aiTopPController.text) ?? 0.9,
-    );
-    await prefs.setDouble(
-      'ai_top_a',
-      double.tryParse(_aiTopAController.text) ?? 0.0,
-    );
-    await prefs.setInt(
-      'ai_top_k',
-      int.tryParse(_aiTopKController.text) ?? 40,
-    );
-    await prefs.setDouble(
-      'ai_rep_penalty',
-      double.tryParse(_aiRepPenaltyController.text) ?? 1.1,
-    );
-    await prefs.setInt(
-      'ai_context_limit',
-      int.tryParse(_aiContextLimitController.text) ?? 1500,
-    );
-    await prefs.setInt(
-      'ai_ltm_budget',
-      int.tryParse(_aiLtmBudgetController.text) ?? 300,
-    );
-    await prefs.setInt(
-      'ai_embed_budget',
-      int.tryParse(_aiEmbedBudgetController.text) ?? 200,
-    );
-    await prefs.setInt(
-      'ai_history_depth',
-      int.tryParse(_aiHistoryDepthController.text) ?? 5,
-    );
+    // Collect non-sensitive data for Database Sync
+    final syncPayload = {
+      'default_provider': _selectedProvider,
+      'byok_provider': _byokProvider,
+      'ai_reasoning_enabled': _aiReasoningEnabled,
+      'ai_temp': double.tryParse(_aiTempController.text) ?? 0.7,
+      'ai_response_length':
+          int.tryParse(_aiResponseLengthController.text) ?? 1024,
+      'ai_max_token': int.tryParse(_aiMaxTokenController.text) ?? 1024,
+      'ai_top_p': double.tryParse(_aiTopPController.text) ?? 0.9,
+      'ai_top_a': double.tryParse(_aiTopAController.text) ?? 0.0,
+      'ai_top_k': int.tryParse(_aiTopKController.text) ?? 40,
+      'ai_rep_penalty': double.tryParse(_aiRepPenaltyController.text) ?? 1.1,
+      'ai_context_limit': int.tryParse(_aiContextLimitController.text) ?? 1500,
+      'ai_ltm_budget': int.tryParse(_aiLtmBudgetController.text) ?? 300,
+      'ai_embed_budget': int.tryParse(_aiEmbedBudgetController.text) ?? 200,
+      'ai_history_depth': int.tryParse(_aiHistoryDepthController.text) ?? 5,
+    };
 
-    if (mounted) {
-      if (_isLanguageChanged) {
-        // Force restart to apply language change everywhere
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
-          (route) => false,
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('settings_saved_success')),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+    // Save numeric data locally and sync all
+    for (var entry in syncPayload.entries) {
+      final k = entry.key;
+      final v = entry.value;
+      if (v is double) {
+        await prefs.setDouble(k, v);
+      } else if (v is int) {
+        await prefs.setInt(k, v);
+      } else if (v is String) {
+        await prefs.setString(k, v);
+      } else if (v is bool) {
+        await prefs.setBool(k, v);
       }
+    }
+
+    if (!mounted) return;
+
+    if (_isLanguageChanged) {
+      // Force restart to apply language change everywhere
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('settings_saved_success')),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -238,7 +418,10 @@ class _SettingsScreenState extends State<SettingsScreen>
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+              ),
             ],
           ),
           child: DropdownButtonHideUnderline(
@@ -297,7 +480,10 @@ class _SettingsScreenState extends State<SettingsScreen>
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+              ),
             ],
           ),
           child: DropdownButtonHideUnderline(
@@ -312,6 +498,26 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ),
         const SizedBox(height: 30),
+        SwitchListTile(
+          title: Text(
+            'Enable AI Reasoning',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF135ACF),
+            ),
+          ),
+          subtitle: const Text(
+            'Allow the AI to use extended thinking/reasoning blocks before replying (Requires supported models like Claude 3.7 or DeepSeek-R1).',
+          ),
+          value: _aiReasoningEnabled,
+          activeThumbColor: const Color(0xFF135ACF),
+          onChanged: (bool value) {
+            setState(() {
+              _aiReasoningEnabled = value;
+            });
+          },
+        ),
+        const SizedBox(height: 10),
         Text(
           tr('settings_about_mode'),
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
@@ -379,6 +585,35 @@ class _SettingsScreenState extends State<SettingsScreen>
         const SizedBox(height: 30),
 
         if (_selectedProvider == 'BYOK') ...[
+          const Text(
+            'BYOK Provider Platform',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _byokProvider,
+                items: _byokProvidersList.entries
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _byokProvider = v);
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           _buildTextField(
             controller: _byokApiKeyController,
             label: tr('settings_api_key'),
@@ -387,19 +622,48 @@ class _SettingsScreenState extends State<SettingsScreen>
             icon: Icons.vpn_key,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
-            controller: _byokModelController,
-            label: tr('settings_model_name'),
-            hint: tr('settings_model_name_hint'),
-            icon: Icons.model_training,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: _buildTextField(
+                  controller: _byokModelController,
+                  label: tr('settings_model_name'),
+                  hint: tr('settings_model_name_hint'),
+                  icon: Icons.model_training,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 52, // Align with TextField standard height
+                child: ElevatedButton.icon(
+                  onPressed: _showModelSearchBottomSheet,
+                  icon: const Icon(Icons.cloud_download, size: 18),
+                  label: const Text('Fetch'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(
+                      100,
+                      52,
+                    ), // Override global infinite width
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _byokBaseUrlController,
-            label: tr('settings_base_url'),
-            hint: 'https://api.openai.com/v1/chat/completions',
-            icon: Icons.link,
-          ),
+          if (_byokProvider == 'openai-compatible' ||
+              _byokProvider == 'chutes') ...[
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _byokBaseUrlController,
+              label: tr('settings_base_url'),
+              hint: 'https://api.example.com/v1',
+              icon: Icons.link,
+            ),
+          ],
         ] else if (_selectedProvider == 'BYOM') ...[
           _buildTextField(
             controller: _byomEndpointController,
@@ -459,7 +723,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildNumericField(_aiTempController, tr('settings_temp'), '0.7'),
+                  _buildNumericField(
+                    _aiTempController,
+                    tr('settings_temp'),
+                    '0.7',
+                  ),
                   const SizedBox(height: 12),
                   _buildNumericField(
                     _aiResponseLengthController,
@@ -473,11 +741,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                     '1024',
                   ),
                   const SizedBox(height: 12),
-                  _buildNumericField(_aiTopPController, tr('settings_top_p'), '0.9'),
+                  _buildNumericField(
+                    _aiTopPController,
+                    tr('settings_top_p'),
+                    '0.9',
+                  ),
                   const SizedBox(height: 12),
-                  _buildNumericField(_aiTopAController, tr('settings_top_a'), '0.0'),
+                  _buildNumericField(
+                    _aiTopAController,
+                    tr('settings_top_a'),
+                    '0.0',
+                  ),
                   const SizedBox(height: 12),
-                  _buildNumericField(_aiTopKController, tr('settings_top_k'), '40'),
+                  _buildNumericField(
+                    _aiTopKController,
+                    tr('settings_top_k'),
+                    '40',
+                  ),
                   const SizedBox(height: 12),
                   _buildNumericField(
                     _aiRepPenaltyController,
@@ -550,15 +830,16 @@ class _SettingsScreenState extends State<SettingsScreen>
             height: 40,
             child: TextField(
               controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: hint,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 filled: true,
-                fillColor: Colors.grey.withOpacity(0.05),
+                fillColor: Colors.grey.withValues(alpha: 0.05),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -609,7 +890,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       child: TextButton.icon(
         onPressed: () => launchUrl(
           Uri.parse(
-            'http://docs.my-bini.my.id/books/bluetalk-advance/page/set-up-byok-and-byom',
+            'https://docs.my-bini.my.id/books/bluetalk/page/model-configuration',
           ),
           mode: LaunchMode.externalApplication,
         ),

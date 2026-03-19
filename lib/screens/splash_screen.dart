@@ -5,6 +5,8 @@ import '../services/localization_service.dart';
 import '../services/auth_service.dart';
 import '../services/bot_service.dart';
 import '../services/config_service.dart';
+import '../services/security_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
 import 'welcome_screen.dart';
@@ -56,6 +58,14 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
+    // 0. Cek Internet terlebih dahulu
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      if (!mounted) return;
+      _showNoInternetBottomSheet();
+      return;
+    }
+
     // 1. Fetch Dynamic Config First (API URL, Maintenance, & Version)
     await ConfigService.initConfig();
 
@@ -78,10 +88,12 @@ class _SplashScreenState extends State<SplashScreen>
     final results = await Future.wait([
       _authService.isLoggedIn(),
       _botService.getBots(),
+      SecurityService.isDeviceCompromised(),
       Future.delayed(const Duration(seconds: 2)),
     ]);
 
     final bool isLoggedIn = results[0] as bool;
+    final bool isCompromised = results[2] as bool;
     final prefs = await SharedPreferences.getInstance();
     final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
 
@@ -99,6 +111,11 @@ class _SplashScreenState extends State<SplashScreen>
       // Show contributor notice (0.8.0 contributor recruitment)
       await _showContributorNotice();
       if (!mounted) return;
+
+      if (isCompromised) {
+        await _showSecurityNoticeBottomSheet();
+        if (!mounted) return;
+      }
 
       if (isSetupCompleted) {
         Navigator.of(context).pushReplacement(
@@ -121,7 +138,7 @@ class _SplashScreenState extends State<SplashScreen>
     // Use a versioned key so we can force show new notices in the future
     const noticeId = 'contributor_recruitment_v1';
     final hasShown = prefs.getBool('notice_shown_$noticeId') ?? false;
-    
+
     if (hasShown) return;
 
     await showModalBottomSheet(
@@ -181,7 +198,9 @@ class _SplashScreenState extends State<SplashScreen>
             ElevatedButton(
               onPressed: () async {
                 await launchUrl(
-                  Uri.parse('https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html'),
+                  Uri.parse(
+                    'https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html',
+                  ),
                   mode: LaunchMode.externalApplication,
                 );
                 if (context.mounted) Navigator.pop(context);
@@ -190,9 +209,14 @@ class _SplashScreenState extends State<SplashScreen>
                 backgroundColor: const Color(0xFF135ACF),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: Text(tr('contributor_notice_yes'), style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                tr('contributor_notice_yes'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             const SizedBox(height: 12),
             TextButton(
@@ -202,7 +226,10 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               child: Text(
                 tr('contributor_notice_no'),
-                style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -228,10 +255,7 @@ class _SplashScreenState extends State<SplashScreen>
         Permission.manageExternalStorage, // For Android 11+ /Download access
       ].request();
     } else {
-      await [
-        Permission.photos,
-        Permission.notification,
-      ].request();
+      await [Permission.photos, Permission.notification].request();
     }
 
     final prefs = await SharedPreferences.getInstance();
@@ -351,6 +375,145 @@ class _SplashScreenState extends State<SplashScreen>
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNoInternetBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/image/maintenance_image.png',
+                height: 220,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              tr('no_internet_title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.redAccent,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tr('no_internet_desc'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => SystemNavigator.pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  tr('exit_app'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSecurityNoticeBottomSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/image/notice_image.png',
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              tr('security_notice_title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tr('security_notice_desc'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF4A5568),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                tr('security_notice_btn'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 12),
