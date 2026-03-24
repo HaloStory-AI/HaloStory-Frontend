@@ -462,8 +462,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: tr('tab_chat'),
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.auto_awesome_rounded),
-              label: tr('tab_create'),
+              icon: const Icon(Icons.groups_rounded),
+              label: tr('tab_group_chat'),
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.auto_stories_rounded),

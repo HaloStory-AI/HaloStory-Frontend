@@ -4,9 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:video_player/video_player.dart';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +34,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
 
   double _progress = 0.0;
   Timer? _timer;
-  bool _isSaving = false;
+  bool _isOpeningWeb = false;
   bool _isLoadingMedia = true;
   double _downloadProgress = 0.0;
 
@@ -328,95 +325,37 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     });
   }
 
-  Future<void> _saveToGallery() async {
-    if (_isSaving) return;
+  Future<void> _openOnWeb() async {
+    if (_isOpeningWeb) return;
     final url = widget.stories[_currentIndex]['image_url'] as String;
 
-    if (kIsWeb) {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      }
-      return;
-    }
-
-    // Request permissions
-    if (Platform.isAndroid) {
-      // For Android 13+, we need specific media permissions to write to public folders sometimes,
-      // but for Download folder, managed storage might be enough.
-      // However, the most compatible way for modern Android is to just use Permission.storage.
-      if (await Permission.storage.request().isDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ Storage permission required to save.'),
-            ),
-          );
-        }
-        return;
-      }
-    }
-
-    setState(() => _isSaving = true);
+    setState(() => _isOpeningWeb = true);
     _timer?.cancel();
     if (_isVideo) _videoController?.pause();
 
     try {
-      final dio = Dio();
-      final fileName = url.split('/').last.split('?').first;
-
-      // Determine Download/BlueTalk path
-      Directory? downloadDir;
-      if (Platform.isAndroid) {
-        // Construct path manually as path_provider's getDownloadsDirectory is restrictive on Android 11+
-        downloadDir = Directory('/storage/emulated/0/Download/BlueTalk');
-      } else {
-        downloadDir = await getDownloadsDirectory();
-        if (downloadDir != null) {
-          downloadDir = Directory('${downloadDir.path}/BlueTalk');
-        }
-      }
-
-      if (downloadDir != null && !await downloadDir.exists()) {
-        await downloadDir.create(recursive: true);
-      }
-
-      final savePath =
-          '${downloadDir?.path ?? (await getTemporaryDirectory()).path}/$fileName';
-
-      // Check if we already have it in cache to save bandwidth
-      final String? cachedPath = await _storyService.getCachedPath(url);
-
-      if (cachedPath != null) {
-        // Copy from cache
-        await File(cachedPath).copy(savePath);
-      } else {
-        // Download using Dio
-        await dio.download(url, savePath);
-      }
-
-      if (mounted) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Saved to Download/BlueTalk!\n$fileName'),
-            backgroundColor: Colors.green,
+            content: Text(tr('chat_export_web_error')),
+            backgroundColor: Colors.redAccent,
           ),
         );
       }
     } catch (e) {
-      print("DEBUG: Download error: $e");
-      // Fallback: Open in browser if download fails
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      } else if (mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('❌ Failed to save file.'),
+            content: Text('❌ Error opening browser.'),
             backgroundColor: Colors.redAccent,
           ),
         );
       }
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) setState(() => _isOpeningWeb = false);
       if (_isVideo) {
         _videoController?.play();
         _startVideoTimer();
@@ -638,18 +577,18 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Download button
-                  _isSaving
+                  _isOpeningWeb
                       ? const CircularProgressIndicator(color: Colors.white)
                       : _BottomActionButton(
-                          icon: Icons.download_for_offline_outlined,
-                          label: 'Simpan',
-                          onTap: _saveToGallery,
+                          icon: Icons.open_in_browser_outlined,
+                          label: tr('tab_stories_open_web'),
+                          onTap: _openOnWeb,
                         ),
                   const SizedBox(width: 24),
                   // Reply button
                   _BottomActionButton(
                     icon: Icons.reply_rounded,
-                    label: 'Balas',
+                    label: tr('tab_stories_reply'),
                     onTap: _openReplyChat,
                   ),
                 ],
@@ -764,7 +703,7 @@ class _ReplySheetState extends State<_ReplySheet> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Balas ke ${widget.botName}',
+              '${tr('tab_stories_reply')} ${widget.botName}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -783,7 +722,7 @@ class _ReplySheetState extends State<_ReplySheet> {
                       fontSize: 15,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Ketik pesanmu...',
+                      hintText: '${tr('chat_manual_hint')}...',
                       hintStyle: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 15,

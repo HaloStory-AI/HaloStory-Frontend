@@ -5,6 +5,12 @@ import '../services/localization_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import '../constants.dart';
+import '../services/security_service.dart';
+import 'splash_screen.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -15,6 +21,7 @@ class SetupScreen extends StatefulWidget {
 
 class _SetupScreenState extends State<SetupScreen> {
   String _selectedLanguageCode = 'id';
+  bool _isCheckingBackup = false;
 
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _modelController = TextEditingController();
@@ -24,6 +31,9 @@ class _SetupScreenState extends State<SetupScreen> {
   void initState() {
     super.initState();
     _selectedLanguageCode = LocalizationService().currentLocale;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkCloudBackup();
+    });
   }
 
   @override
@@ -67,6 +77,159 @@ class _SetupScreenState extends State<SetupScreen> {
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
+  }
+
+  Future<void> _checkCloudBackup() async {
+    setState(() => _isCheckingBackup = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        setState(() => _isCheckingBackup = false);
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/user/restore'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          final backupDate = DateTime.parse(data['data']['updated_at']);
+          final formattedDate = DateFormat(
+            'yyyy-MM-dd HH:mm',
+          ).format(backupDate.toLocal());
+
+          if (mounted) {
+            _showRestorePrompt(formattedDate, data['data']['payload']);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking cloud backup: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingBackup = false);
+    }
+  }
+
+  void _showRestorePrompt(String date, String encryptedPayload) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.cloud_download, color: Color(0xFF135ACF)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(tr('setup_backup_found'))),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('setup_backup_date').replaceFirst('{date}', date)),
+            const SizedBox(height: 12),
+            Text(
+              tr('setup_backup_question'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              tr('setup_btn_skip'),
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _restoreFromCloud(encryptedPayload);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF135ACF),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              tr('setup_btn_restore'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _restoreFromCloud(String encryptedPayload) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final decryptedData = SecurityService.decryptData(encryptedPayload);
+      final data = json.decode(decryptedData);
+
+      final prefs = await SharedPreferences.getInstance();
+
+      // Restore Settings
+      if (data['settings'] != null) {
+        final settings = data['settings'] as Map<String, dynamic>;
+        settings.forEach((key, value) {
+          if (value is String) prefs.setString(key, value);
+          if (value is bool) prefs.setBool(key, value);
+          if (value is int) prefs.setInt(key, value);
+          if (value is double) prefs.setDouble(key, value);
+        });
+      }
+
+      // Restore Chat History
+      if (data['chats'] != null) {
+        final chats = data['chats'] as Map<String, dynamic>;
+        chats.forEach((key, value) {
+          prefs.setString(key, json.encode(value));
+        });
+      }
+
+      await prefs.setBool('is_setup_completed', true);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(tr('settings_restore_success'))));
+        // Force restart to sync all data
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const SplashScreen()),
+              (route) => false,
+            );
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(tr('settings_restore_fail'))));
+      }
+      debugPrint('Restore error: $e');
+    }
   }
 
   @override

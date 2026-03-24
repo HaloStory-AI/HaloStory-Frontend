@@ -9,6 +9,8 @@ import '../constants.dart';
 import '../services/localization_service.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
+import '../services/local_chat_service.dart';
+import '../services/security_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -78,7 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _currentLanguage = LocalizationService().currentLocale;
     _loadSettings();
   }
@@ -143,6 +145,218 @@ class _SettingsScreenState extends State<SettingsScreen>
       _aiHistoryDepthController.text = (prefs.getInt('ai_history_depth') ?? 5)
           .toString();
     });
+  }
+
+  Future<void> _backupData() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('settings_backup_title')),
+        content: Text(tr('settings_backup_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Backup'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final allKeys = prefs.getKeys();
+    final Map<String, dynamic> settingsData = {};
+
+    for (String key in allKeys) {
+      if (key.startsWith('ai_') ||
+          key.startsWith('byok_') ||
+          key.startsWith('byom_') ||
+          key == 'default_provider' ||
+          key == 'app_language') {
+        settingsData[key] = prefs.get(key);
+      }
+    }
+
+    // GATHER CHAT HISTORY & SUMMARIES
+    final Map<String, dynamic> chatData = {};
+    final Map<String, dynamic> summaryData = {};
+    final chatService = LocalChatService();
+    final metadata = await chatService.getAllChatMetadata();
+    for (var meta in metadata) {
+      final id = meta['id'].toString();
+      final messages = await chatService.loadChat(id);
+      final summaries = await chatService.loadSummaries(id);
+      
+      chatData[id] = messages;
+      summaryData[id] = summaries.map((k, v) => MapEntry(k.toString(), v));
+    }
+
+    final Map<String, dynamic> fullPayload = {
+      'settings': settingsData,
+      'chats': chatData,
+      'summaries': summaryData,
+      'exported_at': DateTime.now().toIso8601String(),
+    };
+
+    // Encrypt the payload
+    final String plainJson = jsonEncode(fullPayload);
+    final String encryptedJson = SecurityService.encryptData(plainJson);
+
+    final token = await _authService.getToken();
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.apiUrl}/user/backup'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'data': encryptedJson}),
+      );
+
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('settings_backup_success')),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Backup failed: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _restoreData() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('settings_backup_title')),
+        content: Text(tr('settings_restore_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final token = await _authService.getToken();
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.apiUrl}/user/restore'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseBody = jsonDecode(response.body);
+        if (responseBody['success'] == true && responseBody['data'] != null) {
+          final String encryptedData = responseBody['data'];
+
+          // Decrypt the payload
+          final String plainJson = SecurityService.decryptData(encryptedData);
+          final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
+
+          // Restore Settings
+          if (fullPayload.containsKey('settings')) {
+            final Map<String, dynamic> settings = fullPayload['settings'];
+            final prefs = await SharedPreferences.getInstance();
+            for (var entry in settings.entries) {
+              final k = entry.key;
+              final v = entry.value;
+              if (v is double) {
+                await prefs.setDouble(k, v);
+              } else if (v is int) {
+                await prefs.setInt(k, v);
+              } else if (v is String) {
+                await prefs.setString(k, v);
+              } else if (v is bool) {
+                await prefs.setBool(k, v);
+              }
+            }
+          }
+
+          // Restore Chats
+          if (fullPayload.containsKey('chats')) {
+            final Map<String, dynamic> chats = fullPayload['chats'];
+            final chatService = LocalChatService();
+            for (var entry in chats.entries) {
+              final id = entry.key;
+              final messages = List<Map<String, dynamic>>.from(entry.value);
+              await chatService.saveChat(id, messages);
+            }
+          }
+
+          // Restore Summaries
+          if (fullPayload.containsKey('summaries')) {
+            final Map<String, dynamic> summaries = fullPayload['summaries'];
+            final chatService = LocalChatService();
+            for (var entry in summaries.entries) {
+              final id = entry.key;
+              final summaryMap = Map<String, dynamic>.from(entry.value);
+              final properSummaries = summaryMap.map((k, v) => MapEntry(int.parse(k), v.toString()));
+              await chatService.saveSummaries(id, properSummaries);
+            }
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(tr('settings_restore_success')),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+
+          // Force restart by navigating to splash screen
+          await Future.delayed(const Duration(seconds: 2));
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const SplashScreen()),
+            (route) => false,
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('settings_restore_fail')),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Restore Error: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   void _showModelSearchBottomSheet() {
@@ -382,12 +596,17 @@ class _SettingsScreenState extends State<SettingsScreen>
           tabs: [
             Tab(icon: const Icon(Icons.tune), text: tr('settings_tab_general')),
             Tab(icon: const Icon(Icons.api), text: tr('settings_tab_ai')),
+            Tab(icon: const Icon(Icons.cloud_sync), text: tr('settings_tab_backup')),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [_buildGeneralTab(), _buildProvidersTab()],
+        children: [
+          _buildGeneralTab(),
+          _buildProvidersTab(),
+          _buildBackupTab(),
+        ],
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -526,6 +745,72 @@ class _SettingsScreenState extends State<SettingsScreen>
         _buildModeInfo('System', tr('settings_mode_system_desc')),
         _buildModeInfo('BYOK', tr('settings_mode_byok_desc')),
         _buildModeInfo('BYOM', tr('settings_mode_byom_desc')),
+      ],
+    );
+  }
+
+  Widget _buildBackupTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        Text(
+          tr('settings_backup_title'),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF135ACF),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(tr('settings_backup_desc')),
+        const SizedBox(height: 24),
+        Card(
+          elevation: 0,
+          color: const Color(0xFFF0F5FF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _backupData,
+                    icon: const Icon(Icons.cloud_upload),
+                    label: Text(tr('settings_btn_backup')),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF135ACF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _restoreData,
+                    icon: const Icon(Icons.cloud_download),
+                    label: Text(tr('settings_btn_restore')),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF135ACF)),
+                      foregroundColor: const Color(0xFF135ACF),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

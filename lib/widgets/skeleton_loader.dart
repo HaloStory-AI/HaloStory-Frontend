@@ -4,12 +4,14 @@ class SkeletonWidget extends StatefulWidget {
   final double width;
   final double height;
   final double borderRadius;
+  final Color? color;
 
   const SkeletonWidget({
     super.key,
     this.width = double.infinity,
     this.height = 20.0,
     this.borderRadius = 8.0,
+    this.color,
   });
 
   @override
@@ -44,7 +46,7 @@ class _SkeletonWidgetState extends State<SkeletonWidget> with SingleTickerProvid
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          color: widget.color ?? Colors.grey[300],
           borderRadius: BorderRadius.circular(widget.borderRadius),
         ),
       ),

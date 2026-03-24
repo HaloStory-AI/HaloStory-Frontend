@@ -23,6 +23,7 @@ class AIService {
     required List<Map<String, String>> messages,
     String? botId,
     String? language,
+    String? summary,
   }) async {
     final token = await _authService.getToken();
     if (token == null) return null;
@@ -84,6 +85,7 @@ class AIService {
           botId,
           actualLanguage,
           advancedParams,
+          summary,
         );
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
@@ -101,6 +103,7 @@ class AIService {
           byokProvider,
           baseUrl,
           advancedParams,
+          summary,
         );
       } else if (mode == 'BYOM') {
         final endpoint =
@@ -206,6 +209,7 @@ class AIService {
     String? botId,
     String? language,
     Map<String, dynamic> advancedParams,
+    String? summary,
   ) async {
     final response = await http.post(
       Uri.parse(AppConstants.chatSystemUrl),
@@ -217,6 +221,7 @@ class AIService {
         'messages': messages,
         'bot_id': botId,
         'language': language,
+        'summary': summary,
         ...advancedParams,
       }),
     );
@@ -224,7 +229,18 @@ class AIService {
     if (response.statusCode == 503) {
       ConfigService.enterMaintenance();
     }
-    return null;
+    
+    dynamic parsedBody;
+    try {
+      parsedBody = jsonDecode(response.body);
+    } catch (_) {}
+
+    return {
+      'error': true,
+      'status_code': response.statusCode,
+      'raw_error': parsedBody ?? response.body,
+      'message': 'Server returned ${response.statusCode}',
+    };
   }
 
   Future<Map<String, dynamic>?> _sendByokMessage(
@@ -237,6 +253,7 @@ class AIService {
     String byokProvider,
     String baseUrl,
     Map<String, dynamic> advancedParams,
+    String? summary,
   ) async {
     // Dynamic endpoint for BYOK
     final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
@@ -254,6 +271,7 @@ class AIService {
         'api_key': apiKey,
         'model': model,
         'base_url': baseUrl,
+        'summary': summary,
         ...advancedParams,
       }),
     );
@@ -261,7 +279,18 @@ class AIService {
     if (response.statusCode == 503) {
       ConfigService.enterMaintenance();
     }
-    return null;
+
+    dynamic parsedBody;
+    try {
+      parsedBody = jsonDecode(response.body);
+    } catch (_) {}
+
+    return {
+      'error': true,
+      'status_code': response.statusCode,
+      'raw_error': parsedBody ?? response.body,
+      'message': 'Server returned ${response.statusCode}',
+    };
   }
 
   Future<Map<String, dynamic>?> _sendByomMessage(
@@ -313,6 +342,49 @@ class AIService {
     if (response.statusCode == 200) return jsonDecode(response.body);
     if (response.statusCode == 503) {
       ConfigService.enterMaintenance();
+    }
+
+    dynamic parsedBody;
+    try {
+      parsedBody = jsonDecode(response.body);
+    } catch (_) {}
+
+    return {
+      'error': true,
+      'status_code': response.statusCode,
+      'raw_error': parsedBody ?? response.body,
+      'message': 'Server returned ${response.statusCode}',
+    };
+  }
+
+  Future<Map<String, dynamic>?> summarizeChat({
+    required List<Map<String, String>> messages,
+    String? botId,
+    String? language,
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) return null;
+
+    final actualLanguage =
+        language ?? LocalizationService().currentLanguageName;
+
+    try {
+      final response = await http.post(
+        Uri.parse(AppConstants.chatSummarizeUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'messages': messages,
+          'bot_id': botId,
+          'language': actualLanguage,
+        }),
+      );
+
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (e) {
+      print('DEBUG: AIService summarizeChat Error: $e');
     }
     return null;
   }
