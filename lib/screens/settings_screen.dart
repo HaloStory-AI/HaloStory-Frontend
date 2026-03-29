@@ -11,6 +11,7 @@ import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import '../services/security_service.dart';
+import '../services/theme_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -49,6 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   String _currentLanguage = 'id';
   bool _isLanguageChanged = false;
   bool _aiReasoningEnabled = false;
+  bool _amoledDarkEnabled = false;
 
   // BYOK Controllers
   final TextEditingController _byokApiKeyController = TextEditingController();
@@ -82,6 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _currentLanguage = LocalizationService().currentLocale;
+    _amoledDarkEnabled = ThemeService().isAmoledDark;
     _loadSettings();
   }
 
@@ -117,6 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       );
       _byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
       _aiReasoningEnabled = prefs.getBool('ai_reasoning_enabled') ?? false;
+      _amoledDarkEnabled = ThemeService().isAmoledDark;
 
       _byokApiKeyController.text = prefs.getString('byok_api_key') ?? '';
       _byokModelController.text = prefs.getString('byok_model') ?? '';
@@ -177,7 +181,8 @@ class _SettingsScreenState extends State<SettingsScreen>
           key.startsWith('byok_') ||
           key.startsWith('byom_') ||
           key == 'default_provider' ||
-          key == 'app_language') {
+          key == 'app_language' ||
+          key == 'app_theme_mode') {
         settingsData[key] = prefs.get(key);
       }
     }
@@ -191,7 +196,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       final id = meta['id'].toString();
       final messages = await chatService.loadChat(id);
       final summaries = await chatService.loadSummaries(id);
-      
+
       chatData[id] = messages;
       summaryData[id] = summaries.map((k, v) => MapEntry(k.toString(), v));
     }
@@ -322,7 +327,9 @@ class _SettingsScreenState extends State<SettingsScreen>
             for (var entry in summaries.entries) {
               final id = entry.key;
               final summaryMap = Map<String, dynamic>.from(entry.value);
-              final properSummaries = summaryMap.map((k, v) => MapEntry(int.parse(k), v.toString()));
+              final properSummaries = summaryMap.map(
+                (k, v) => MapEntry(int.parse(k), v.toString()),
+              );
               await chatService.saveSummaries(id, properSummaries);
             }
           }
@@ -354,7 +361,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Restore Error: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Restore Error: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -517,6 +527,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    await ThemeService().setAmoledDark(_amoledDarkEnabled);
     await prefs.setString('default_provider', _selectedProvider);
     await prefs.setString('byok_provider', _byokProvider);
     await prefs.setBool('ai_reasoning_enabled', _aiReasoningEnabled);
@@ -585,28 +596,33 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final unselectedTabColor =
+        theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65) ??
+        Colors.grey;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('settings_title')),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF135ACF),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF135ACF),
+          labelColor: colorScheme.primary,
+          unselectedLabelColor: unselectedTabColor,
+          indicatorColor: colorScheme.primary,
           tabs: [
             Tab(icon: const Icon(Icons.tune), text: tr('settings_tab_general')),
             Tab(icon: const Icon(Icons.api), text: tr('settings_tab_ai')),
-            Tab(icon: const Icon(Icons.cloud_sync), text: tr('settings_tab_backup')),
+            Tab(
+              icon: const Icon(Icons.cloud_sync),
+              text: tr('settings_tab_backup'),
+            ),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildGeneralTab(),
-          _buildProvidersTab(),
-          _buildBackupTab(),
-        ],
+        children: [_buildGeneralTab(), _buildProvidersTab(), _buildBackupTab()],
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -621,29 +637,37 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildGeneralTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color cardLikeColor = isDark ? colorScheme.surface : Colors.white;
+    final List<BoxShadow> cardShadow = isDark
+        ? const []
+        : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+            ),
+          ];
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         Text(
           tr('settings_language'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+            color: colorScheme.primary,
           ),
         ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardLikeColor,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-              ),
-            ],
+            boxShadow: cardShadow,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -683,13 +707,48 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
         ),
+        const SizedBox(height: 24),
+        Text(
+          tr('settings_theme'),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: cardLikeColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: cardShadow,
+          ),
+          child: SwitchListTile(
+            title: Text(
+              tr('settings_theme_amoled_title'),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.primary,
+              ),
+            ),
+            subtitle: Text(tr('settings_theme_amoled_desc')),
+            value: _amoledDarkEnabled,
+            activeThumbColor: colorScheme.primary,
+            onChanged: (bool value) {
+              setState(() {
+                _amoledDarkEnabled = value;
+              });
+              ThemeService().setAmoledDark(value);
+            },
+          ),
+        ),
         const SizedBox(height: 30),
         Text(
           tr('settings_ai_active'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+            color: colorScheme.primary,
           ),
         ),
         const SizedBox(height: 8),
@@ -698,14 +757,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardLikeColor,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-              ),
-            ],
+            boxShadow: cardShadow,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -722,16 +776,16 @@ class _SettingsScreenState extends State<SettingsScreen>
         SwitchListTile(
           title: Text(
             'Enable AI Reasoning',
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
+              color: colorScheme.primary,
             ),
           ),
           subtitle: const Text(
             'Allow the AI to use extended thinking/reasoning blocks before replying (Requires supported models like Claude 3.7 or DeepSeek-R1).',
           ),
           value: _aiReasoningEnabled,
-          activeThumbColor: const Color(0xFF135ACF),
+          activeThumbColor: colorScheme.primary,
           onChanged: (bool value) {
             setState(() {
               _aiReasoningEnabled = value;
@@ -752,15 +806,19 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildBackupTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
         Text(
           tr('settings_backup_title'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+            color: colorScheme.primary,
           ),
         ),
         const SizedBox(height: 8),
@@ -768,7 +826,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         const SizedBox(height: 24),
         Card(
           elevation: 0,
-          color: const Color(0xFFF0F5FF),
+          color: isDark ? colorScheme.surface : const Color(0xFFF0F5FF),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -783,7 +841,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     icon: const Icon(Icons.cloud_upload),
                     label: Text(tr('settings_btn_backup')),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF135ACF),
+                      backgroundColor: colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -800,8 +858,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                     icon: const Icon(Icons.cloud_download),
                     label: Text(tr('settings_btn_restore')),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF135ACF)),
-                      foregroundColor: const Color(0xFF135ACF),
+                      side: BorderSide(color: colorScheme.primary),
+                      foregroundColor: colorScheme.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -837,15 +895,19 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildProvidersTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         Text(
           tr('settings_engine_config'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+            color: colorScheme.primary,
           ),
         ),
         const SizedBox(height: 20),
@@ -880,9 +942,13 @@ class _SettingsScreenState extends State<SettingsScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? colorScheme.surface : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: isDark
+                    ? colorScheme.outline
+                    : Colors.grey.withValues(alpha: 0.2),
+              ),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -994,7 +1060,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             tr('settings_advanced_title'),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          leading: const Icon(Icons.settings_suggest, color: Color(0xFF135ACF)),
+          leading: Icon(Icons.settings_suggest, color: colorScheme.primary),
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1101,6 +1167,9 @@ class _SettingsScreenState extends State<SettingsScreen>
     String label,
     String hint,
   ) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Row(
       children: [
         Expanded(
@@ -1126,7 +1195,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 hintText: hint,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 filled: true,
-                fillColor: Colors.grey.withValues(alpha: 0.05),
+                fillColor: isDark
+                    ? theme.colorScheme.surface
+                    : Colors.grey.withValues(alpha: 0.05),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -1146,6 +1217,9 @@ class _SettingsScreenState extends State<SettingsScreen>
     required IconData icon,
     bool obscure = false,
   }) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1161,7 +1235,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             hintText: hint,
             prefixIcon: Icon(icon, size: 20),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: isDark ? theme.colorScheme.surface : Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -1173,6 +1247,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildHelpLink() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: TextButton.icon(
         onPressed: () => launchUrl(
@@ -1189,7 +1265,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             fontWeight: FontWeight.bold,
           ),
         ),
-        style: TextButton.styleFrom(foregroundColor: const Color(0xFF135ACF)),
+        style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
       ),
     );
   }

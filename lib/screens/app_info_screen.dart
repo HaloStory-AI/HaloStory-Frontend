@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/localization_service.dart';
 
 class AppInfoScreen extends StatefulWidget {
@@ -30,7 +31,10 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(tr('sidebar_info'), style: const TextStyle(color: Colors.black, fontSize: 18)),
+        title: Text(
+          tr('sidebar_info'),
+          style: const TextStyle(color: Colors.black, fontSize: 18),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -40,18 +44,18 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // App Icon
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                'assets/icon/icon.jpg', // Using the icon referenced in pubspec
-                width: 100,
-                height: 100,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.chat_bubble, size: 100, color: Color(0xFF135ACF)),
+            SvgPicture.asset(
+              'assets/icon/momo_logo.svg',
+              width: 100,
+              height: 100,
+              fit: BoxFit.contain,
+              colorFilter: const ColorFilter.mode(
+                Color(0xFF135ACF),
+                BlendMode.srcIn,
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // App Name
             const Text(
               'BlueTalk',
@@ -62,26 +66,20 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            
+
             // Version
             Text(
               '${tr('app_info_version')} $_version',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 48),
-            
+
             // Copyright
             Text(
               '© ${DateTime.now().year} R8K Studio',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             ),
-            
+
             const SizedBox(height: 24),
             TextButton(
               onPressed: () {
@@ -91,14 +89,23 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
                   applicationVersion: _version,
                   applicationIcon: Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset('assets/icon/icon.jpg', width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (ctx, err, st) => const Icon(Icons.chat_bubble, size: 64, color: Color(0xFF135ACF))),
+                    child: SvgPicture.asset(
+                      'assets/icon/momo_logo.svg',
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.contain,
+                      colorFilter: const ColorFilter.mode(
+                        Color(0xFF135ACF),
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 );
               },
-              child: Text(tr('app_info_license'), style: const TextStyle(color: Color(0xFF135ACF))),
+              child: Text(
+                tr('app_info_license'),
+                style: const TextStyle(color: Color(0xFF135ACF)),
+              ),
             ),
           ],
         ),

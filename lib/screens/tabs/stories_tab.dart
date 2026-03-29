@@ -97,202 +97,229 @@ class _StoriesTabState extends State<StoriesTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SafeArea(
-      top: false,
-      child: Column(
-      children: [
-        // --- HEADER & RELOAD ---
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                tr('tab_stories'),
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF212121),
-                ),
-              ),
-              TextButton(
-                onPressed: (_isReloading || _remainingSeconds > 0)
-                    ? null
-                    : () => _loadData(force: true),
-                style: TextButton.styleFrom(
-                  backgroundColor: (_isReloading || _remainingSeconds > 0)
-                      ? Colors.grey[200]
-                      : const Color(0xFFF0F0F0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isReloading)
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF135ACF),
-                        ),
-                      ),
-                    if (_isReloading) const SizedBox(width: 8),
-                    Text(
-                      _remainingSeconds > 0
-                          ? '${tr('btn_reload_in')} ${_formatCooldown(_remainingSeconds)}'
-                          : _isReloading
-                          ? tr('loading')
-                          : tr('btn_reload_stories'),
-                      style: TextStyle(
-                        color: (_isReloading || _remainingSeconds > 0)
-                            ? Colors.grey
-                            : Colors.black87,
-                        fontSize: 13,
-                      ),
+    return Container(
+      color: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color.fromRGBO(243, 247, 248, 1),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            // --- HEADER & RELOAD ---
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    tr('tab_stories'),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF212121),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // --- STORIES LIST (VERTICAL) ---
-        Expanded(
-          child: _isLoading
-              ? ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: 8,
-                  itemBuilder: (_, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
+                  ),
+                  TextButton(
+                    onPressed: (_isReloading || _remainingSeconds > 0)
+                        ? null
+                        : () => _loadData(force: true),
+                    style: TextButton.styleFrom(
+                      backgroundColor: (_isReloading || _remainingSeconds > 0)
+                          ? Colors.grey[200]
+                          : const Color(0xFFF0F0F0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SkeletonWidget(width: 70, height: 70, borderRadius: 35),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SkeletonWidget(width: 120, height: 16),
-                              const SizedBox(height: 8),
-                              SkeletonWidget(
-                                width: double.infinity,
-                                height: 12,
-                                borderRadius: 4,
-                                color: Colors.grey[100],
-                              ),
-                            ],
+                        if (_isReloading)
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF135ACF),
+                            ),
+                          ),
+                        if (_isReloading) const SizedBox(width: 8),
+                        Text(
+                          _remainingSeconds > 0
+                              ? '${tr('btn_reload_in')} ${_formatCooldown(_remainingSeconds)}'
+                              : _isReloading
+                              ? tr('loading')
+                              : tr('btn_reload_stories'),
+                          style: TextStyle(
+                            color: (_isReloading || _remainingSeconds > 0)
+                                ? Colors.grey
+                                : Colors.black87,
+                            fontSize: 13,
                           ),
                         ),
                       ],
                     ),
                   ),
-                )
-              : _stories.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.history_toggle_off, 
-                           size: 64, 
-                           color: Colors.grey.withAlpha(77)),
-                      const SizedBox(height: 16),
-                      Text(
-                        tr('no_bots_found'),
-                        style: TextStyle(color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: _getGroupedBots().length,
-                  itemBuilder: (context, index) {
-                    final groupedBots = _getGroupedBots();
-                    final botId = groupedBots[index];
-                    final botStories = _stories
-                        .where((s) => s['bot_id'] == botId)
-                        .toList();
-                    final latestStory = botStories.last;
-                    final bool hasUnseen = botStories.any(
-                      (s) => !(s['isSeen'] ?? false),
-                    );
+                ],
+              ),
+            ),
 
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                      leading: SizedBox(
-                        width: 72,
-                        height: 72,
-                        child: CustomPaint(
-                          painter: StoryRingPainter(stories: botStories),
-                          child: Center(
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundColor: Colors.grey.shade200,
-                              backgroundImage: latestStory['bot_avatar'] != null
-                                  ? NetworkImage(latestStory['bot_avatar'])
-                                  : null,
-                              child: latestStory['bot_avatar'] == null
-                                  ? Text(
-                                      latestStory['bot_name'][0].toUpperCase(),
-                                      style: const TextStyle(
-                                          fontSize: 18, fontWeight: FontWeight.bold),
-                                    )
-                                  : null,
+            // --- STORIES LIST (VERTICAL) ---
+            Expanded(
+              child: _isLoading
+                  ? ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: 8,
+                      itemBuilder: (_, index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Row(
+                          children: [
+                            const SkeletonWidget(
+                              width: 70,
+                              height: 70,
+                              borderRadius: 35,
                             ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SkeletonWidget(width: 120, height: 16),
+                                  const SizedBox(height: 8),
+                                  SkeletonWidget(
+                                    width: double.infinity,
+                                    height: 12,
+                                    borderRadius: 4,
+                                    color: Colors.grey[100],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _stories.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.history_toggle_off,
+                            size: 64,
+                            color: Colors.grey.withAlpha(77),
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                          Text(
+                            tr('no_bots_found'),
+                            style: TextStyle(color: Colors.grey.shade500),
+                          ),
+                        ],
                       ),
-                      title: Text(
-                        latestStory['bot_name'],
-                        style: TextStyle(
-                          fontWeight: hasUnseen ? FontWeight.bold : FontWeight.w600,
-                          fontSize: 17,
-                        ),
+                    )
+                  : ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                      subtitle: Text(
-                        latestStory['caption'] ?? (latestStory['content'] ?? 'New story!'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      trailing: Text(
-                        '${botStories.length} updates',
-                        style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 12,
-                        ),
-                      ),
-                      onTap: () {
-                        int targetIndex = botStories.indexWhere(
+                      itemCount: _getGroupedBots().length,
+                      itemBuilder: (context, index) {
+                        final groupedBots = _getGroupedBots();
+                        final botId = groupedBots[index];
+                        final botStories = _stories
+                            .where((s) => s['bot_id'] == botId)
+                            .toList();
+                        final latestStory = botStories.last;
+                        final bool hasUnseen = botStories.any(
                           (s) => !(s['isSeen'] ?? false),
                         );
-                        if (targetIndex == -1) targetIndex = 0;
 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => StoryViewScreen(
-                              stories: botStories,
-                              initialIndex: targetIndex,
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
+                          leading: SizedBox(
+                            width: 72,
+                            height: 72,
+                            child: CustomPaint(
+                              painter: StoryRingPainter(stories: botStories),
+                              child: Center(
+                                child: CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: Colors.grey.shade200,
+                                  backgroundImage:
+                                      latestStory['bot_avatar'] != null
+                                      ? NetworkImage(latestStory['bot_avatar'])
+                                      : null,
+                                  child: latestStory['bot_avatar'] == null
+                                      ? Text(
+                                          latestStory['bot_name'][0]
+                                              .toUpperCase(),
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              ),
                             ),
                           ),
-                        ).then((_) => _loadData());
+                          title: Text(
+                            latestStory['bot_name'],
+                            style: TextStyle(
+                              fontWeight: hasUnseen
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
+                              fontSize: 17,
+                            ),
+                          ),
+                          subtitle: Text(
+                            latestStory['caption'] ??
+                                (latestStory['content'] ?? 'New story!'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          trailing: Text(
+                            '${botStories.length} updates',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                          ),
+                          onTap: () {
+                            int targetIndex = botStories.indexWhere(
+                              (s) => !(s['isSeen'] ?? false),
+                            );
+                            if (targetIndex == -1) targetIndex = 0;
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => StoryViewScreen(
+                                  stories: botStories,
+                                  initialIndex: targetIndex,
+                                ),
+                              ),
+                            ).then((_) => _loadData());
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
+            ),
+          ],
         ),
-      ],
       ),
     );
   }

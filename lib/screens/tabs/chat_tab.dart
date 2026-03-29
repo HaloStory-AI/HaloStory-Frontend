@@ -10,6 +10,8 @@ import 'package:intl/intl.dart';
 
 import '../../widgets/skeleton_loader.dart';
 
+enum ChatSortType { newest, name, bond }
+
 class ChatTab extends StatefulWidget {
   const ChatTab({super.key});
 
@@ -23,10 +25,20 @@ class _ChatTabState extends State<ChatTab> {
   List<Map<String, dynamic>> _activeChats = [];
   List<Map<String, dynamic>> _availableBots = [];
   List<String> _pinnedChatIds = [];
+  final Set<String> _selectedChatIds = <String>{};
   bool _isLoadingBots = true;
   bool _isLoadingChats = true;
-  String _sortBy = 'Newest';
+  ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
+
+  static const String _chatSortByKey = 'chat_sort_by';
+  static const String _chatSortAscKey = 'chat_sort_ascending';
+  static const String _chatHeaderPopupFont = 'Roboto';
+  static const List<ChatSortType> _sortOptions = [
+    ChatSortType.newest,
+    ChatSortType.name,
+    ChatSortType.bond,
+  ];
 
   Color _parseColor(dynamic color) {
     if (color == null) return Colors.blueGrey;
@@ -66,10 +78,119 @@ class _ChatTabState extends State<ChatTab> {
     }
   }
 
+  bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _surfaceColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return _isDark(context) ? theme.colorScheme.surface : Colors.white;
+  }
+
+  Color _surfaceAltColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return _isDark(context)
+        ? theme.colorScheme.surfaceContainerHighest
+        : Colors.grey.shade100;
+  }
+
+  Color _borderColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return _isDark(context) ? theme.colorScheme.outline : Colors.grey.shade300;
+  }
+
+  Color _primaryTextColor(BuildContext context) {
+    return _isDark(context) ? const Color(0xFFEDEDED) : const Color(0xFF2D3748);
+  }
+
+  Color _secondaryTextColor(BuildContext context) {
+    return _isDark(context) ? const Color(0xFF9CA8BC) : const Color(0xFF718096);
+  }
+
+  Color _chatSeparatorColor(BuildContext context) {
+    return _isDark(context)
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFF4B5A6F).withValues(alpha: 0.2);
+  }
+
+  TextStyle _bondCountStyle(BuildContext context) {
+    return TextStyle(
+      color: _isDark(context)
+          ? const Color(0xFF79A9F1)
+          : const Color(0xFF2D4663),
+      fontWeight: FontWeight.w800,
+      fontSize: 14,
+      shadows: const [
+        Shadow(color: Colors.white, offset: Offset(1, 0)),
+        Shadow(color: Colors.white, offset: Offset(-1, 0)),
+        Shadow(color: Colors.white, offset: Offset(0, 1)),
+        Shadow(color: Colors.white, offset: Offset(0, -1)),
+      ],
+    );
+  }
+
+  String _trOr(String key, String fallback) {
+    final translated = tr(key);
+    return translated == key ? fallback : translated;
+  }
+
+  String _sortTypeKey(ChatSortType value) {
+    switch (value) {
+      case ChatSortType.newest:
+        return 'newest';
+      case ChatSortType.name:
+        return 'name';
+      case ChatSortType.bond:
+        return 'bond';
+    }
+  }
+
+  ChatSortType _sortTypeFromKey(String? key) {
+    switch (key) {
+      case 'name':
+        return ChatSortType.name;
+      case 'bond':
+        return ChatSortType.bond;
+      case 'newest':
+      default:
+        return ChatSortType.newest;
+    }
+  }
+
+  String _sortLabel(ChatSortType value) {
+    switch (value) {
+      case ChatSortType.newest:
+        return tr('sort_newest');
+      case ChatSortType.name:
+        return tr('sort_name');
+      case ChatSortType.bond:
+        return _trOr('sort_bond', 'Bond');
+    }
+  }
+
+  Future<void> _loadSortPreferencesAndInit() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedSort = _sortTypeFromKey(prefs.getString(_chatSortByKey));
+    final savedAscending = prefs.getBool(_chatSortAscKey) ?? false;
+
+    if (!mounted) return;
+    setState(() {
+      _sortBy = savedSort;
+      _sortAscending = savedAscending;
+    });
+
+    await _initData();
+  }
+
+  Future<void> _saveSortPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_chatSortByKey, _sortTypeKey(_sortBy));
+    await prefs.setBool(_chatSortAscKey, _sortAscending);
+  }
+
   @override
   void initState() {
     super.initState();
-    _initData();
+    _loadSortPreferencesAndInit();
   }
 
   Future<void> _initData({bool force = false}) async {
@@ -137,25 +258,29 @@ class _ChatTabState extends State<ChatTab> {
       }
     }
 
-    // Sort the list based on state for non-pinned items
-    if (_sortBy == 'Newest') {
-      loadedChats.sort(
-        (a, b) => (a['lastModified'] as DateTime).compareTo(
-          b['lastModified'] as DateTime,
-        ),
-      );
-    } else if (_sortBy == 'Name') {
-      loadedChats.sort(
-        (a, b) => (a['name'] as String).toLowerCase().compareTo(
-          (b['name'] as String).toLowerCase(),
-        ),
-      );
-    } else if (_sortBy == 'Bond') {
-      loadedChats.sort(
-        (a, b) => (a['bond_hearts'] as int? ?? 0).compareTo(
-          b['bond_hearts'] as int? ?? 0,
-        ),
-      );
+    // Sort the list based on selected filter key (not UI label)
+    switch (_sortBy) {
+      case ChatSortType.newest:
+        loadedChats.sort(
+          (a, b) => (a['lastModified'] as DateTime).compareTo(
+            b['lastModified'] as DateTime,
+          ),
+        );
+        break;
+      case ChatSortType.name:
+        loadedChats.sort(
+          (a, b) => (a['name'] as String).toLowerCase().compareTo(
+            (b['name'] as String).toLowerCase(),
+          ),
+        );
+        break;
+      case ChatSortType.bond:
+        loadedChats.sort(
+          (a, b) => (a['bond_hearts'] as int? ?? 0).compareTo(
+            b['bond_hearts'] as int? ?? 0,
+          ),
+        );
+        break;
     }
 
     if (!_sortAscending) {
@@ -169,9 +294,14 @@ class _ChatTabState extends State<ChatTab> {
       return 0; // Maintain existing relative order
     });
 
+    final loadedChatIds = loadedChats
+        .map((chat) => chat['id'].toString())
+        .toSet();
+
     if (mounted) {
       setState(() {
         _activeChats = loadedChats;
+        _selectedChatIds.removeWhere((id) => !loadedChatIds.contains(id));
         _isLoadingChats = false;
       });
     }
@@ -179,6 +309,8 @@ class _ChatTabState extends State<ChatTab> {
 
   void _showAddChatSheet() {
     _loadAvailableBots(force: true);
+
+    bool isSheetClosed = false;
 
     showModalBottomSheet(
       context: context,
@@ -190,15 +322,23 @@ class _ChatTabState extends State<ChatTab> {
         String? selectedCategoryId;
         List<Map<String, dynamic>> eventBots = [];
         bool isLoadingEventBots = false;
+        bool isLoadingEventCategories = false;
 
         return StatefulBuilder(
           builder: (context, setModalState) {
+            void safeModalSetState(VoidCallback fn) {
+              if (isSheetClosed) return;
+              final route = ModalRoute.of(context);
+              if (route != null && !route.isCurrent) return;
+              setModalState(fn);
+            }
+
             return DefaultTabController(
               length: 2,
               child: Container(
                 height: MediaQuery.of(context).size.height * 0.85,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: _surfaceColor(context),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 child: Column(
@@ -210,16 +350,18 @@ class _ChatTabState extends State<ChatTab> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: _isDark(context)
+                              ? Colors.white24
+                              : Colors.grey[300],
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     TabBar(
-                      labelColor: const Color(0xFF135ACF),
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: const Color(0xFF135ACF),
+                      labelColor: Theme.of(context).colorScheme.primary,
+                      unselectedLabelColor: _secondaryTextColor(context),
+                      indicatorColor: Theme.of(context).colorScheme.primary,
                       tabs: [
                         const Tab(text: 'Main'),
                         const Tab(text: 'Event'),
@@ -232,7 +374,7 @@ class _ChatTabState extends State<ChatTab> {
                           Column(
                             children: [
                               _buildSearchHeader(context, (value) {
-                                setModalState(() => searchQuery = value);
+                                safeModalSetState(() => searchQuery = value);
                               }),
                               Expanded(
                                 child: _buildBotList(
@@ -259,24 +401,40 @@ class _ChatTabState extends State<ChatTab> {
                                 eventCategories,
                                 selectedCategoryId,
                                 (catId) async {
-                                  setModalState(() {
+                                  safeModalSetState(() {
                                     selectedCategoryId = catId;
-                                    isLoadingEventBots = true;
+                                    isLoadingEventBots = catId != null;
+                                    if (catId == null) {
+                                      eventBots = [];
+                                    }
                                   });
+
+                                  if (catId == null) return;
+
                                   final bots = await _botService.getBots(
                                     type: 'Event',
                                     category: catId,
                                   );
-                                  setModalState(() {
+
+                                  safeModalSetState(() {
                                     eventBots = bots;
                                     isLoadingEventBots = false;
                                   });
                                 },
                                 () async {
-                                  if (eventCategories.isEmpty) {
+                                  if (eventCategories.isEmpty &&
+                                      !isLoadingEventCategories) {
+                                    safeModalSetState(() {
+                                      isLoadingEventCategories = true;
+                                    });
+
                                     final cats = await _botService
                                         .getEventCategories();
-                                    setModalState(() => eventCategories = cats);
+
+                                    safeModalSetState(() {
+                                      eventCategories = cats;
+                                      isLoadingEventCategories = false;
+                                    });
                                   }
                                 },
                               ),
@@ -297,10 +455,263 @@ class _ChatTabState extends State<ChatTab> {
           },
         );
       },
+    ).whenComplete(() {
+      isSheetClosed = true;
+    });
+  }
+
+  void _showSortSheet() {
+    ChatSortType draftSort = _sortBy;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Sort',
+      barrierColor: Colors.black.withValues(alpha: 0.05),
+      transitionDuration: const Duration(milliseconds: 150),
+      pageBuilder: (overlayContext, animation, secondaryAnimation) {
+        final media = MediaQuery.of(overlayContext);
+        final double topOffset = media.padding.top + kToolbarHeight + 44;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setSheetState) {
+            const compactControlHeight = 34.0;
+            final selectedColor = const Color(0xFF8DC5FF);
+            final titleTextColor = _isDark(dialogContext)
+                ? const Color(0xFFEDEDED)
+                : const Color(0xFF2D3748);
+            final solidModalShadow = [
+              BoxShadow(
+                color: _isDark(dialogContext)
+                    ? Colors.black.withValues(alpha: 0.58)
+                    : Colors.black.withValues(alpha: 0.2),
+                offset: const Offset(0, 3),
+                blurRadius: 0,
+                spreadRadius: 0,
+              ),
+            ];
+
+            Widget buildSortChoice(ChatSortType value) {
+              final bool isSelected = draftSort == value;
+
+              return InkWell(
+                onTap: () => setSheetState(() => draftSort = value),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: compactControlHeight,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? selectedColor
+                        : (_isDark(dialogContext)
+                              ? _surfaceAltColor(dialogContext)
+                              : Colors.white),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? selectedColor
+                          : _borderColor(dialogContext),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _isDark(dialogContext)
+                            ? Colors.black.withValues(alpha: 0.42)
+                            : Colors.black.withValues(alpha: 0.12),
+                        offset: const Offset(0, 2),
+                        blurRadius: 0,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    _sortLabel(value),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: _chatHeaderPopupFont,
+                      color: isSelected
+                          ? const Color(0xFF1B3550)
+                          : _isDark(dialogContext)
+                          ? const Color(0xFFB9C4D6)
+                          : const Color(0xFFB5B5B5),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            Widget buildOptionsRow(List<ChatSortType> options) {
+              return Row(
+                children: [
+                  for (int i = 0; i < options.length; i++) ...[
+                    Expanded(child: buildSortChoice(options[i])),
+                    if (i != options.length - 1) const SizedBox(width: 10),
+                  ],
+                  if (options.length == 1) ...[
+                    const SizedBox(width: 10),
+                    const Expanded(child: SizedBox.shrink()),
+                  ],
+                ],
+              );
+            }
+
+            return Material(
+              type: MaterialType.transparency,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(dialogContext),
+                      behavior: HitTestBehavior.opaque,
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    top: topOffset,
+                    child: SafeArea(
+                      bottom: false,
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _surfaceColor(dialogContext),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: solidModalShadow,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  10,
+                                  8,
+                                  8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      _trOr('sort_title', 'Sort'),
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: _chatHeaderPopupFont,
+                                        color: titleTextColor,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    IconButton(
+                                      onPressed: () =>
+                                          Navigator.pop(dialogContext),
+                                      icon: Icon(
+                                        Icons.close_rounded,
+                                        color: _secondaryTextColor(
+                                          dialogContext,
+                                        ),
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Divider(
+                                height: 1,
+                                color: Theme.of(dialogContext).dividerColor,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  10,
+                                  12,
+                                  10,
+                                ),
+                                child: Column(
+                                  children: [
+                                    buildOptionsRow(
+                                      _sortOptions.take(2).toList(),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    buildOptionsRow(
+                                      _sortOptions.skip(2).take(2).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Divider(
+                                height: 1,
+                                color: Theme.of(dialogContext).dividerColor,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  10,
+                                  12,
+                                  12,
+                                ),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton(
+                                    onPressed: () async {
+                                      setState(() {
+                                        _sortBy = draftSort;
+                                      });
+                                      await _saveSortPreferences();
+                                      await _loadActiveChats();
+                                      if (!mounted) return;
+                                      Navigator.of(context).pop();
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: _isDark(dialogContext)
+                                          ? _surfaceAltColor(dialogContext)
+                                          : Colors.white,
+                                      foregroundColor: _primaryTextColor(
+                                        dialogContext,
+                                      ),
+                                      side: BorderSide(
+                                        color: _borderColor(dialogContext),
+                                      ),
+                                      minimumSize: const Size(
+                                        double.infinity,
+                                        compactControlHeight,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _trOr('sort_confirm', 'Confirm'),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: _chatHeaderPopupFont,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
     );
   }
 
   Widget _buildSearchHeader(BuildContext context, Function(String) onSearch) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -308,10 +719,10 @@ class _ChatTabState extends State<ChatTab> {
         children: [
           Text(
             tr('new_dialog_title'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
@@ -319,9 +730,9 @@ class _ChatTabState extends State<ChatTab> {
             onChanged: onSearch,
             decoration: InputDecoration(
               hintText: tr('search_hint'),
-              prefixIcon: const Icon(Icons.search, color: Color(0xFF135ACF)),
+              prefixIcon: Icon(Icons.search, color: colorScheme.primary),
               filled: true,
-              fillColor: Colors.grey[100],
+              fillColor: _surfaceAltColor(context),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -344,24 +755,26 @@ class _ChatTabState extends State<ChatTab> {
     Future<void> Function() onInit,
   ) {
     onInit();
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Event Characters',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: _surfaceAltColor(context),
               borderRadius: BorderRadius.circular(12),
             ),
             child: DropdownButtonHideUnderline(
@@ -388,12 +801,14 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   Widget _buildSuggestStudentRow(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       children: [
         Expanded(
           child: Text(
             tr('suggest_student_desc'),
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, color: _secondaryTextColor(context)),
           ),
         ),
         const SizedBox(width: 8),
@@ -413,8 +828,10 @@ class _ChatTabState extends State<ChatTab> {
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
           style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFF135ACF),
-            backgroundColor: const Color(0xFFF0F5FF),
+            foregroundColor: colorScheme.primary,
+            backgroundColor: _isDark(context)
+                ? _surfaceAltColor(context)
+                : const Color(0xFFF0F5FF),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -440,7 +857,7 @@ class _ChatTabState extends State<ChatTab> {
             const SizedBox(height: 16),
             Text(
               tr('no_bots_found'),
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: _secondaryTextColor(context)),
             ),
           ],
         ),
@@ -448,7 +865,8 @@ class _ChatTabState extends State<ChatTab> {
     }
     return ListView.separated(
       itemCount: bots.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
+      separatorBuilder: (context, index) =>
+          Divider(height: 1, color: Theme.of(context).dividerColor),
       itemBuilder: (context, index) {
         final bot = bots[index];
         return ListTile(
@@ -473,7 +891,10 @@ class _ChatTabState extends State<ChatTab> {
             children: [
               Text(
                 bot['name'],
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: _primaryTextColor(context),
+                ),
               ),
               if (_isBirthday(bot['birthday']))
                 const Padding(
@@ -486,12 +907,14 @@ class _ChatTabState extends State<ChatTab> {
             bot['description'],
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _secondaryTextColor(context)),
           ),
-          trailing: const Icon(
+          trailing: Icon(
             Icons.add_circle_outline,
-            color: Color(0xFF135ACF),
+            color: Theme.of(context).colorScheme.primary,
           ),
           onTap: () async {
+            final rootNavigator = Navigator.of(this.context);
             Navigator.pop(context);
             _botService.recruitBot(bot['id']);
             final prefs = await SharedPreferences.getInstance();
@@ -499,13 +922,14 @@ class _ChatTabState extends State<ChatTab> {
               prefs.getString('default_provider'),
             );
             if (!mounted) return;
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    ChatDetailScreen(bot: bot, provider: provider),
-              ),
-            ).then((_) => _loadActiveChats());
+            rootNavigator
+                .push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ChatDetailScreen(bot: bot, provider: provider),
+                  ),
+                )
+                .then((_) => _loadActiveChats());
           },
         );
       },
@@ -515,144 +939,436 @@ class _ChatTabState extends State<ChatTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: _isDark(context)
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFF3F7F8),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(onRefresh: _handleRefresh, child: _buildBody()),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'chat_fab',
-        onPressed: _showAddChatSheet,
-        backgroundColor: const Color(0xFF135ACF),
-        child: const Icon(Icons.add_comment_rounded, color: Colors.white),
+      floatingActionButton: _buildParallelogramNewChatButton(),
+    );
+  }
+
+  Widget _buildParallelogramNewChatButton() {
+    final isDark = _isDark(context);
+    const slant = 0.174533; // 10deg
+
+    return SizedBox(
+      width: 50,
+      height: 46,
+      child: Transform(
+        transform: Matrix4.skewX(-slant),
+        alignment: Alignment.center,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF3A9deb),
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.6)
+                      : Colors.black.withValues(alpha: 0.24),
+                  blurRadius: 0,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _showAddChatSheet,
+              child: Transform(
+                transform: Matrix4.skewX(slant),
+                alignment: Alignment.center,
+                child: const Center(
+                  child: Icon(
+                    Icons.add_comment_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildParallelogramControl({
+    required BuildContext context,
+    required VoidCallback onTap,
+    required Widget child,
+    double? width,
+    double height = 34,
+    bool accent = false,
+    bool showCornerArrow = false,
+    AlignmentGeometry contentAlignment = Alignment.center,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
+      horizontal: 12,
+      vertical: 6,
+    ),
+  }) {
+    final isDark = _isDark(context);
+    const slant = 0.174533; // 10deg
+
+    final fillColor = accent
+        ? (isDark ? const Color(0xFF182230) : Colors.white)
+        : (isDark ? const Color(0xFF0F1722) : Colors.white);
+
+    final cornerArrowColor = isDark
+        ? const Color(0xFFBDD0E9)
+        : const Color(0xFF3E444A);
+
+    final boxShadows = isDark
+        ? [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: accent ? 0.6 : 0.54),
+              offset: const Offset(0, 3),
+              blurRadius: 0,
+              spreadRadius: 0,
+            ),
+          ]
+        : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: accent ? 0.24 : 0.2),
+              offset: const Offset(0, 3),
+              blurRadius: 0,
+              spreadRadius: 0,
+            ),
+          ];
+
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Transform(
+        transform: Matrix4.skewX(-slant),
+        alignment: Alignment.center,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 170),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: fillColor,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: boxShadows,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onTap,
+                    child: Transform(
+                      transform: Matrix4.skewX(slant),
+                      alignment: Alignment.center,
+                      child: Padding(
+                        padding: padding,
+                        child: Align(alignment: contentAlignment, child: child),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (showCornerArrow)
+                Positioned(
+                  right: 3,
+                  top: 2,
+                  child: Transform(
+                    transform: Matrix4.skewX(slant),
+                    alignment: Alignment.center,
+                    child: CustomPaint(
+                      size: const Size(11, 9),
+                      painter: _CornerArrowPainter(color: cornerArrowColor),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildBody() {
+    final isDark = _isDark(context);
+
+    final controlTextColor = isDark
+        ? const Color(0xFFEAF0F9)
+        : const Color(0xFF3E444A);
+    final orderListColor = isDark
+        ? const Color(0xFFCFDDF0)
+        : const Color(0xFF3E444A);
+    final orderArrowColor = isDark
+        ? const Color(0xFFE3EEFF)
+        : const Color(0xFF3E444A);
+    final selectedCountColor = isDark
+        ? const Color(0xFFEAF0F9)
+        : const Color(0xFF3F444A);
+
+    final Widget chatContent;
+    final String chatContentKey;
+    if (_isLoadingChats && _activeChats.isEmpty) {
+      chatContent = const ChatListSkeleton();
+      chatContentKey = 'loading';
+    } else if (_activeChats.isEmpty) {
+      chatContent = _buildEmptyState();
+      chatContentKey = 'empty';
+    } else {
+      chatContent = _buildChatList();
+      chatContentKey = 'list';
+    }
+
     return Column(
       children: [
         // Visual Header from Image
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.white,
-          child: Row(
-            children: [
-              Text(
-                'Chats (${_activeChats.length})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const Spacer(),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  setState(() {
-                    _sortBy = value;
-                    _loadActiveChats();
-                  });
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'Newest',
-                    child: Text(tr('sort_newest')),
-                  ),
-                  PopupMenuItem(value: 'Name', child: Text(tr('sort_name'))),
-                  const PopupMenuItem(
-                    value: 'Bond',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.favorite,
-                          color: Color(0xFFFBB6CE),
-                          size: 18,
-                        ),
-                        SizedBox(width: 8),
-                        Text('Bond'),
-                      ],
+          color: _isDark(context)
+              ? _surfaceColor(context)
+              : const Color(0xFFF3F7F8),
+          child: SizedBox(
+            height: 34,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 320),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [...previousChildren, ?currentChild],
+                );
+              },
+              transitionBuilder: (child, animation) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                  reverseCurve: Curves.easeInCubic,
+                );
+
+                return FadeTransition(
+                  opacity: curved,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.04, 0),
+                      end: Offset.zero,
+                    ).animate(curved),
+                    child: ScaleTransition(
+                      scale: Tween<double>(
+                        begin: 0.985,
+                        end: 1,
+                      ).animate(curved),
+                      child: child,
                     ),
                   ),
-                ],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _sortBy,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                );
+              },
+              child: _selectedChatIds.isNotEmpty
+                  ? Row(
+                      key: const ValueKey('selected_header_mode'),
+                      children: [
+                        SizedBox(
+                          width: 34,
+                          height: 34,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _clearSelection,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 24,
+                                color: _secondaryTextColor(context),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      const Icon(
-                        Icons.arrow_drop_down,
-                        size: 20,
-                        color: Color(0xFF135ACF),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _sortAscending = !_sortAscending;
-                    _loadActiveChats();
-                  });
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    _sortAscending
-                        ? Icons.keyboard_double_arrow_up_rounded
-                        : Icons.keyboard_double_arrow_down_rounded,
-                    size: 20,
-                    color: const Color(0xFF135ACF),
-                  ),
-                ),
-              ),
-            ],
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_selectedChatIds.length} dipilih',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: _chatHeaderPopupFont,
+                            color: selectedCountColor,
+                          ),
+                        ),
+                        const Spacer(),
+                        _buildParallelogramControl(
+                          context: context,
+                          onTap: _togglePinSelectedChats,
+                          width: 44,
+                          height: 34,
+                          accent: true,
+                          padding: EdgeInsets.zero,
+                          child: const Icon(
+                            Icons.push_pin,
+                            size: 18,
+                            color: Color(0xFF466298),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildParallelogramControl(
+                          context: context,
+                          onTap: _resummarySelectedChats,
+                          width: 126,
+                          height: 34,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 16,
+                                color: Color(0xFF098EE5),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Re-Summary',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: _chatHeaderPopupFont,
+                                  color: controlTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildParallelogramControl(
+                          context: context,
+                          onTap: _deleteSelectedChats,
+                          width: 44,
+                          height: 34,
+                          accent: true,
+                          padding: EdgeInsets.zero,
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 20,
+                            color: Color(0xFF466298),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      key: const ValueKey('filter_header_mode'),
+                      children: [
+                        Text(
+                          'Chats (${_activeChats.length})',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: _chatHeaderPopupFont,
+                            color: isDark
+                                ? const Color(0xFFEDEDED)
+                                : const Color(0xFF3F444A),
+                          ),
+                        ),
+                        const Spacer(),
+                        _buildParallelogramControl(
+                          context: context,
+                          onTap: _showSortSheet,
+                          width: 118,
+                          height: 34,
+                          showCornerArrow: true,
+                          contentAlignment: Alignment.center,
+                          padding: const EdgeInsets.only(
+                            left: 10,
+                            right: 10,
+                            top: 6,
+                            bottom: 6,
+                          ),
+                          child: Text(
+                            _sortLabel(_sortBy),
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: _chatHeaderPopupFont,
+                              color: controlTextColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildParallelogramControl(
+                          context: context,
+                          onTap: () async {
+                            setState(() {
+                              _sortAscending = !_sortAscending;
+                            });
+                            await _saveSortPreferences();
+                            await _loadActiveChats();
+                          },
+                          width: 58,
+                          height: 34,
+                          accent: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.92,
+                                    end: 1,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: CustomPaint(
+                              key: ValueKey<bool>(_sortAscending),
+                              size: const Size(24, 14),
+                              painter: _OrderGlyphPainter(
+                                ascending: _sortAscending,
+                                lineColor: orderListColor,
+                                arrowColor: orderArrowColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
-        const Divider(height: 1),
+        Divider(
+          height: 0.5,
+          thickness: 0.7,
+          indent: 12,
+          endIndent: 12,
+          color: _chatSeparatorColor(context),
+        ),
         Expanded(
-          child: _isLoadingChats && _activeChats.isEmpty
-              ? const ChatListSkeleton()
-              : _activeChats.isEmpty
-              ? _buildEmptyState()
-              : _buildChatList(),
+          child: Container(
+            color: _isDark(context)
+                ? _surfaceColor(context)
+                : const Color(0xFFF3F7F8),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: KeyedSubtree(
+                key: ValueKey(chatContentKey),
+                child: chatContent,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -678,13 +1394,13 @@ class _ChatTabState extends State<ChatTab> {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey,
+                  color: _secondaryTextColor(context),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 tr('tab_chat_empty_subtitle'),
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: _secondaryTextColor(context)),
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
@@ -706,50 +1422,139 @@ class _ChatTabState extends State<ChatTab> {
     return ListView.separated(
       itemCount: _activeChats.length,
       padding: const EdgeInsets.symmetric(vertical: 0),
-      separatorBuilder: (context, index) => const Divider(
+      separatorBuilder: (context, index) => Divider(
         height: 1,
-        indent: 80,
-        endIndent: 16,
-        color: Color(0xFFE0E0E0),
+        thickness: 0.7,
+        indent: 12,
+        endIndent: 12,
+        color: _chatSeparatorColor(context),
       ),
       itemBuilder: (context, index) {
         final chat = _activeChats[index];
+        final chatId = chat['id'].toString();
+        final isSelected = _selectedChatIds.contains(chatId);
+        final selectedChatBgColor = _isDark(context)
+            ? const Color(0x335E86BF)
+            : const Color(0xFFDAE5E9);
         final bondLevel = (chat['bond_hearts'] ?? 0).toString();
 
-        return GestureDetector(
-          onLongPress: () => _showChatOptions(chat),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          color: isSelected ? selectedChatBgColor : Colors.transparent,
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,
             ),
-            leading: CircleAvatar(
-              radius: 28,
-              backgroundColor: _parseColor(chat['color']),
-              backgroundImage: chat['image_url'] != null
-                  ? NetworkImage(chat['image_url'])
-                  : null,
-              child: chat['image_url'] == null
-                  ? Text(
-                      (chat['name'] as String).isNotEmpty
-                          ? (chat['name'] as String)[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
+            leading: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (_selectedChatIds.isNotEmpty) {
+                  _toggleChatSelection(chatId);
+                  return;
+                }
+                _showProfilePreview(chat);
+              },
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: _parseColor(chat['color']),
+                    backgroundImage: chat['image_url'] != null
+                        ? NetworkImage(chat['image_url'])
+                        : null,
+                    child: chat['image_url'] == null
+                        ? Text(
+                            (chat['name'] as String).isNotEmpty
+                                ? (chat['name'] as String)[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (chat['isPinned'] == true)
+                    Positioned(
+                      top: -6,
+                      left: -8,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8EDF2).withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Transform.rotate(
+                          angle: -0.18,
+                          child: const Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Icon(
+                                Icons.push_pin,
+                                size: 13.8,
+                                color: Color(0xFFAA8B7C),
+                              ),
+                              Icon(
+                                Icons.push_pin,
+                                size: 11.8,
+                                color: Color(0xFFFFE955),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    )
-                  : null,
+                    ),
+                  Positioned(
+                    right: -3,
+                    bottom: -2,
+                    child: IgnorePointer(
+                      child: AnimatedScale(
+                        scale: isSelected ? 1 : 0.6,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutBack,
+                        child: AnimatedOpacity(
+                          opacity: isSelected ? 1 : 0,
+                          duration: const Duration(milliseconds: 170),
+                          curve: Curves.easeOutCubic,
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2D4C72),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: selectedChatBgColor,
+                                width: 2,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             title: Row(
               children: [
                 Text(
                   chat['name'],
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
-                    color: Color(0xFF2D3748),
+                    color: _isDark(context)
+                        ? const Color(0xFFEDEDED)
+                        : const Color(0xFF3F444A),
                   ),
                 ),
                 if (_isBirthday(chat['birthday']))
@@ -757,19 +1562,13 @@ class _ChatTabState extends State<ChatTab> {
                     padding: EdgeInsets.only(left: 4),
                     child: Text('🎂', style: TextStyle(fontSize: 14)),
                   ),
-                if (chat['isPinned'] == true)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(
-                      Icons.push_pin_rounded,
-                      size: 14,
-                      color: Color(0xFF135ACF),
-                    ),
-                  ),
                 const Spacer(),
                 Text(
                   chat['time'],
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _secondaryTextColor(context),
+                  ),
                 ),
               ],
             ),
@@ -779,7 +1578,12 @@ class _ChatTabState extends State<ChatTab> {
                 chat['lastMessage'],
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF718096), fontSize: 15),
+                style: TextStyle(
+                  color: _isDark(context)
+                      ? const Color(0xFF9CA8BC)
+                      : const Color(0xFF6F777F),
+                  fontSize: 15,
+                ),
               ),
             ),
             trailing: Container(
@@ -791,34 +1595,35 @@ class _ChatTabState extends State<ChatTab> {
                 children: [
                   const Icon(
                     Icons.favorite,
-                    color: Color(0xFFFBB6CE), // Soft pink
-                    size: 42,
+                    color: Color(0xFFE462B5),
+                    size: 43,
+                  ),
+                  const Icon(
+                    Icons.favorite,
+                    color: Color(0xFFF3B7D1),
+                    size: 39,
                   ),
                   Padding(
                     padding: const EdgeInsets.only(
                       bottom: 2,
                     ), // Adjust number position
-                    child: Text(
-                      bondLevel,
-                      style: const TextStyle(
-                        color: Color(
-                          0xFF135ACF,
-                        ), // Deep Blue/Standard Blue Archive text color
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                    child: Text(bondLevel, style: _bondCountStyle(context)),
                   ),
                 ],
               ),
             ),
             onTap: () async {
+              if (_selectedChatIds.isNotEmpty) {
+                _toggleChatSelection(chatId);
+                return;
+              }
+
               final prefs = await SharedPreferences.getInstance();
               final provider = AIService.normalizeProvider(
                 prefs.getString('default_provider'),
               );
 
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -827,191 +1632,370 @@ class _ChatTabState extends State<ChatTab> {
                 ),
               ).then((_) => _loadActiveChats());
             },
+            onLongPress: () => _toggleChatSelection(chatId, forceSelect: true),
           ),
         );
       },
     );
   }
 
-  void _showChatOptions(Map<String, dynamic> chat) {
-    showModalBottomSheet(
+  void _showProfilePreview(Map<String, dynamic> chat) {
+    final String name = (chat['name'] ?? '').toString();
+    final String? imageUrl = chat['image_url']?.toString();
+    final String initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    showGeneralDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      barrierDismissible: true,
+      barrierLabel: 'Profile preview',
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        final size = MediaQuery.of(dialogContext).size;
+        final imageWidth = size.width * 0.78;
+
+        return Material(
+          type: MaterialType.transparency,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.pop(dialogContext),
+                ),
+              ),
+              Center(
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Container(
+                    width: imageWidth,
+                    constraints: BoxConstraints(
+                      maxWidth: 420,
+                      maxHeight: size.height * 0.72,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (imageUrl != null && imageUrl.isNotEmpty)
+                            Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: _parseColor(chat['color']),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    initial,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 84,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          else
+                            Container(
+                              color: _parseColor(chat['color']),
+                              alignment: Alignment.center,
+                              child: Text(
+                                initial,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 84,
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            left: 14,
+                            right: 14,
+                            top: 12,
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black87,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  void _toggleChatSelection(String chatId, {bool forceSelect = false}) {
+    setState(() {
+      if (forceSelect) {
+        _selectedChatIds.add(chatId);
+        return;
+      }
+
+      if (_selectedChatIds.contains(chatId)) {
+        _selectedChatIds.remove(chatId);
+      } else {
+        _selectedChatIds.add(chatId);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    if (_selectedChatIds.isEmpty) return;
+    setState(() => _selectedChatIds.clear());
+  }
+
+  List<Map<String, dynamic>> _getSelectedChats() {
+    return _activeChats
+        .where((chat) => _selectedChatIds.contains(chat['id'].toString()))
+        .toList();
+  }
+
+  Future<void> _togglePinSelectedChats() async {
+    final selectedChats = _getSelectedChats();
+    if (selectedChats.isEmpty) return;
+
+    final allPinned = selectedChats.every((chat) => chat['isPinned'] == true);
+    final selectedIds = selectedChats
+        .map((chat) => chat['id'].toString())
+        .toList();
+
+    if (allPinned) {
+      _pinnedChatIds.removeWhere((id) => selectedIds.contains(id));
+      await _localChatService.savePinnedChats(_pinnedChatIds);
+      _clearSelection();
+      await _loadActiveChats();
+      return;
+    }
+
+    final idsToPin = selectedChats
+        .where((chat) => chat['isPinned'] != true)
+        .map((chat) => chat['id'].toString())
+        .toList();
+
+    final availableSlots = 5 - _pinnedChatIds.length;
+    if (availableSlots <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Anda hanya bisa pin maksimal 5 chat.')),
+        );
+      }
+      return;
+    }
+
+    final idsPinnedNow = idsToPin.take(availableSlots).toList();
+    for (final id in idsPinnedNow) {
+      if (!_pinnedChatIds.contains(id)) {
+        _pinnedChatIds.add(id);
+      }
+    }
+
+    await _localChatService.savePinnedChats(_pinnedChatIds);
+
+    if (mounted && idsPinnedNow.length < idsToPin.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sebagian chat tidak dipin karena batas 5.'),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: _parseColor(chat['color']),
-                  backgroundImage: chat['image_url'] != null
-                      ? NetworkImage(chat['image_url'])
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  chat['name'],
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D3748),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: chat['isPinned'] == true
-                    ? const Color(0xFFFFF3E0)
-                    : const Color(0xFFF0F5FF),
-                child: Icon(
-                  chat['isPinned'] == true
-                      ? Icons.push_pin_outlined
-                      : Icons.push_pin_rounded,
-                  color: chat['isPinned'] == true
-                      ? const Color(0xFFE65100)
-                      : const Color(0xFF135ACF),
-                ),
-              ),
-              title: Text(
-                chat['isPinned'] == true ? 'Unpin Chat' : 'Pin Chat',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(
-                chat['isPinned'] == true
-                    ? 'Remove from top'
-                    : 'Pin to top (Max 5)',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final chatId = chat['id'].toString();
-                final bool isPinned = chat['isPinned'] == true;
+      );
+    }
 
-                if (!isPinned && _pinnedChatIds.length >= 5) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Anda hanya bisa pin maksimal 5 chat.'),
-                    ),
-                  );
-                  return;
-                }
+    _clearSelection();
+    await _loadActiveChats();
+  }
 
-                if (isPinned) {
-                  _pinnedChatIds.remove(chatId);
-                } else {
-                  _pinnedChatIds.add(chatId);
-                }
+  Future<void> _resummarySelectedChats() async {
+    final selectedIds = _selectedChatIds.toList();
+    if (selectedIds.isEmpty) return;
 
-                await _localChatService.savePinnedChats(_pinnedChatIds);
-                _loadActiveChats();
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE8F5E9),
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Color(0xFF2E7D32),
-                ),
-              ),
-              title: const Text(
-                'Re-Summary',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text(
-                'Clear summary to regenerate upon next opening',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await _localChatService.saveSummaries(
-                  chat['id'].toString(),
-                  {},
-                );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Summary reset. Will generate on next open.',
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFFFEBEE),
-                child: Icon(
-                  Icons.delete_outline_rounded,
-                  color: Color(0xFFD32F2F),
-                ),
-              ),
-              title: const Text(
-                'Hapus Chat',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFD32F2F),
-                ),
-              ),
-              subtitle: const Text(
-                'Permanently delete this chat history',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final bool? confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Hapus Chat?'),
-                    content: const Text('Tindakan ini tidak bisa dibatalkan.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Batal'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        child: const Text('Hapus'),
-                      ),
-                    ],
-                  ),
-                );
+    await Future.wait(
+      selectedIds.map((chatId) => _localChatService.saveSummaries(chatId, {})),
+    );
 
-                if (confirm == true) {
-                  await _localChatService.deleteChat(chat['id'].toString());
-                  _initData();
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+    _clearSelection();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          selectedIds.length == 1
+              ? 'Summary reset. Will generate on next open.'
+              : 'Summary ${selectedIds.length} chat di-reset.',
         ),
       ),
     );
+  }
+
+  Future<void> _deleteSelectedChats() async {
+    final selectedIds = _selectedChatIds.toList();
+    if (selectedIds.isEmpty) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          selectedIds.length == 1
+              ? 'Hapus chat ini?'
+              : 'Hapus ${selectedIds.length} chat?',
+        ),
+        content: const Text('Tindakan ini tidak bisa dibatalkan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    for (final chatId in selectedIds) {
+      await _localChatService.deleteChat(chatId);
+    }
+
+    _clearSelection();
+    await _initData();
+  }
+}
+
+class _CornerArrowPainter extends CustomPainter {
+  final Color color;
+
+  const _CornerArrowPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CornerArrowPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _OrderGlyphPainter extends CustomPainter {
+  final bool ascending;
+  final Color lineColor;
+  final Color arrowColor;
+
+  const _OrderGlyphPainter({
+    required this.ascending,
+    required this.lineColor,
+    required this.arrowColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    final arrowPaint = Paint()
+      ..color = arrowColor
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    const left = 1.0;
+    canvas.drawLine(Offset(left, 2.4), Offset(left + 10.8, 2.4), linePaint);
+    canvas.drawLine(Offset(left, 7), Offset(left + 12.5, 7), linePaint);
+    canvas.drawLine(Offset(left, 11.6), Offset(left + 8.8, 11.6), linePaint);
+
+    final x = size.width - 4.8;
+    const yTop = 2.4;
+    const yBottom = 11.6;
+    const head = 3.1;
+
+    canvas.drawLine(Offset(x, yTop), Offset(x, yBottom), arrowPaint);
+
+    if (ascending) {
+      canvas.drawLine(
+        Offset(x, yTop),
+        Offset(x - head, yTop + head),
+        arrowPaint,
+      );
+      canvas.drawLine(
+        Offset(x, yTop),
+        Offset(x + head, yTop + head),
+        arrowPaint,
+      );
+    } else {
+      canvas.drawLine(
+        Offset(x, yBottom),
+        Offset(x - head, yBottom - head),
+        arrowPaint,
+      );
+      canvas.drawLine(
+        Offset(x, yBottom),
+        Offset(x + head, yBottom - head),
+        arrowPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrderGlyphPainter oldDelegate) {
+    return oldDelegate.ascending != ascending ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.arrowColor != arrowColor;
   }
 }
