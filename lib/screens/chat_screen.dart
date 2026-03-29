@@ -3,14 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../services/ai_service.dart';
+import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:intl/intl.dart';
+import '../constants.dart';
 
 import '../services/localization_service.dart';
 
@@ -42,6 +44,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Map<int, String> _summaries = {};
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
+  bool _isTypingEffectActive = false;
 
   // System Note
   final TextEditingController _systemNoteController = TextEditingController();
@@ -184,6 +187,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Future<void> _loadHistory() async {
     final history = await _localChatService.loadChat(widget.bot['id']);
+    // Strip any temporary animation keys that might have been saved if the app was closed mid-typing
+    for (var msg in history) {
+      msg.remove('visible_parts');
+      msg.remove('is_typing_next');
+    }
     final summaries = await _localChatService.loadSummaries(widget.bot['id']);
     setState(() {
       _messages = history;
@@ -297,11 +305,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty || _isLoading) return;
+    if (_isLoading || _isTypingEffectActive) return;
 
     final userMessage = _messageController.text.trim();
-    _messageController.clear();
 
+    if (userMessage.isEmpty) {
+      // C.AI Style Continue: If empty, remove trailing system errors if any, and fetch AI response.
+      if (_messages.isNotEmpty && _messages.last['role'] == 'system') {
+        setState(() {
+          _messages.removeLast();
+        });
+      }
+      await _getAIResponse();
+      return;
+    }
+
+    _messageController.clear();
     final timestamp = DateTime.now().toIso8601String();
     setState(() {
       _messages.add({
@@ -372,6 +391,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       });
     }
 
+    // If the history ends with the assistant, we must supply a user prompt
+    // to satisfy strict API constraints (like Gemini) and instruct the model to continue.
+    if (aiMessages.isNotEmpty && aiMessages.last['role'] == 'assistant') {
+      aiMessages.add({'role': 'user', 'content': '[Continue]'});
+    }
+
     // Get language from settings or use default
     final prefs = await SharedPreferences.getInstance();
     String language = prefs.getString('app_language') ?? 'Indonesian';
@@ -394,11 +419,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             response['choices'] != null) {
           final aiContent = response['choices'][0]['message']['content'];
           if (aiContent != null && (aiContent as String).isNotEmpty) {
+            final parts = aiContent.split('\n\n').where((s) => s.trim().isNotEmpty).toList();
             _messages.add({
               'role': 'assistant',
               'content': aiContent,
               'timestamp': aiTimestamp,
+              if (parts.length > 1) 'visible_parts': 1,
+              if (parts.length > 1) 'is_typing_next': true,
             });
+
+            if (parts.length > 1) {
+              _startTypingEffect(parts.length);
+            }
           } else {
             _addSystemError(aiTimestamp);
           }
@@ -406,117 +438,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           final int? statusCode = response != null
               ? response['status_code'] as int?
               : null;
-          final dynamic rawError = response != null ? response['raw_error'] : null;
-          _addSystemError(aiTimestamp, statusCode: statusCode, rawError: rawError);
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _addSystemError(DateTime.now().toIso8601String());
-      });
-    }
-
-    // Save to local storage
-    await _localChatService.saveChat(widget.bot['id'], _messages);
-    _scrollToBottom();
-
-    // 3. Trigger auto-summarization
-    _generateSummaries();
-  }
-
-  Future<void> _continueResponse() async {
-    if (_messages.isEmpty) return;
-
-    // If the last message was a system error, we remove it before continuing the assistant message.
-    if (_messages.last['role'] == 'system') {
-      setState(() {
-        _messages.removeLast();
-      });
-    }
-
-    if (_messages.isEmpty) return;
-    final lastBotMessage = _messages.last;
-    if (lastBotMessage['role'] != 'assistant') return;
-
-    setState(() {
-      _isLoading = true;
-    });
-    _scrollToBottom();
-
-    // Prepare messages (History Limit same as _getAIResponse)
-    List<Map<String, String>> fullHistory = _messages
-        .where((m) => m['content'] != null && m['role'] != 'system')
-        .map(
-          (m) => {
-            'role': m['role'] as String,
-            'content': m['content'] as String,
-          },
-        )
-        .toList();
-
-    // Structured Summary
-    String? summaryPrompt;
-    if (_summaries.isNotEmpty) {
-      summaryPrompt = "[CONVERSATION RECAP]\n";
-      final sortedKeys = _summaries.keys.toList()..sort();
-      for (var key in sortedKeys) {
-        summaryPrompt =
-            "${summaryPrompt!}- Messages ${key + 1}-${key + 20}: ${_summaries[key]}\n";
-      }
-    }
-
-    List<Map<String, String>> aiMessages;
-    if (summaryPrompt != null && fullHistory.length > 4) {
-      aiMessages = fullHistory.sublist(fullHistory.length - 4);
-    } else {
-      aiMessages = fullHistory;
-    }
-
-    // Inject System Note if present
-    if (_systemNoteController.text.trim().isNotEmpty) {
-      aiMessages.insert(0, {
-        'role': 'system',
-        'content': _systemNoteController.text.trim(),
-      });
-    }
-
-    // Add a hidden "Continue" prompt
-    aiMessages.add({'role': 'user', 'content': '[Continue]'});
-
-    // Get language from settings
-    final prefs = await SharedPreferences.getInstance();
-    String language = prefs.getString('app_language') ?? 'Indonesian';
-
-    try {
-      final response = await _aiService.sendMessage(
-        provider: widget.provider,
-        messages: aiMessages,
-        botId: widget.bot['id'],
-        language: language,
-        summary: summaryPrompt,
-      );
-
-      setState(() {
-        _isLoading = false;
-        if (response != null &&
-            response['error'] != true &&
-            response['choices'] != null) {
-          final aiContent = response['choices'][0]['message']['content'];
-          if (aiContent != null && (aiContent as String).isNotEmpty) {
-            // Append result to the LAST message
-            final String existingContent = lastBotMessage['content'] ?? '';
-            _messages.last['content'] = '$existingContent\n\n$aiContent';
-          } else {
-            _addSystemError(DateTime.now().toIso8601String());
-          }
-        } else {
-          final int? statusCode = response != null
-              ? response['status_code'] as int?
+          final dynamic rawError = response != null
+              ? response['raw_error']
               : null;
-          final dynamic rawError = response != null ? response['raw_error'] : null;
           _addSystemError(
-            DateTime.now().toIso8601String(),
+            aiTimestamp,
             statusCode: statusCode,
             rawError: rawError,
           );
@@ -529,9 +455,234 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       });
     }
 
-    // Save to local storage
-    await _localChatService.saveChat(widget.bot['id'], _messages);
+    // Save to local storage only if not handled by typing effect loop
+    if (!_isTypingEffectActive) {
+      await _localChatService.saveChat(widget.bot['id'], _messages);
+      _generateSummaries();
+    }
     _scrollToBottom();
+  }
+
+  Future<void> _startTypingEffect(int totalParts) async {
+    setState(() {
+      _isTypingEffectActive = true;
+    });
+
+    for (int i = 1; i < totalParts; i++) {
+      await Future.delayed(const Duration(milliseconds: 500)); // Natural typing pause
+      _scrollToBottom(); // Scroll to ensure typing indicator is visible
+      
+      await Future.delayed(const Duration(milliseconds: 1500)); // Simulated typing time
+
+      if (!mounted) return;
+
+      setState(() {
+        _messages.last['visible_parts'] = i + 1;
+        if (i == totalParts - 1) {
+          _messages.last.remove('is_typing_next');
+          _isTypingEffectActive = false;
+        }
+      });
+      
+      // Save state progressively
+      await _localChatService.saveChat(widget.bot['id'], _messages);
+      _scrollToBottom();
+    }
+    
+    // Trigger bulk summaries after animation completes
+    _generateSummaries();
+  }
+
+  Future<void> _showBondStats() async {
+    final authService = AuthService();
+    final token = await authService.getToken();
+    if (token == null || !mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final botId = widget.bot['id'];
+
+    Map<String, dynamic>? bondData;
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/bots/bond/$botId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        bondData = jsonDecode(response.body);
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
+    final xp = bondData?['xp'] ?? 0;
+    final xpInto = bondData?['xp_into_level'] ?? 0;
+    final xpPer = bondData?['xp_per_level'] ?? 5;
+    final progress = bondData != null
+        ? (bondData['progress_percent'] as num) / 100.0
+        : 0.0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Avatar + name
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: _parseColor(widget.bot['color']),
+                    backgroundImage: widget.bot['image_url'] != null
+                        ? NetworkImage(widget.bot['image_url'])
+                        : null,
+                    child: widget.bot['image_url'] == null
+                        ? Text(
+                            (widget.bot['name'] as String)[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.bot['name'],
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2D3748),
+                        ),
+                      ),
+                      Text(
+                        'Total XP: $xp',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              // Large heart + level display
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      const Icon(
+                        Icons.favorite,
+                        color: Color(0xFFFBB6CE),
+                        size: 72,
+                      ),
+                      Text(
+                        '$hearts',
+                        style: const TextStyle(
+                          color: Color(0xFF135ACF),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Bond Level',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        'Lv. $hearts',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF135ACF),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // XP Progress Bar
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Progress to Lv. ${hearts + 1}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4A5568),
+                        ),
+                      ),
+                      Text(
+                        '$xpInto / $xpPer XP',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      minHeight: 12,
+                      backgroundColor: Colors.pink.shade50,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFFFB6F9D),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _addSystemError(String timestamp, {int? statusCode, dynamic rawError}) {
@@ -561,7 +712,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   String _formatErrorPayload(int? statusCode, dynamic rawError) {
     if (rawError is! Map<String, dynamic>) {
       if (rawError != null && rawError.toString().trim().isNotEmpty) {
-        return '${statusCode != null ? '[$statusCode] ' : ''}$rawError';
+        String errStr = rawError.toString();
+        // Detect if the error is an HTML page (e.g. 404/405 from Nginx/Laravel)
+        if (errStr.trim().toLowerCase().startsWith('<!doctype html') ||
+            errStr.toLowerCase().contains('<html')) {
+          return '${statusCode != null ? '[$statusCode] ' : ''}Server returned an HTML error page. Endpoint might be incorrect or unavailable.';
+        }
+        return '${statusCode != null ? '[$statusCode] ' : ''}$errStr';
       }
       return 'Unknown Error';
     }
@@ -574,7 +731,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (rawError.containsKey('message') && rawError['message'] is String) {
       errMessage = rawError['message'];
     }
-    
+
     // 2. "detail" at root (Chutes)
     if (rawError.containsKey('detail') && rawError['detail'] is String) {
       errMessage ??= rawError['detail'];
@@ -586,28 +743,40 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
 
     // 4. "error" object
-    if (rawError.containsKey('error') && rawError['error'] is Map<String, dynamic>) {
+    if (rawError.containsKey('error') &&
+        rawError['error'] is Map<String, dynamic>) {
       final eObj = rawError['error'] as Map<String, dynamic>;
-      if (eObj.containsKey('message') && eObj['message'] is String) errMessage ??= eObj['message'];
-      if (eObj.containsKey('type') && eObj['type'] is String) errType ??= eObj['type'];
+      if (eObj.containsKey('message') && eObj['message'] is String)
+        errMessage ??= eObj['message'];
+      if (eObj.containsKey('type') && eObj['type'] is String)
+        errType ??= eObj['type'];
       if (eObj.containsKey('code')) errCode ??= eObj['code'].toString();
     }
 
     // 5. OpenRouter: {error: {code, message}} via response object
-    if (rawError.containsKey('response') && rawError['response'] is Map<String, dynamic>) {
+    if (rawError.containsKey('response') &&
+        rawError['response'] is Map<String, dynamic>) {
       final resObj = rawError['response'] as Map<String, dynamic>;
-      if (resObj.containsKey('error') && resObj['error'] is Map<String, dynamic>) {
+      if (resObj.containsKey('error') &&
+          resObj['error'] is Map<String, dynamic>) {
         final eObj = resObj['error'] as Map<String, dynamic>;
-        if (eObj.containsKey('message') && eObj['message'] is String) errMessage ??= eObj['message'];
+        if (eObj.containsKey('message') && eObj['message'] is String)
+          errMessage ??= eObj['message'];
         if (eObj.containsKey('code')) errCode ??= eObj['code'].toString();
       }
     }
 
     // Assign fallback types/codes from root
-    if (rawError.containsKey('error_type') && rawError['error_type'] is String) errType ??= rawError['error_type'];
-    if (rawError.containsKey('type') && rawError['type'] is String && rawError['type'] != 'error') errType ??= rawError['type'];
-    if (rawError.containsKey('code') && rawError['code'] is String) errCode ??= rawError['code'];
-    if (rawError.containsKey('rc') && rawError['rc'] is String) errCode ??= rawError['rc'];
+    if (rawError.containsKey('error_type') && rawError['error_type'] is String)
+      errType ??= rawError['error_type'];
+    if (rawError.containsKey('type') &&
+        rawError['type'] is String &&
+        rawError['type'] != 'error')
+      errType ??= rawError['type'];
+    if (rawError.containsKey('code') && rawError['code'] is String)
+      errCode ??= rawError['code'];
+    if (rawError.containsKey('rc') && rawError['rc'] is String)
+      errCode ??= rawError['rc'];
 
     // If we managed to parse something:
     if (errMessage != null) {
@@ -618,7 +787,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       } else if (errCode != null) {
         result += '($errCode) ';
       }
-      
+
       result += errMessage;
       return result;
     }
@@ -730,11 +899,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           if (pData.trim().isEmpty) {
                             return Text(
                               tr('bio_no_personality'),
-                              style: TextStyle(fontSize: 15, color: Colors.grey[600]),
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey[600],
+                              ),
                             );
                           }
-                          
-                          Map<String, String> parseBioAttributes(String personality) {
+
+                          Map<String, String> parseBioAttributes(
+                            String personality,
+                          ) {
                             Map<String, String> result = {
                               'Nickname': '*Unknown*',
                               'Age': '*Unknown*',
@@ -747,25 +921,53 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                             // Helper to find regex
                             String? findMatch(String pattern) {
-                              final regExp = RegExp(pattern, caseSensitive: false, multiLine: true);
+                              final regExp = RegExp(
+                                pattern,
+                                caseSensitive: false,
+                                multiLine: true,
+                              );
                               final match = regExp.firstMatch(personality);
                               if (match != null && match.groupCount >= 1) {
                                 // Extract and strip formatting like quotes or asterisks if any
                                 String val = match.group(1)!.trim();
-                                val = val.replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '').trim();
-                                if (val.endsWith(',')) val = val.substring(0, val.length - 1).trim();
+                                val = val
+                                    .replaceAll(
+                                      RegExp('^["\'*]+|["\'*]+\$'),
+                                      '',
+                                    )
+                                    .trim();
+                                if (val.endsWith(','))
+                                  val = val.substring(0, val.length - 1).trim();
                                 return val;
                               }
                               return null;
                             }
 
-                            result['Nickname'] = findMatch(r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                            result['Age'] = findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                            result['Nationality'] = findMatch(r'(?:Nationality|Country)\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                            result['Height'] = findMatch(r'Height\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                            result['Weight'] = findMatch(r'Weight\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                            result['Like'] = findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                            result['Dislike'] = findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ?? '*Unknown*';
+                            result['Nickname'] =
+                                findMatch(
+                                  r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
+                                ) ??
+                                '*Unknown*';
+                            result['Age'] =
+                                findMatch(r'Age\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Nationality'] =
+                                findMatch(
+                                  r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
+                                ) ??
+                                '*Unknown*';
+                            result['Height'] =
+                                findMatch(r'Height\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Weight'] =
+                                findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Like'] =
+                                findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Dislike'] =
+                                findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
 
                             return result;
                           }
@@ -782,13 +984,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                     width: 100,
                                     child: Text(
                                       label,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A5568), fontSize: 14),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4A5568),
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                   Expanded(
                                     child: Text(
                                       value,
-                                      style: TextStyle(color: Colors.grey[800], fontSize: 14),
+                                      style: TextStyle(
+                                        color: Colors.grey[800],
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -893,14 +1102,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 Navigator.pop(ctx);
                 // Keep messages 0..index (inclusive), remove everything after
                 final trimmed = _messages.sublist(0, index + 1);
-                
+
                 setState(() {
                   _messages = trimmed;
                   _summaries.removeWhere((key, value) => key >= trimmed.length);
                 });
-                
+
                 await _localChatService.saveChat(widget.bot['id'], _messages);
-                await _localChatService.saveSummaries(widget.bot['id'], _summaries);
+                await _localChatService.saveSummaries(
+                  widget.bot['id'],
+                  _summaries,
+                );
                 _scrollToBottom();
               },
             ),
@@ -1096,26 +1308,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               SizedBox(
                 width: 40,
                 height: 40,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(
-                      Icons.favorite,
-                      color: Color(0xFFFBB6CE),
-                      size: 38,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Text(
-                        '${widget.bot['bond_hearts'] ?? 0}',
-                        style: const TextStyle(
-                          color: Color(0xFF135ACF),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                child: GestureDetector(
+                  onTap: _showBondStats,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      const Icon(
+                        Icons.favorite,
+                        color: Color(0xFFFBB6CE),
+                        size: 38,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          '${widget.bot['bond_hearts'] ?? 0}',
+                          style: const TextStyle(
+                            color: Color(0xFF135ACF),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1131,7 +1346,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 await _exportChat('json');
               } else if (value == 're_summary') {
                 setState(() => _summaries.clear());
-                await _localChatService.saveSummaries(widget.bot['id'], _summaries);
+                await _localChatService.saveSummaries(
+                  widget.bot['id'],
+                  _summaries,
+                );
                 _generateSummaries();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1218,7 +1436,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               LinearProgressIndicator(
                 value: _summaryProgress,
                 backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF135ACF)),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF135ACF),
+                ),
                 minHeight: 2,
               ),
             Expanded(
@@ -1259,7 +1479,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                       final bubble = isUser
                           ? _buildUserBubble(content, timestamp, index)
-                          : _buildBotBubble(content, timestamp, index);
+                          : _buildBotBubble(
+                              content, 
+                              timestamp, 
+                              index,
+                              visibleParts: msg['visible_parts'] as int?,
+                              isTypingNext: msg['is_typing_next'] == true,
+                            );
 
                       return GestureDetector(
                         onLongPress: () => _showMessageOptions(index, content),
@@ -1444,12 +1670,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildBotBubble(String content, DateTime? timestamp, int index) {
+  Widget _buildBotBubble(String content, DateTime? timestamp, int index, {int? visibleParts, bool isTypingNext = false}) {
     final parts = content
         .split('\n\n')
         .where((s) => s.trim().isNotEmpty)
         .toList();
     if (parts.isEmpty) return const SizedBox.shrink();
+
+    final partsToRender = visibleParts != null ? parts.take(visibleParts).toList() : parts;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1496,14 +1724,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                ...parts.asMap().entries.map((entry) {
+                ...partsToRender.asMap().entries.map((entry) {
                   int idx = entry.key;
                   String part = entry.value;
                   bool isFirst = idx == 0;
 
                   return Padding(
                     padding: EdgeInsets.only(
-                      bottom: idx == parts.length - 1 ? 0 : 4,
+                      bottom: idx == partsToRender.length - 1 ? 0 : 4,
                     ),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -1572,6 +1800,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     ),
                   );
                 }),
+                if (isTypingNext)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF414D66),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
+                          bottomRight: Radius.circular(12),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _DotAnim(delay: 0),
+                          SizedBox(width: 4),
+                          _DotAnim(delay: 0.2),
+                          SizedBox(width: 4),
+                          _DotAnim(delay: 0.4),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1686,49 +1940,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           vertical: 10,
                         ),
                       ),
-                      onSubmitted: (_) => _sendMessage(),
+                      onSubmitted: (_) {
+                        if (!_isTypingEffectActive) _sendMessage();
+                      },
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _messageController,
-                  builder: (context, val, child) {
-                    final bool hasText = val.text.trim().isNotEmpty;
-                    final bool canContinue =
-                        _messages.isNotEmpty &&
-                        (_messages.last['role'] == 'assistant' ||
-                            (_messages.last['role'] == 'system' &&
-                                _messages.length > 1 &&
-                                _messages[_messages.length - 2]['role'] ==
-                                    'assistant'));
-
-                    if (hasText) {
-                      return GestureDetector(
-                        onTap: _sendMessage,
-                        child: const Icon(
-                          Icons.send_rounded,
-                          color: Color(0xFF135ACF),
-                          size: 28,
-                        ),
-                      );
-                    } else if (canContinue) {
-                      return GestureDetector(
-                        onTap: _continueResponse,
-                        child: const Icon(
-                          Icons.play_circle_filled_rounded,
-                          color: Color(0xFF7B1FA2),
-                          size: 28,
-                        ),
-                      );
-                    } else {
-                      return const Icon(
-                        Icons.send_rounded,
-                        color: Colors.grey,
-                        size: 28,
-                      );
-                    }
-                  },
+                GestureDetector(
+                  onTap: _isTypingEffectActive ? null : _sendMessage,
+                  child: Icon(
+                    Icons.send_rounded,
+                    color: _isTypingEffectActive ? Colors.grey : const Color(0xFF135ACF),
+                    size: 28,
+                  ),
                 ),
               ],
             ),

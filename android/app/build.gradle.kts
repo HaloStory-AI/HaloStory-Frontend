@@ -41,7 +41,7 @@ android {
         applicationId = "com.r8kstudio.bluetalk"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion // Support Android 6.0 Marshmallow
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName

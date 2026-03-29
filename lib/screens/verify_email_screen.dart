@@ -135,7 +135,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
@@ -251,6 +252,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     ),
             ),
           ],
+        ),
         ),
       ),
     );

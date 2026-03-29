@@ -215,6 +215,7 @@ class AIService {
       Uri.parse(AppConstants.chatSystemUrl),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -262,6 +263,7 @@ class AIService {
       Uri.parse(endpoint),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
@@ -306,7 +308,10 @@ class AIService {
     // 1. Fetch system prompt from backend
     final promptResponse = await http.get(
       Uri.parse('${AppConstants.byomPromptUrl}/$botId?language=$language'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
     );
 
     String systemPrompt = "";
@@ -324,7 +329,10 @@ class AIService {
     }
 
     // 3. Send directly to local/custom endpoint
-    final headers = {'Content-Type': 'application/json'};
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
     if (apiKey.isNotEmpty) {
       headers['Authorization'] = 'Bearer $apiKey';
     }
@@ -373,6 +381,7 @@ class AIService {
         Uri.parse(AppConstants.chatSummarizeUrl),
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({

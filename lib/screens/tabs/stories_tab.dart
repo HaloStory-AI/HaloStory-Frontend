@@ -98,7 +98,9 @@ class _StoriesTabState extends State<StoriesTab> {
   @override
   Widget build(BuildContext context) {
 
-    return Column(
+    return SafeArea(
+      top: false,
+      child: Column(
       children: [
         // --- HEADER & RELOAD ---
         Padding(
@@ -291,6 +293,7 @@ class _StoriesTabState extends State<StoriesTab> {
                 ),
         ),
       ],
+      ),
     );
   }
 }

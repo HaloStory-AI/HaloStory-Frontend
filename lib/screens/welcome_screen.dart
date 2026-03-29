@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:permission_handler/permission_handler.dart';
 import '../services/localization_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -35,48 +33,50 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
-            },
-            children: [_buildSlide1(), _buildSlide2(), _buildSlide3()],
-          ),
-
-          // Custom Smooth Indicator
-          Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(3, (index) => _buildDot(index)),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                });
+              },
+              children: [_buildSlide1(), _buildSlide2(), _buildSlide3()],
             ),
-          ),
 
-          // Next / Skip Button for first 2 slides
-          if (_currentPage < 2) // This button is only for slides 0 and 1
+            // Custom Smooth Indicator
             Positioned(
-              bottom: 40,
-              right: 24,
-              child: TextButton(
-                onPressed: _nextPage,
-                child: Text(
-                  // Changed to Text widget with tr()
-                  _currentPage == 2 ? tr('btn_finish') : tr('btn_next'),
-                  style: const TextStyle(
-                    color: Color(0xFF135ACF),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+              bottom: 60,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(3, (index) => _buildDot(index)),
+              ),
+            ),
+
+            // Next / Skip Button for first 2 slides
+            if (_currentPage < 2) // This button is only for slides 0 and 1
+              Positioned(
+                bottom: 40,
+                right: 24,
+                child: TextButton(
+                  onPressed: _nextPage,
+                  child: Text(
+                    // Changed to Text widget with tr()
+                    _currentPage == 2 ? tr('btn_finish') : tr('btn_next'),
+                    style: const TextStyle(
+                      color: Color(0xFF135ACF),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

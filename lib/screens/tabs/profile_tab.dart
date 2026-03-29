@@ -28,7 +28,9 @@ class _ProfileTabState extends State<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>?>(
+    return SafeArea(
+      top: false,
+      child: FutureBuilder<Map<String, dynamic>?>(
       future: _userProfile,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -124,6 +126,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         );
       },
+      ),
     );
   }
 

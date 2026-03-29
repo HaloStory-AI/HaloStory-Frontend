@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../services/bot_service.dart';
 import '../../services/localization_service.dart';
-import 'package:intl/intl.dart';
 
 class CalendarTab extends StatefulWidget {
   const CalendarTab({super.key});
@@ -54,58 +53,57 @@ class _CalendarTabState extends State<CalendarTab> {
       children: [
         _buildHeader(),
         Expanded(
-          child: _isLoading 
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  TableCalendar(
-                    firstDay: DateTime.utc(2020, 1, 1),
-                    lastDay: DateTime.utc(2030, 12, 31),
-                    focusedDay: _focusedDay,
-                    calendarFormat: _calendarFormat,
-                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                    onDaySelected: (selectedDay, focusedDay) {
-                      setState(() {
-                        _selectedDay = selectedDay;
-                        _focusedDay = focusedDay;
-                      });
-                    },
-                    onFormatChanged: (format) {
-                      setState(() {
-                        _calendarFormat = format;
-                      });
-                    },
-                    eventLoader: _getEventsForDay,
-                    calendarStyle: const CalendarStyle(
-                      todayDecoration: BoxDecoration(
-                        color: Color(0xFFB8D8F8),
-                        shape: BoxShape.circle,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    TableCalendar(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2030, 12, 31),
+                      focusedDay: _focusedDay,
+                      calendarFormat: _calendarFormat,
+                      selectedDayPredicate: (day) =>
+                          isSameDay(_selectedDay, day),
+                      onDaySelected: (selectedDay, focusedDay) {
+                        setState(() {
+                          _selectedDay = selectedDay;
+                          _focusedDay = focusedDay;
+                        });
+                      },
+                      onFormatChanged: (format) {
+                        setState(() {
+                          _calendarFormat = format;
+                        });
+                      },
+                      eventLoader: _getEventsForDay,
+                      calendarStyle: const CalendarStyle(
+                        todayDecoration: BoxDecoration(
+                          color: Color(0xFFB8D8F8),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedDecoration: BoxDecoration(
+                          color: Color(0xFF135ACF),
+                          shape: BoxShape.circle,
+                        ),
+                        markerDecoration: BoxDecoration(
+                          color: Colors.pinkAccent,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                      selectedDecoration: BoxDecoration(
-                        color: Color(0xFF135ACF),
-                        shape: BoxShape.circle,
-                      ),
-                      markerDecoration: BoxDecoration(
-                        color: Colors.pinkAccent,
-                        shape: BoxShape.circle,
+                      headerStyle: const HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                        titleTextStyle: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Color(0xFF135ACF),
+                        ),
                       ),
                     ),
-                    headerStyle: const HeaderStyle(
-                      formatButtonVisible: false,
-                      titleCentered: true,
-                      titleTextStyle: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xFF135ACF),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: _buildEventList(),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 16),
+                    Expanded(child: _buildEventList()),
+                  ],
+                ),
         ),
       ],
     );
@@ -144,13 +142,17 @@ class _CalendarTabState extends State<CalendarTab> {
 
   Widget _buildEventList() {
     final events = _getEventsForDay(_selectedDay!);
-    
+
     if (events.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_available, size: 64, color: Colors.grey.withOpacity(0.3)),
+            Icon(
+              Icons.event_available,
+              size: 64,
+              color: Colors.grey.withOpacity(0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               tr('tab_calendar_no_birthday'),
@@ -200,11 +202,19 @@ class _CalendarTabState extends State<CalendarTab> {
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.cake, size: 14, color: Colors.pinkAccent),
+                        const Icon(
+                          Icons.cake,
+                          size: 14,
+                          color: Colors.pinkAccent,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           tr('tab_calendar_birthday_label'),
-                          style: const TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.pinkAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -212,7 +222,10 @@ class _CalendarTabState extends State<CalendarTab> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF135ACF)),
+                icon: const Icon(
+                  Icons.chat_bubble_outline,
+                  color: Color(0xFF135ACF),
+                ),
                 onPressed: () {
                   // Navigation to chat logic could go here
                 },

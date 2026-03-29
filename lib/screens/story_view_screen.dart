@@ -570,28 +570,33 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
 
             // BOTTOM ACTIONS: Download + Reply
             Positioned(
-              bottom: 24,
+              bottom: 0,
               left: 16,
               right: 16,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Download button
-                  _isOpeningWeb
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : _BottomActionButton(
-                          icon: Icons.open_in_browser_outlined,
-                          label: tr('tab_stories_open_web'),
-                          onTap: _openOnWeb,
-                        ),
-                  const SizedBox(width: 24),
-                  // Reply button
-                  _BottomActionButton(
-                    icon: Icons.reply_rounded,
-                    label: tr('tab_stories_reply'),
-                    onTap: _openReplyChat,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Download button
+                      _isOpeningWeb
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : _BottomActionButton(
+                              icon: Icons.open_in_browser_outlined,
+                              label: tr('tab_stories_open_web'),
+                              onTap: _openOnWeb,
+                            ),
+                      const SizedBox(width: 24),
+                      // Reply button
+                      _BottomActionButton(
+                        icon: Icons.reply_rounded,
+                        label: tr('tab_stories_reply'),
+                        onTap: _openReplyChat,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ],

@@ -72,7 +72,7 @@ class StoryService {
         ),
       );
 
-      final allBots = await _botService.getBots();
+      final allBots = await _botService.getBots(type: 'all');
       final botMap = {for (var b in allBots) b['id']: b};
 
       final orderedBotIds = allChats

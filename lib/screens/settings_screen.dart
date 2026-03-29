@@ -608,11 +608,13 @@ class _SettingsScreenState extends State<SettingsScreen>
           _buildBackupTab(),
         ],
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ElevatedButton(
-          onPressed: _saveSettings,
-          child: Text(tr('settings_save_btn')),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: _saveSettings,
+            child: Text(tr('settings_save_btn')),
+          ),
         ),
       ),
     );

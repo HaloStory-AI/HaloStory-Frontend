@@ -73,7 +73,8 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFF135ACF)),
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           // Input Section
           Container(
@@ -205,6 +206,7 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
                 ),
           ),
         ],
+        ),
       ),
     );
   }

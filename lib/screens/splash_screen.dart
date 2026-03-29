@@ -67,7 +67,13 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     // 1. Fetch Dynamic Config First (API URL, Maintenance, & Version)
-    await ConfigService.initConfig();
+    final bool configSuccess = await ConfigService.initConfig();
+
+    if (!configSuccess) {
+      if (!mounted) return;
+      _showNoInternetBottomSheet();
+      return;
+    }
 
     if (ConfigService.needsUpdate) {
       if (!mounted) return;

@@ -102,108 +102,110 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(tr('btn_register'))),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: tr('register_full_name_hint'),
-                  prefixIcon: const Icon(Icons.person_outline),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  hintText: tr('login_email_hint'),
-                  prefixIcon: const Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  hintText: tr('login_password_hint'),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _confirmPasswordController,
-                decoration: InputDecoration(
-                  hintText: tr('register_confirm_password_hint'),
-                  prefixIcon: const Icon(Icons.lock_reset),
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Checkbox(
-                    value: _isAgreed,
-                    onChanged: (val) {
-                      setState(() {
-                        _isAgreed = val ?? false;
-                      });
-                    },
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    hintText: tr('register_full_name_hint'),
+                    prefixIcon: const Icon(Icons.person_outline),
                   ),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          color:
-                              Theme.of(context).textTheme.bodyMedium?.color ??
-                              Colors.black87,
-                          fontSize: 13,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    hintText: tr('login_email_hint'),
+                    prefixIcon: const Icon(Icons.email_outlined),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    hintText: tr('login_password_hint'),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _confirmPasswordController,
+                  decoration: InputDecoration(
+                    hintText: tr('register_confirm_password_hint'),
+                    prefixIcon: const Icon(Icons.lock_reset),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _isAgreed,
+                      onChanged: (val) {
+                        setState(() {
+                          _isAgreed = val ?? false;
+                        });
+                      },
+                    ),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).textTheme.bodyMedium?.color ??
+                                Colors.black87,
+                            fontSize: 13,
+                          ),
+                          children: [
+                            TextSpan(text: tr('register_terms_agree')),
+                            TextSpan(
+                              text: tr('register_terms_tos'),
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () => _launchURL(
+                                  "https://bluetalk.my-bini.my.id/terms",
+                                ),
+                            ),
+                            TextSpan(text: tr('register_terms_and')),
+                            TextSpan(
+                              text: tr('register_terms_privacy'),
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () => _launchURL(
+                                  "https://bluetalk.my-bini.my.id/privacy",
+                                ),
+                            ),
+                            TextSpan(text: tr('register_terms_suffix')),
+                          ],
                         ),
-                        children: [
-                          TextSpan(text: tr('register_terms_agree')),
-                          TextSpan(
-                            text: tr('register_terms_tos'),
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.underline,
-                            ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () => _launchURL(
-                                "https://bluetalk.my-bini.my.id/terms",
-                              ),
-                          ),
-                          TextSpan(text: tr('register_terms_and')),
-                          TextSpan(
-                            text: tr('register_terms_privacy'),
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.underline,
-                            ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () => _launchURL(
-                                "https://bluetalk.my-bini.my.id/privacy",
-                              ),
-                          ),
-                          TextSpan(text: tr('register_terms_suffix')),
-                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              _isLoading
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                      onPressed: _handleRegister,
-                      child: Text(tr('btn_register')),
-                    ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 32),
+                _isLoading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                        onPressed: _handleRegister,
+                        child: Text(tr('btn_register')),
+                      ),
+              ],
+            ),
           ),
         ),
       ),

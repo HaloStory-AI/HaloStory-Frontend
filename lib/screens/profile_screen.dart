@@ -325,7 +325,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: const Color(0xFFB8D8F8),
         centerTitle: true,
       ),
-      body: FutureBuilder<Map<String, dynamic>?>(
+      body: SafeArea(
+        child: FutureBuilder<Map<String, dynamic>?>(
         future: _userProfile,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -487,6 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }

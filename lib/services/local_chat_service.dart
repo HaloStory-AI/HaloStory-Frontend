@@ -8,6 +8,7 @@ class LocalChatService {
   static const String _webPrefix = 'chat_history_';
   static const String _webTimePrefix = 'chat_time_';
   static const String _webSummaryPrefix = 'chat_summary_';
+  static const String _webPinsKey = 'chat_pinned_ids';
 
   // Get the directory for Android storage
   Future<String> _getStoragePath() async {
@@ -167,6 +168,44 @@ class LocalChatService {
     return [];
   }
 
+  // --- Pinned Chats Methods ---
+
+  Future<List<String>> getPinnedChats() async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getStringList(_webPinsKey);
+      return data ?? [];
+    }
+
+    try {
+      final path = await _getStoragePath();
+      final file = File('$path/pinned_chats.json');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        return List<String>.from(jsonDecode(content));
+      }
+    } catch (e) {
+      print('DEBUG: Error loading pinned chats: $e');
+    }
+    return [];
+  }
+
+  Future<void> savePinnedChats(List<String> pins) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_webPinsKey, pins);
+      return;
+    }
+
+    try {
+      final path = await _getStoragePath();
+      final file = File('$path/pinned_chats.json');
+      await file.writeAsString(jsonEncode(pins));
+    } catch (e) {
+      print('DEBUG: Error saving pinned chats: $e');
+    }
+  }
+
   // Clear a chat
   Future<void> deleteChat(String chatId) async {
     if (kIsWeb) {
@@ -189,6 +228,13 @@ class LocalChatService {
       }
     } catch (e) {
       print('DEBUG: Error deleting chat: $e');
+    }
+
+    // Auto-remove from pins if deleted
+    final pins = await getPinnedChats();
+    if (pins.contains(chatId)) {
+      pins.remove(chatId);
+      await savePinnedChats(pins);
     }
   }
 }

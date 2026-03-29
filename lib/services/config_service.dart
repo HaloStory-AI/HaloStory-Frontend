@@ -29,7 +29,7 @@ class ConfigService {
   }
 
   /// Fetch configuration from Laravel API
-  static Future<void> initConfig() async {
+  static Future<bool> initConfig() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       final localVer = packageInfo.version;
@@ -46,9 +46,12 @@ class ConfigService {
         final data = jsonDecode(response.body);
         _applyConfig(data);
         await _checkVersion(data['version']);
+        return true;
       }
+      return false;
     } catch (e) {
       print('DEBUG: ConfigService Fetch Error: $e');
+      return false;
     }
   }
 
@@ -99,7 +102,7 @@ class ConfigService {
   }
 
   /// Refetch config
-  static Future<void> refreshConfigOnFailure() async {
-    await initConfig();
+  static Future<bool> refreshConfigOnFailure() async {
+    return await initConfig();
   }
 }
