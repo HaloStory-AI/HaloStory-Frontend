@@ -769,8 +769,7 @@ class _ChatTabState extends State<ChatTab> {
                 value: selectedCategoryId,
                 items: categories.map((cat) {
                   return DropdownMenuItem<String>(
-                    value:
-                        cat['name'],
+                    value: cat['name'],
                     child: Text(cat['name']),
                   );
                 }).toList(),
@@ -995,13 +994,16 @@ class _ChatTabState extends State<ChatTab> {
   }) {
     final isDark = _isDark(context);
     final colorScheme = Theme.of(context).colorScheme;
+    const lightControlColor = Color(0xFF424242);
     const slant = 0.174533;
 
     final fillColor = isDark
         ? colorScheme.onSurface.withValues(alpha: accent ? 0.12 : 0.09)
-        : (accent ? colorScheme.surfaceContainerHighest : colorScheme.surface);
+        : Colors.white;
 
-    final cornerArrowColor = colorScheme.onSurfaceVariant;
+    final cornerArrowColor = isDark
+        ? colorScheme.onSurfaceVariant
+        : lightControlColor;
 
     final boxShadows = isDark
         ? [
@@ -1077,9 +1079,13 @@ class _ChatTabState extends State<ChatTab> {
   Widget _buildBody() {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = _isDark(context);
-    final controlTextColor = colorScheme.onSurface;
-    final orderListColor = colorScheme.onSurfaceVariant;
-    final orderArrowColor = colorScheme.onSurface;
+    const lightControlColor = Color(0xFF424242);
+    final controlTextColor = isDark ? colorScheme.onSurface : lightControlColor;
+    final orderListColor = isDark
+        ? colorScheme.onSurfaceVariant
+        : lightControlColor;
+    final orderArrowColor = isDark ? colorScheme.onSurface : lightControlColor;
+    final actionIconColor = isDark ? colorScheme.primary : lightControlColor;
 
     final Widget chatContent;
     final String chatContentKey;
@@ -1167,7 +1173,7 @@ class _ChatTabState extends State<ChatTab> {
                           child: Icon(
                             Icons.push_pin,
                             size: 18,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: actionIconColor,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1186,7 +1192,7 @@ class _ChatTabState extends State<ChatTab> {
                               Icon(
                                 Icons.auto_awesome_rounded,
                                 size: 16,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: actionIconColor,
                               ),
                               const SizedBox(width: 5),
                               Text(
@@ -1212,7 +1218,7 @@ class _ChatTabState extends State<ChatTab> {
                           child: Icon(
                             Icons.delete_outline_rounded,
                             size: 20,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: actionIconColor,
                           ),
                         ),
                       ],
@@ -1251,7 +1257,7 @@ class _ChatTabState extends State<ChatTab> {
                               fontSize: 13,
                               fontWeight: isDark
                                   ? FontWeight.w500
-                                  : FontWeight.w400,
+                                  : FontWeight.w700,
                               fontFamily: _chatHeaderPopupFont,
                               color: controlTextColor,
                             ),
@@ -1556,9 +1562,7 @@ class _ChatTabState extends State<ChatTab> {
                     size: 39,
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: 2,
-                    ),
+                    padding: const EdgeInsets.only(bottom: 2),
                     child: Text(bondLevel, style: _bondCountStyle(context)),
                   ),
                 ],
