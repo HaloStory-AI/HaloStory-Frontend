@@ -11,31 +11,47 @@ class AppTheme {
   static const Color amoledBorder = Color(0xFF2A2A2A);
 
   static ThemeData lightTheme() {
+    const lightColorScheme = ColorScheme.light(
+      primary: brandBlue,
+      onPrimary: Colors.white,
+      secondary: brandBlueSoft,
+      onSecondary: Color(0xFF0F172A),
+      surface: Color(0xFFF4F8FB),
+      onSurface: Color(0xFF1F2937),
+      onSurfaceVariant: Color(0xFF5F6B7A),
+      outline: Color(0xFFD5DEE8),
+      outlineVariant: Color(0xFFE3EAF2),
+      error: Color(0xFFB3261E),
+      onError: Colors.white,
+    );
+
+    final scheme = lightColorScheme.copyWith(
+      surfaceContainer: Colors.white,
+      surfaceContainerHighest: const Color(0xFFF0F5FF),
+    );
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: brandBlueSoft,
-        primary: brandBlueSoft,
-        secondary: brandBlue,
-        surface: const Color(0xFFF4F8FB),
-      ),
-      scaffoldBackgroundColor: const Color(0xFFF4F8FB),
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scheme.surface,
+      canvasColor: scheme.surface,
+      dividerColor: scheme.outlineVariant,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.nunito(
-          color: brandBlue,
+          color: scheme.primary,
           fontSize: 20,
           fontWeight: FontWeight.w800,
         ),
-        iconTheme: const IconThemeData(color: brandBlue),
+        iconTheme: IconThemeData(color: scheme.primary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: brandBlue,
-          foregroundColor: Colors.white,
+          backgroundColor: scheme.primary,
+          foregroundColor: scheme.onPrimary,
           minimumSize: const Size(double.infinity, 50),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -44,18 +60,19 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: scheme.surfaceContainer,
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: brandBlue, width: 1.5),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -63,24 +80,24 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: scheme.surfaceContainer,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: scheme.surfaceContainer,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surfaceContainer,
         surfaceTintColor: Colors.transparent,
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: brandBlue,
-        unselectedItemColor: Colors.grey,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: scheme.surfaceContainer,
+        selectedItemColor: scheme.primary,
+        unselectedItemColor: scheme.onSurfaceVariant,
       ),
-      drawerTheme: const DrawerThemeData(backgroundColor: Colors.white),
+      drawerTheme: DrawerThemeData(backgroundColor: scheme.surfaceContainer),
     );
   }
 
@@ -92,17 +109,22 @@ class AppTheme {
       onSecondary: Colors.black,
       surface: amoledSurface,
       onSurface: Color(0xFFEDEDED),
+      onSurfaceVariant: Color(0xFF9CA8BC),
+      outlineVariant: Color(0xFF1C1C1C),
       error: Color(0xFFFF6B6B),
       onError: Colors.black,
+    );
+
+    final scheme = darkColorScheme.copyWith(
+      surfaceContainer: amoledSurface,
+      surfaceContainerHighest: amoledSurfaceAlt,
+      outline: amoledBorder,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: darkColorScheme.copyWith(
-        surfaceContainerHighest: amoledSurfaceAlt,
-        outline: amoledBorder,
-      ),
+      colorScheme: scheme,
       scaffoldBackgroundColor: amoledBlack,
       canvasColor: amoledBlack,
       dividerColor: amoledBorder,
@@ -112,16 +134,16 @@ class AppTheme {
         elevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.nunito(
-          color: Colors.white,
+          color: scheme.onSurface,
           fontSize: 20,
           fontWeight: FontWeight.w800,
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: scheme.onSurface),
       ),
-      tabBarTheme: const TabBarThemeData(
-        labelColor: Color(0xFF7CB3FF),
-        unselectedLabelColor: Color(0xFF8F9DB3),
-        indicatorColor: Color(0xFF7CB3FF),
+      tabBarTheme: TabBarThemeData(
+        labelColor: scheme.primary,
+        unselectedLabelColor: scheme.onSurfaceVariant,
+        indicatorColor: scheme.primary,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -135,8 +157,8 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: amoledSurface,
-        hintStyle: const TextStyle(color: Color(0xFF8F9DB3)),
+        fillColor: scheme.surface,
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: amoledBorder),
@@ -147,7 +169,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF7CB3FF), width: 1.5),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -155,38 +177,38 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: amoledSurface,
+        color: scheme.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: amoledSurface,
+        backgroundColor: scheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: amoledSurface,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: amoledSurface,
+        color: scheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      listTileTheme: const ListTileThemeData(
-        iconColor: Color(0xFFD4D4D4),
-        textColor: Color(0xFFEDEDED),
+      listTileTheme: ListTileThemeData(
+        iconColor: const Color(0xFFCFDDF0),
+        textColor: scheme.onSurface,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: amoledSurfaceAlt,
-        contentTextStyle: const TextStyle(color: Color(0xFFEDEDED)),
+        contentTextStyle: TextStyle(color: scheme.onSurface),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: amoledSurface,
-        selectedItemColor: Color(0xFF7CB3FF),
-        unselectedItemColor: Color(0xFF8F9DB3),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: scheme.surface,
+        selectedItemColor: scheme.primary,
+        unselectedItemColor: scheme.onSurfaceVariant,
       ),
-      drawerTheme: const DrawerThemeData(backgroundColor: amoledSurface),
+      drawerTheme: DrawerThemeData(backgroundColor: scheme.surface),
     );
   }
 }

@@ -82,48 +82,46 @@ class _ChatTabState extends State<ChatTab> {
       Theme.of(context).brightness == Brightness.dark;
 
   Color _surfaceColor(BuildContext context) {
-    final theme = Theme.of(context);
-    return _isDark(context) ? theme.colorScheme.surface : Colors.white;
+    return Theme.of(context).colorScheme.surface;
   }
 
   Color _surfaceAltColor(BuildContext context) {
-    final theme = Theme.of(context);
-    return _isDark(context)
-        ? theme.colorScheme.surfaceContainerHighest
-        : Colors.grey.shade100;
+    return Theme.of(context).colorScheme.surfaceContainerHighest;
   }
 
   Color _borderColor(BuildContext context) {
     final theme = Theme.of(context);
-    return _isDark(context) ? theme.colorScheme.outline : Colors.grey.shade300;
+    return theme.colorScheme.outlineVariant;
   }
 
   Color _primaryTextColor(BuildContext context) {
-    return _isDark(context) ? const Color(0xFFEDEDED) : const Color(0xFF2D3748);
+    return Theme.of(context).colorScheme.onSurface;
   }
 
   Color _secondaryTextColor(BuildContext context) {
-    return _isDark(context) ? const Color(0xFF9CA8BC) : const Color(0xFF718096);
+    return Theme.of(context).colorScheme.onSurfaceVariant;
   }
 
   Color _chatSeparatorColor(BuildContext context) {
-    return _isDark(context)
-        ? Colors.white.withValues(alpha: 0.12)
-        : const Color(0xFF4B5A6F).withValues(alpha: 0.2);
+    return Theme.of(context).dividerColor.withValues(alpha: 0.55);
   }
 
   TextStyle _bondCountStyle(BuildContext context) {
+    final isDark = _isDark(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final shadowColor = isDark
+        ? Colors.black.withValues(alpha: 0.45)
+        : Colors.white;
+
     return TextStyle(
-      color: _isDark(context)
-          ? const Color(0xFF79A9F1)
-          : const Color(0xFF2D4663),
+      color: colorScheme.primary,
       fontWeight: FontWeight.w800,
       fontSize: 14,
-      shadows: const [
-        Shadow(color: Colors.white, offset: Offset(1, 0)),
-        Shadow(color: Colors.white, offset: Offset(-1, 0)),
-        Shadow(color: Colors.white, offset: Offset(0, 1)),
-        Shadow(color: Colors.white, offset: Offset(0, -1)),
+      shadows: [
+        Shadow(color: shadowColor, offset: const Offset(1, 0)),
+        Shadow(color: shadowColor, offset: const Offset(-1, 0)),
+        Shadow(color: shadowColor, offset: const Offset(0, 1)),
+        Shadow(color: shadowColor, offset: const Offset(0, -1)),
       ],
     );
   }
@@ -199,10 +197,8 @@ class _ChatTabState extends State<ChatTab> {
       _isLoadingChats = true;
     });
 
-    // 1. Load bots first (Now very fast because of SharedPreferences cache in BotService)
     await _loadAvailableBots(force: force);
 
-    // 2. Then load chats, so we can match them with the bot avatars/colors
     await _loadActiveChats();
   }
 
@@ -258,7 +254,6 @@ class _ChatTabState extends State<ChatTab> {
       }
     }
 
-    // Sort the list based on selected filter key (not UI label)
     switch (_sortBy) {
       case ChatSortType.newest:
         loadedChats.sort(
@@ -287,11 +282,10 @@ class _ChatTabState extends State<ChatTab> {
       loadedChats = loadedChats.reversed.toList();
     }
 
-    // Always sort pinned items to the top, maintaining the sorted group order
     loadedChats.sort((a, b) {
       if (a['isPinned'] && !b['isPinned']) return -1;
       if (!a['isPinned'] && b['isPinned']) return 1;
-      return 0; // Maintain existing relative order
+      return 0;
     });
 
     final loadedChatIds = loadedChats
@@ -350,9 +344,7 @@ class _ChatTabState extends State<ChatTab> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: _isDark(context)
-                              ? Colors.white24
-                              : Colors.grey[300],
+                          color: Theme.of(context).dividerColor,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -370,7 +362,6 @@ class _ChatTabState extends State<ChatTab> {
                     Expanded(
                       child: TabBarView(
                         children: [
-                          // TAB 1: MAIN
                           Column(
                             children: [
                               _buildSearchHeader(context, (value) {
@@ -393,7 +384,6 @@ class _ChatTabState extends State<ChatTab> {
                               ),
                             ],
                           ),
-                          // TAB 2: EVENT
                           Column(
                             children: [
                               _buildEventHeader(
@@ -476,10 +466,9 @@ class _ChatTabState extends State<ChatTab> {
         return StatefulBuilder(
           builder: (dialogContext, setSheetState) {
             const compactControlHeight = 34.0;
-            final selectedColor = const Color(0xFF8DC5FF);
-            final titleTextColor = _isDark(dialogContext)
-                ? const Color(0xFFEDEDED)
-                : const Color(0xFF2D3748);
+            final colorScheme = Theme.of(dialogContext).colorScheme;
+            final selectedColor = colorScheme.primary;
+            final titleTextColor = _primaryTextColor(dialogContext);
             final solidModalShadow = [
               BoxShadow(
                 color: _isDark(dialogContext)
@@ -503,9 +492,7 @@ class _ChatTabState extends State<ChatTab> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? selectedColor
-                        : (_isDark(dialogContext)
-                              ? _surfaceAltColor(dialogContext)
-                              : Colors.white),
+                        : _surfaceAltColor(dialogContext),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isSelected
@@ -530,10 +517,8 @@ class _ChatTabState extends State<ChatTab> {
                       fontWeight: FontWeight.w500,
                       fontFamily: _chatHeaderPopupFont,
                       color: isSelected
-                          ? const Color(0xFF1B3550)
-                          : _isDark(dialogContext)
-                          ? const Color(0xFFB9C4D6)
-                          : const Color(0xFFB5B5B5),
+                          ? colorScheme.onPrimary
+                          : _secondaryTextColor(dialogContext),
                     ),
                   ),
                 ),
@@ -663,9 +648,9 @@ class _ChatTabState extends State<ChatTab> {
                                       Navigator.of(context).pop();
                                     },
                                     style: OutlinedButton.styleFrom(
-                                      backgroundColor: _isDark(dialogContext)
-                                          ? _surfaceAltColor(dialogContext)
-                                          : Colors.white,
+                                      backgroundColor: _surfaceAltColor(
+                                        dialogContext,
+                                      ),
                                       foregroundColor: _primaryTextColor(
                                         dialogContext,
                                       ),
@@ -785,7 +770,7 @@ class _ChatTabState extends State<ChatTab> {
                 items: categories.map((cat) {
                   return DropdownMenuItem<String>(
                     value:
-                        cat['name'], // Using name as category key per backend logic
+                        cat['name'],
                     child: Text(cat['name']),
                   );
                 }).toList(),
@@ -829,9 +814,7 @@ class _ChatTabState extends State<ChatTab> {
           ),
           style: TextButton.styleFrom(
             foregroundColor: colorScheme.primary,
-            backgroundColor: _isDark(context)
-                ? _surfaceAltColor(context)
-                : const Color(0xFFF0F5FF),
+            backgroundColor: colorScheme.surfaceContainerHighest,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -852,7 +835,7 @@ class _ChatTabState extends State<ChatTab> {
             Icon(
               Icons.person_search_rounded,
               size: 64,
-              color: Colors.grey[300],
+              color: Theme.of(context).dividerColor,
             ),
             const SizedBox(height: 16),
             Text(
@@ -939,9 +922,7 @@ class _ChatTabState extends State<ChatTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _isDark(context)
-          ? Theme.of(context).scaffoldBackgroundColor
-          : const Color(0xFFF3F7F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         top: false,
         child: RefreshIndicator(onRefresh: _handleRefresh, child: _buildBody()),
@@ -952,7 +933,7 @@ class _ChatTabState extends State<ChatTab> {
 
   Widget _buildParallelogramNewChatButton() {
     final isDark = _isDark(context);
-    const slant = 0.174533; // 10deg
+    const slant = 0.174533;
 
     return SizedBox(
       width: 50,
@@ -964,7 +945,7 @@ class _ChatTabState extends State<ChatTab> {
           color: Colors.transparent,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF3A9deb),
+              color: Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(4),
               boxShadow: [
                 BoxShadow(
@@ -983,10 +964,10 @@ class _ChatTabState extends State<ChatTab> {
               child: Transform(
                 transform: Matrix4.skewX(slant),
                 alignment: Alignment.center,
-                child: const Center(
+                child: Center(
                   child: Icon(
                     Icons.add_comment_rounded,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     size: 26,
                   ),
                 ),
@@ -1013,15 +994,14 @@ class _ChatTabState extends State<ChatTab> {
     ),
   }) {
     final isDark = _isDark(context);
-    const slant = 0.174533; // 10deg
+    final colorScheme = Theme.of(context).colorScheme;
+    const slant = 0.174533;
 
-    final fillColor = accent
-        ? (isDark ? const Color(0xFF182230) : Colors.white)
-        : (isDark ? const Color(0xFF0F1722) : Colors.white);
+    final fillColor = isDark
+        ? colorScheme.onSurface.withValues(alpha: accent ? 0.12 : 0.09)
+        : (accent ? colorScheme.surfaceContainerHighest : colorScheme.surface);
 
-    final cornerArrowColor = isDark
-        ? const Color(0xFFBDD0E9)
-        : const Color(0xFF3E444A);
+    final cornerArrowColor = colorScheme.onSurfaceVariant;
 
     final boxShadows = isDark
         ? [
@@ -1095,20 +1075,11 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   Widget _buildBody() {
+    final colorScheme = Theme.of(context).colorScheme;
     final isDark = _isDark(context);
-
-    final controlTextColor = isDark
-        ? const Color(0xFFEAF0F9)
-        : const Color(0xFF3E444A);
-    final orderListColor = isDark
-        ? const Color(0xFFCFDDF0)
-        : const Color(0xFF3E444A);
-    final orderArrowColor = isDark
-        ? const Color(0xFFE3EEFF)
-        : const Color(0xFF3E444A);
-    final selectedCountColor = isDark
-        ? const Color(0xFFEAF0F9)
-        : const Color(0xFF3F444A);
+    final controlTextColor = colorScheme.onSurface;
+    final orderListColor = colorScheme.onSurfaceVariant;
+    final orderArrowColor = colorScheme.onSurface;
 
     final Widget chatContent;
     final String chatContentKey;
@@ -1125,12 +1096,9 @@ class _ChatTabState extends State<ChatTab> {
 
     return Column(
       children: [
-        // Visual Header from Image
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: _isDark(context)
-              ? _surfaceColor(context)
-              : const Color(0xFFF3F7F8),
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: SizedBox(
             height: 34,
             child: AnimatedSwitcher(
@@ -1188,15 +1156,6 @@ class _ChatTabState extends State<ChatTab> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '${_selectedChatIds.length} dipilih',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: _chatHeaderPopupFont,
-                            color: selectedCountColor,
-                          ),
-                        ),
                         const Spacer(),
                         _buildParallelogramControl(
                           context: context,
@@ -1205,10 +1164,10 @@ class _ChatTabState extends State<ChatTab> {
                           height: 34,
                           accent: true,
                           padding: EdgeInsets.zero,
-                          child: const Icon(
+                          child: Icon(
                             Icons.push_pin,
                             size: 18,
-                            color: Color(0xFF466298),
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1224,10 +1183,10 @@ class _ChatTabState extends State<ChatTab> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.auto_awesome_rounded,
                                 size: 16,
-                                color: Color(0xFF098EE5),
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                               const SizedBox(width: 5),
                               Text(
@@ -1250,10 +1209,10 @@ class _ChatTabState extends State<ChatTab> {
                           height: 34,
                           accent: true,
                           padding: EdgeInsets.zero,
-                          child: const Icon(
+                          child: Icon(
                             Icons.delete_outline_rounded,
                             size: 20,
-                            color: Color(0xFF466298),
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ],
@@ -1267,9 +1226,7 @@ class _ChatTabState extends State<ChatTab> {
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             fontFamily: _chatHeaderPopupFont,
-                            color: isDark
-                                ? const Color(0xFFEDEDED)
-                                : const Color(0xFF3F444A),
+                            color: _primaryTextColor(context),
                           ),
                         ),
                         const Spacer(),
@@ -1291,8 +1248,10 @@ class _ChatTabState extends State<ChatTab> {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 13,
+                              fontWeight: isDark
+                                  ? FontWeight.w500
+                                  : FontWeight.w400,
                               fontFamily: _chatHeaderPopupFont,
                               color: controlTextColor,
                             ),
@@ -1356,9 +1315,7 @@ class _ChatTabState extends State<ChatTab> {
         ),
         Expanded(
           child: Container(
-            color: _isDark(context)
-                ? _surfaceColor(context)
-                : const Color(0xFFF3F7F8),
+            color: Theme.of(context).scaffoldBackgroundColor,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
               switchInCurve: Curves.easeOutCubic,
@@ -1376,7 +1333,6 @@ class _ChatTabState extends State<ChatTab> {
 
   Widget _buildEmptyState() {
     return ListView(
-      // Wrap in ListView to enable RefreshIndicator
       children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.6,
@@ -1386,7 +1342,7 @@ class _ChatTabState extends State<ChatTab> {
               Icon(
                 Icons.chat_bubble_outline,
                 size: 100,
-                color: Colors.grey[300],
+                color: Theme.of(context).dividerColor,
               ),
               const SizedBox(height: 24),
               Text(
@@ -1430,12 +1386,12 @@ class _ChatTabState extends State<ChatTab> {
         color: _chatSeparatorColor(context),
       ),
       itemBuilder: (context, index) {
+        final colorScheme = Theme.of(context).colorScheme;
         final chat = _activeChats[index];
         final chatId = chat['id'].toString();
         final isSelected = _selectedChatIds.contains(chatId);
-        final selectedChatBgColor = _isDark(context)
-            ? const Color(0x335E86BF)
-            : const Color(0xFFDAE5E9);
+        final selectedChatBgColor = colorScheme.surfaceContainerHighest
+            .withValues(alpha: _isDark(context) ? 0.52 : 0.95);
         final bondLevel = (chat['bond_hearts'] ?? 0).toString();
 
         return AnimatedContainer(
@@ -1525,7 +1481,7 @@ class _ChatTabState extends State<ChatTab> {
                             width: 22,
                             height: 22,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2D4C72),
+                              color: colorScheme.primary,
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: selectedChatBgColor,
@@ -1552,9 +1508,7 @@ class _ChatTabState extends State<ChatTab> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
-                    color: _isDark(context)
-                        ? const Color(0xFFEDEDED)
-                        : const Color(0xFF3F444A),
+                    color: _primaryTextColor(context),
                   ),
                 ),
                 if (_isBirthday(chat['birthday']))
@@ -1579,9 +1533,7 @@ class _ChatTabState extends State<ChatTab> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: _isDark(context)
-                      ? const Color(0xFF9CA8BC)
-                      : const Color(0xFF6F777F),
+                  color: _secondaryTextColor(context),
                   fontSize: 15,
                 ),
               ),
@@ -1606,7 +1558,7 @@ class _ChatTabState extends State<ChatTab> {
                   Padding(
                     padding: const EdgeInsets.only(
                       bottom: 2,
-                    ), // Adjust number position
+                    ),
                     child: Text(bondLevel, style: _bondCountStyle(context)),
                   ),
                 ],
@@ -1886,7 +1838,9 @@ class _ChatTabState extends State<ChatTab> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
             child: const Text('Hapus'),
           ),
         ],

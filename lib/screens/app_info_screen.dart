@@ -28,56 +28,61 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           tr('sidebar_info'),
-          style: const TextStyle(color: Colors.black, fontSize: 18),
+          style: TextStyle(color: colorScheme.onSurface, fontSize: 18),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App Icon
             SvgPicture.asset(
               'assets/icon/momo_logo.svg',
               width: 100,
               height: 100,
               fit: BoxFit.contain,
-              colorFilter: const ColorFilter.mode(
-                Color(0xFF135ACF),
+              colorFilter: ColorFilter.mode(
+                colorScheme.primary,
                 BlendMode.srcIn,
               ),
             ),
             const SizedBox(height: 24),
 
-            // App Name
-            const Text(
+            Text(
               'BlueTalk',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
 
-            // Version
             Text(
               '${tr('app_info_version')} $_version',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 16,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 48),
 
-            // Copyright
             Text(
               '© ${DateTime.now().year} R8K Studio',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
 
             const SizedBox(height: 24),
@@ -94,8 +99,8 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
                       width: 64,
                       height: 64,
                       fit: BoxFit.contain,
-                      colorFilter: const ColorFilter.mode(
-                        Color(0xFF135ACF),
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.primary,
                         BlendMode.srcIn,
                       ),
                     ),
@@ -104,7 +109,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
               },
               child: Text(
                 tr('app_info_license'),
-                style: const TextStyle(color: Color(0xFF135ACF)),
+                style: TextStyle(color: colorScheme.primary),
               ),
             ),
           ],

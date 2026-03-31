@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -25,10 +26,14 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
+    with TickerProviderStateMixin {
+  late AnimationController _iconController;
+  late AnimationController _textController;
+  late Animation<double> _iconScale;
+  late Animation<double> _iconOpacity;
+  late Animation<double> _iconRotate;
+  late Animation<double> _textOpacity;
+  late Animation<Offset> _textSlide;
 
   final AuthService _authService = AuthService();
   final BotService _botService = BotService();
@@ -37,29 +42,58 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
+    _iconController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1800),
     );
 
-    _scaleAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
     );
 
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _iconScale = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-        parent: _controller,
+        parent: _iconController,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _iconOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _iconController,
         curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
       ),
     );
 
-    _controller.forward();
+    _iconRotate = Tween<double>(begin: -0.3, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _iconController,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _textController,
+        curve: const Interval(0.25, 0.75, curve: Curves.easeIn),
+      ),
+    );
+
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _textController,
+            curve: const Interval(0.25, 0.85, curve: Curves.easeOutCubic),
+          ),
+        );
+
+    _iconController.forward();
+    _textController.forward();
     _initializeApp();
   }
 
   Future<void> _initializeApp() async {
-    // 0. Cek Internet terlebih dahulu
     final connectivityResult = await Connectivity().checkConnectivity();
     if (connectivityResult.contains(ConnectivityResult.none)) {
       if (!mounted) return;
@@ -67,7 +101,6 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // 1. Fetch Dynamic Config First (API URL, Maintenance, & Version)
     final bool configSuccess = await ConfigService.initConfig();
 
     if (!configSuccess) {
@@ -88,10 +121,8 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // 2. Request Permissions (Requested by user to be forced here)
     await _requestPermissions();
 
-    // 3. Simultan: Cek Auth dan Warm-up Cache (Bots & Stories)
     final results = await Future.wait([
       _authService.isLoggedIn(),
       _botService.getBots(),
@@ -104,7 +135,6 @@ class _SplashScreenState extends State<SplashScreen>
     final prefs = await SharedPreferences.getInstance();
     final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
 
-    // 3. Navigate
     if (!mounted) return;
 
     if (isLoggedIn) {
@@ -115,7 +145,6 @@ class _SplashScreenState extends State<SplashScreen>
         return;
       }
 
-      // Show contributor notice (0.8.0 contributor recruitment)
       await _showContributorNotice();
       if (!mounted) return;
 
@@ -142,7 +171,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _showContributorNotice() async {
     final prefs = await SharedPreferences.getInstance();
-    // Use a versioned key so we can force show new notices in the future
     const noticeId = 'contributor_recruitment_v1';
     final hasShown = prefs.getBool('notice_shown_$noticeId') ?? false;
 
@@ -154,95 +182,98 @@ class _SplashScreenState extends State<SplashScreen>
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                'assets/image/notice_image.png',
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              tr('contributor_notice_title'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF135ACF),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('contributor_notice_content'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF4A5568),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () async {
-                await launchUrl(
-                  Uri.parse(
-                    'https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html',
-                  ),
-                  mode: LaunchMode.externalApplication,
-                );
-                if (context.mounted) Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF135ACF),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: Text(
-                tr('contributor_notice_yes'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 24),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/image/notice_image.png',
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: Text(
-                tr('contributor_notice_no'),
-                style: const TextStyle(
-                  color: Colors.grey,
+              const SizedBox(height: 24),
+              Text(
+                tr('contributor_notice_title'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+              const SizedBox(height: 16),
+              Text(
+                tr('contributor_notice_content'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () async {
+                  await launchUrl(
+                    Uri.parse(
+                      'https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html',
+                    ),
+                    mode: LaunchMode.externalApplication,
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  tr('contributor_notice_yes'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: Text(
+                  tr('contributor_notice_no'),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
 
     await prefs.setBool('notice_shown_$noticeId', true);
@@ -251,7 +282,6 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _requestPermissions() async {
     if (kIsWeb) return;
 
-    // Explicitly request storage/media permissions
     if (Platform.isAndroid) {
       await [
         Permission.storage,
@@ -259,7 +289,7 @@ class _SplashScreenState extends State<SplashScreen>
         Permission.videos,
         Permission.audio,
         Permission.notification,
-        Permission.manageExternalStorage, // For Android 11+ /Download access
+        Permission.manageExternalStorage,
       ].request();
     } else {
       await [Permission.photos, Permission.notification].request();
@@ -273,47 +303,52 @@ class _SplashScreenState extends State<SplashScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          tr('update_title'),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tr('update_desc'), style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 12),
-            Text(
-              "${tr('update_version')}: v${ConfigService.remoteVersion}",
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.grey,
+          title: Text(
+            tr('update_title'),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('update_desc'), style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 12),
+              Text(
+                "${tr('update_version')}: v${ConfigService.remoteVersion}",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => launchUrl(
+                Uri.parse('https://bluetalk.my-bini.my.id/download'),
+                mode: LaunchMode.externalApplication,
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+              ),
+              child: Text(
+                tr('update_btn'),
+                style: TextStyle(color: colorScheme.onPrimary),
               ),
             ),
           ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => launchUrl(
-              Uri.parse('https://bluetalk.my-bini.my.id/download'),
-              mode: LaunchMode.externalApplication,
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF135ACF),
-            ),
-            child: Text(
-              tr('update_btn'),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -324,70 +359,80 @@ class _SplashScreenState extends State<SplashScreen>
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                'assets/image/maintenance_image.png',
-                height: 220,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/image/maintenance_image.png',
+                  height: 220,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr('maintenance_title'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.error,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                tr('maintenance_info'),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                ConfigService.maintenanceMsg,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
                 width: double.infinity,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              tr('maintenance_title'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.redAccent,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('maintenance_info'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              ConfigService.maintenanceMsg,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => SystemNavigator.pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: ElevatedButton(
+                  onPressed: () => SystemNavigator.pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.error,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                child: Text(
-                  tr('exit_app'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                  child: Text(
+                    tr('exit_app'),
+                    style: TextStyle(
+                      color: colorScheme.onError,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -398,65 +443,71 @@ class _SplashScreenState extends State<SplashScreen>
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                'assets/image/maintenance_image.png',
-                height: 220,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/image/maintenance_image.png',
+                  height: 220,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr('no_internet_title'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.error,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                tr('no_internet_desc'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
                 width: double.infinity,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              tr('no_internet_title'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.redAccent,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('no_internet_desc'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => SystemNavigator.pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: ElevatedButton(
+                  onPressed: () => SystemNavigator.pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.error,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                child: Text(
-                  tr('exit_app'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                  child: Text(
+                    tr('exit_app'),
+                    style: TextStyle(
+                      color: colorScheme.onError,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -467,140 +518,121 @@ class _SplashScreenState extends State<SplashScreen>
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                'assets/image/notice_image.png',
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              tr('security_notice_title'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.orange,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('security_notice_desc'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF4A5568),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/image/notice_image.png',
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
                 ),
               ),
-              child: Text(
-                tr('security_notice_btn'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 24),
+              Text(
+                tr('security_notice_title'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.tertiary,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+              const SizedBox(height: 16),
+              Text(
+                tr('security_notice_desc'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.tertiary,
+                  foregroundColor: colorScheme.onTertiary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  tr('security_notice_btn'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
     );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _iconController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFB8D8F8), // Primary Color
+      backgroundColor: isDark
+          ? theme.scaffoldBackgroundColor
+          : const Color(0xFF92C7FD),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo Animasi Popup
-            ScaleTransition(
-              scale: _scaleAnimation,
-              child: FadeTransition(
-                opacity: _opacityAnimation,
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: Container(
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.14),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.32),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: SvgPicture.asset(
-                        'assets/icon/momo_logo.svg',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+            FadeTransition(
+              opacity: _iconOpacity,
+              child: ScaleTransition(
+                scale: _iconScale,
+                child: Transform.rotate(
+                  angle: _iconRotate.value,
+                  child: SvgPicture.asset(
+                    'assets/icon/momo_logo.svg',
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            // Teks Blue Talk
-            FadeTransition(
-              opacity: _opacityAnimation,
-              child: const Text(
-                'Blue Talk',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 1.2,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black26,
-                      offset: Offset(0, 2),
-                      blurRadius: 4,
-                    ),
-                  ],
+            const SizedBox(height: 40),
+            SlideTransition(
+              position: _textSlide,
+              child: FadeTransition(
+                opacity: _textOpacity,
+                child: Text(
+                  'BlueTalk',
+                  style: GoogleFonts.nunito(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? colorScheme.onSurface : Colors.white,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
@@ -625,6 +657,8 @@ class _LoadingNoticeButtonState extends State<_LoadingNoticeButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ElevatedButton(
       onPressed: _isLoading
           ? null
@@ -634,19 +668,19 @@ class _LoadingNoticeButtonState extends State<_LoadingNoticeButton> {
               if (mounted) setState(() => _isLoading = false);
             },
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFF0F5FF),
-        foregroundColor: const Color(0xFF135ACF),
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        foregroundColor: colorScheme.primary,
         minimumSize: const Size(double.infinity, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
       ),
       child: _isLoading
-          ? const SizedBox(
+          ? SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFF135ACF),
+                color: colorScheme.primary,
               ),
             )
           : Text(

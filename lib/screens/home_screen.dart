@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import 'splash_screen.dart';
-import 'admin_screen.dart';
-import 'app_info_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
-import 'student_request_screen.dart';
+import 'app_info_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,14 +22,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late final PageController _pageController;
-  final AuthService _authService = AuthService();
-  Map<String, dynamic>? _userProfile;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
-    _loadProfile();
     _checkDonation();
   }
 
@@ -57,7 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
         final colorScheme = theme.colorScheme;
-        final isDark = theme.brightness == Brightness.dark;
         final bodyTextColor = theme.textTheme.bodyMedium?.color?.withValues(
           alpha: 0.85,
         );
@@ -65,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: isDark ? colorScheme.surface : Colors.white,
+            color: colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -75,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey[300],
+                  color: theme.dividerColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -115,9 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
                 label: Text(tr('donation_button')),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark
-                      ? colorScheme.surfaceContainerHighest
-                      : const Color(0xFFF0F5FF),
+                  backgroundColor: colorScheme.surfaceContainerHighest,
                   foregroundColor: colorScheme.primary,
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
@@ -146,65 +136,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _loadProfile() async {
-    final profile = await _authService.getUserProfile();
-    if (mounted) {
-      setState(() => _userProfile = profile);
-    }
-  }
-
   final List<Widget> _tabs = [
-    const ChatTab(), // Index 0
-    const CreateTab(), // Index 1
-    const StoriesTab(), // Index 2
-    const CalendarTab(), // Index 3
+    const ChatTab(),
+    const CreateTab(),
+    const StoriesTab(),
+    const CalendarTab(),
   ];
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            tr('logout_confirm_title'),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          content: Text(tr('logout_confirm_content')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                tr('logout_no'),
-                style: const TextStyle(color: Colors.grey),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final navigator = Navigator.of(this.context);
-                await _authService.logout();
-                if (!mounted) return;
-                navigator.pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const SplashScreen()),
-                  (route) => false,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                minimumSize: const Size(100, 40),
-              ),
-              child: Text(tr('logout_yes')),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   void _showDisclaimer() {
     showDialog(
@@ -228,6 +165,45 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showAppInfoDialog() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AppInfoScreen()),
+    );
+  }
+
+  void _showSettingsDialog() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Logout',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
     setState(() => _currentIndex = index);
@@ -238,110 +214,71 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFancyNavItem({
-    required int index,
-    required IconData icon,
-    required String label,
-    required Color selectedColor,
-    required Color unselectedColor,
-  }) {
-    final bool selected = _currentIndex == index;
-    final itemColor = selected ? selectedColor : unselectedColor;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () => _onNavTap(index),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedScale(
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOut,
-                scale: selected ? 1.05 : 1,
-                child: Icon(icon, size: 22, color: itemColor),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: itemColor,
-                  fontSize: selected ? 11.8 : 11.4,
-                  fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    const blueTone = Color(0xFF8DC5FF);
-    final navUnselectedColor = isDark
-        ? const Color(0xFF4C5A6F)
-        : const Color(0xFF4C5A6F);
+    const lightTopBar = Color(0xFF8DC5FF);
+    const lightSidebarBg = Color(0xFF4C5B72);
+    const lightSidebarSelectedBg = Color(0xFF627089);
+
+    final appBarBg = isDark ? theme.scaffoldBackgroundColor : lightTopBar;
+    final sidebarBg = isDark ? colorScheme.surface : lightSidebarBg;
+    final sidebarSelectedBg = isDark
+        ? colorScheme.surfaceContainerHighest
+        : lightSidebarSelectedBg;
+    final sidebarIconColor = isDark
+        ? colorScheme.onSurfaceVariant
+        : Colors.white.withValues(alpha: 0.7);
+    final sidebarIconSelectedColor = isDark
+        ? colorScheme.onSurface
+        : Colors.white;
+    final sidebarSplashColor = isDark
+        ? colorScheme.onSurface.withValues(alpha: 0.12)
+        : Colors.white.withValues(alpha: 0.2);
+    final sidebarHighlightColor = isDark
+        ? colorScheme.onSurface.withValues(alpha: 0.08)
+        : Colors.white.withValues(alpha: 0.15);
 
     return Scaffold(
-      backgroundColor: isDark
-          ? theme.scaffoldBackgroundColor
-          : const Color(0xFFF3F7F8),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: isDark ? theme.scaffoldBackgroundColor : blueTone,
-        iconTheme: const IconThemeData(
-          color: Colors.white,
-        ), // Drawer icon white
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        centerTitle: true,
+        backgroundColor: appBarBg,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
         title: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            SvgPicture.asset(
-              'assets/icon/momo_logo.svg',
-              width: 28,
-              height: 28,
-              fit: BoxFit.contain,
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: SvgPicture.asset(
+                'assets/icon/momo_logo.svg',
+                width: 20,
+                height: 20,
+                fit: BoxFit.contain,
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             Text(
               'BlueTalk',
               style: GoogleFonts.nunito(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 26,
+                fontSize: 24,
               ),
             ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: InkWell(
+            const SizedBox(width: 4),
+            InkWell(
               onTap: _showDisclaimer,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(5),
               child: Container(
-                width: 26,
-                height: 26,
+                width: 20,
+                height: 20,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? colorScheme.surfaceContainerHighest
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(5),
                   boxShadow: isDark
                       ? const []
                       : [
@@ -355,24 +292,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Icon(
                   Icons.question_mark_rounded,
-                  color: isDark
-                      ? const Color(0xFFD5E4F7)
-                      : const Color(0xFF5D7392),
+                  color: isDark ? theme.scaffoldBackgroundColor : lightTopBar,
                   size: 16,
+                  weight: 900,
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      // --- THE SIDEBAR (DRAWER) ---
-      drawer: Drawer(
-        backgroundColor: isDark ? colorScheme.surface : Colors.white,
-        child: Column(
-          children: [
-            InkWell(
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
               onTap: () {
-                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -380,216 +312,185 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               },
-              child: UserAccountsDrawerHeader(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? colorScheme.surfaceContainerHighest
-                      : blueTone,
-                  borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                currentAccountPicture: CircleAvatar(
-                  backgroundColor: isDark
-                      ? theme.scaffoldBackgroundColor
-                      : Colors.white,
-                  child: Text(
-                    (_userProfile?['name'] != null &&
-                            _userProfile!['name'].isNotEmpty)
-                        ? _userProfile!['name'][0].toUpperCase()
-                        : 'S',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF135ACF),
-                    ),
-                  ),
-                ),
-                accountName: Text(
-                  _userProfile?['name'] ?? 'Sensei',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black26,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-                accountEmail: Text(
-                  _userProfile?['email'] ?? 'sensei@kivotos.jp',
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
+              borderRadius: BorderRadius.circular(12),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.white.withValues(alpha: 0.3),
+                backgroundImage: const AssetImage('assets/icon/avatar.png'),
               ),
             ),
-            if (_userProfile?['role'] == 'admin')
-              ListTile(
-                leading: const Icon(
-                  Icons.admin_panel_settings,
-                  color: Colors.amber,
-                ),
-                title: Text(
-                  tr('sidebar_admin_panel'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AdminScreen(),
-                    ),
-                  );
-                },
-              ),
-            ListTile(
-              leading: const Icon(
-                Icons.add_task_rounded,
-                color: Color(0xFF135ACF),
-              ),
-              title: Text(tr('sidebar_suggest_student')),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const StudentRequestScreen(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.favorite_rounded,
-                color: Colors.pinkAccent,
-              ),
-              title: Text(tr('sidebar_donation')),
-              onTap: () {
-                Navigator.pop(context);
-                launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.people_outline_rounded,
-                color: Color(0xFF135ACF),
-              ),
-              title: Text(tr('sidebar_contributor')),
-              onTap: () {
-                Navigator.pop(context);
-                launchUrl(
-                  Uri.parse(
-                    'https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html',
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.settings_outlined,
-                color: Color(0xFF135ACF),
-              ),
-              title: Text(tr('sidebar_settings')),
-              onTap: () {
-                Navigator.pop(context); // Close drawer
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline, color: Color(0xFF135ACF)),
-              title: Text(tr('sidebar_help')),
-              onTap: () {
-                Navigator.pop(context);
-                launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, color: Color(0xFF135ACF)),
-              title: Text(tr('sidebar_info')),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AppInfoScreen(),
-                  ),
-                );
-              },
-            ),
-            const Spacer(), // Pushes logout to bottom
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: Text(
-                tr('sidebar_logout'),
-                style: const TextStyle(color: Colors.redAccent),
-              ),
-              onTap: () {
-                Navigator.pop(context); // Close drawer first
-                _showLogoutDialog(); // Then show confirm
-              },
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+        ],
       ),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          if (index == _currentIndex) return;
-          setState(() => _currentIndex = index);
-        },
-        children: _tabs,
-      ),
-      bottomNavigationBar: Container(
-        color: Colors.white,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
-            child: Row(
+      body: Row(
+        children: [
+          Container(
+            width: 55,
+            color: sidebarBg,
+            child: Column(
               children: [
-                _buildFancyNavItem(
+                _buildSidebarNavItem(
+                  iconAsset: 'assets/icon/sidebar_chat.svg',
+                  iconSize: 20,
                   index: 0,
-                  icon: Icons.chat_bubble_rounded,
-                  label: tr('tab_chat'),
-                  selectedColor: blueTone,
-                  unselectedColor: navUnselectedColor,
+                  isSelected: _currentIndex == 0,
+                  selectedBackgroundColor: sidebarSelectedBg,
+                  selectedColor: sidebarIconSelectedColor,
+                  unselectedColor: sidebarIconColor,
                 ),
-                _buildFancyNavItem(
+                _buildSidebarNavItem(
+                  iconAsset: 'assets/icon/sidebar_groups.svg',
                   index: 1,
-                  icon: Icons.groups_rounded,
-                  label: tr('tab_group_chat'),
-                  selectedColor: blueTone,
-                  unselectedColor: navUnselectedColor,
+                  isSelected: _currentIndex == 1,
+                  selectedBackgroundColor: sidebarSelectedBg,
+                  selectedColor: sidebarIconSelectedColor,
+                  unselectedColor: sidebarIconColor,
                 ),
-                _buildFancyNavItem(
+                _buildSidebarNavItem(
+                  iconAsset: 'assets/icon/sidebar_stories.svg',
                   index: 2,
-                  icon: Icons.auto_stories_rounded,
-                  label: tr('tab_stories'),
-                  selectedColor: blueTone,
-                  unselectedColor: navUnselectedColor,
+                  isSelected: _currentIndex == 2,
+                  selectedBackgroundColor: sidebarSelectedBg,
+                  selectedColor: sidebarIconSelectedColor,
+                  unselectedColor: sidebarIconColor,
                 ),
-                _buildFancyNavItem(
+                _buildSidebarNavItem(
+                  iconAsset: 'assets/icon/sidebar_calendar.svg',
                   index: 3,
-                  icon: Icons.calendar_month_rounded,
-                  label: tr('tab_calendar'),
-                  selectedColor: blueTone,
-                  unselectedColor: navUnselectedColor,
+                  isSelected: _currentIndex == 3,
+                  selectedBackgroundColor: sidebarSelectedBg,
+                  selectedColor: sidebarIconSelectedColor,
+                  unselectedColor: sidebarIconColor,
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () =>
+                      launchUrl(Uri.parse('https://s.my-bini.my.id/discord')),
+                  splashColor: sidebarSplashColor,
+                  highlightColor: sidebarHighlightColor,
+                  child: Container(
+                    height: 60,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.help_outline,
+                      color: sidebarIconColor,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    _showAppInfoDialog();
+                  },
+                  splashColor: sidebarSplashColor,
+                  highlightColor: sidebarHighlightColor,
+                  child: Container(
+                    height: 50,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.info_outline,
+                      color: sidebarIconColor,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    _showSettingsDialog();
+                  },
+                  splashColor: sidebarSplashColor,
+                  highlightColor: sidebarHighlightColor,
+                  child: Container(
+                    height: 60,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.settings_outlined,
+                      color: sidebarIconColor,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: SizedBox(
+                    width: 40,
+                    child: Divider(
+                      color: isDark
+                          ? colorScheme.outline
+                          : Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    _showLogoutDialog();
+                  },
+                  splashColor: Colors.redAccent.withValues(alpha: 0.2),
+                  highlightColor: Colors.redAccent.withValues(alpha: 0.15),
+                  child: Container(
+                    height: 60,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.logout,
+                      color: Colors.redAccent.withValues(alpha: 0.8),
+                      size: 24,
+                    ),
+                  ),
                 ),
               ],
             ),
+          ),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                if (index == _currentIndex) return;
+                setState(() => _currentIndex = index);
+              },
+              children: _tabs,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarNavItem({
+    required String iconAsset,
+    double iconSize = 24,
+    required int index,
+    required bool isSelected,
+    required Color selectedBackgroundColor,
+    required Color selectedColor,
+    required Color unselectedColor,
+  }) {
+    final itemColor = isSelected ? selectedColor : unselectedColor;
+
+    return InkWell(
+      onTap: () => _onNavTap(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 190),
+        curve: Curves.easeOutCubic,
+        height: 60,
+        width: double.infinity,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? selectedBackgroundColor : Colors.transparent,
+        ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          scale: isSelected ? 1.03 : 1.0,
+          child: SvgPicture.asset(
+            iconAsset,
+            width: iconSize,
+            height: iconSize,
+            fit: BoxFit.contain,
+            colorFilter: ColorFilter.mode(itemColor, BlendMode.srcIn),
           ),
         ),
       ),

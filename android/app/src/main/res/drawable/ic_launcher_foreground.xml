@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foreground Layer for Adaptive Icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,25C39.6,25 28,36.6 28,51C28,65.4 39.6,77 54,77C68.4,77 80,65.4 80,51C80,36.6 68.4,25 54,25ZM54,36C63.9,36 72,44.1 72,54C72,63.9 63.9,72 54,72C44.1,72 36,63.9 36,54C36,44.1 44.1,36 54,36Z"
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"/>
+</vector>
