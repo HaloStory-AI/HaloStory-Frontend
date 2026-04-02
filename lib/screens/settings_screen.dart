@@ -11,6 +11,10 @@ import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import '../services/security_service.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
+import 'qr_host_screen.dart';
+import 'qr_scanner_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -147,6 +151,42 @@ class _SettingsScreenState extends State<SettingsScreen>
     });
   }
 
+  Future<Map<String, dynamic>> _getBackupPayload() async {
+    final prefs = await SharedPreferences.getInstance();
+    final allKeys = prefs.getKeys();
+    final Map<String, dynamic> settingsData = {};
+
+    for (String key in allKeys) {
+      if (key.startsWith('ai_') ||
+          key.startsWith('byok_') ||
+          key.startsWith('byom_') ||
+          key == 'default_provider' ||
+          key == 'app_language') {
+        settingsData[key] = prefs.get(key);
+      }
+    }
+
+    final Map<String, dynamic> chatData = {};
+    final Map<String, dynamic> summaryData = {};
+    final chatService = LocalChatService();
+    final metadata = await chatService.getAllChatMetadata();
+    for (var meta in metadata) {
+      final id = meta['id'].toString();
+      final messages = await chatService.loadChat(id);
+      final summaries = await chatService.loadSummaries(id);
+      
+      chatData[id] = messages;
+      summaryData[id] = summaries.map((k, v) => MapEntry(k.toString(), v));
+    }
+
+    return {
+      'settings': settingsData,
+      'chats': chatData,
+      'summaries': summaryData,
+      'exported_at': DateTime.now().toIso8601String(),
+    };
+  }
+
   Future<void> _backupData() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -168,40 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     if (confirm != true) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final allKeys = prefs.getKeys();
-    final Map<String, dynamic> settingsData = {};
-
-    for (String key in allKeys) {
-      if (key.startsWith('ai_') ||
-          key.startsWith('byok_') ||
-          key.startsWith('byom_') ||
-          key == 'default_provider' ||
-          key == 'app_language') {
-        settingsData[key] = prefs.get(key);
-      }
-    }
-
-    // GATHER CHAT HISTORY & SUMMARIES
-    final Map<String, dynamic> chatData = {};
-    final Map<String, dynamic> summaryData = {};
-    final chatService = LocalChatService();
-    final metadata = await chatService.getAllChatMetadata();
-    for (var meta in metadata) {
-      final id = meta['id'].toString();
-      final messages = await chatService.loadChat(id);
-      final summaries = await chatService.loadSummaries(id);
-      
-      chatData[id] = messages;
-      summaryData[id] = summaries.map((k, v) => MapEntry(k.toString(), v));
-    }
-
-    final Map<String, dynamic> fullPayload = {
-      'settings': settingsData,
-      'chats': chatData,
-      'summaries': summaryData,
-      'exported_at': DateTime.now().toIso8601String(),
-    };
+    final Map<String, dynamic> fullPayload = await _getBackupPayload();
 
     // Encrypt the payload
     final String plainJson = jsonEncode(fullPayload);
@@ -239,6 +246,87 @@ class _SettingsScreenState extends State<SettingsScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _processRestorePayload(Map<String, dynamic> fullPayload) async {
+    final prefs = await SharedPreferences.getInstance();
+    final chatService = LocalChatService();
+
+    // Clear old data safely
+    final allKeys = prefs.getKeys();
+    for (String key in allKeys) {
+      if (key.startsWith('ai_') ||
+          key.startsWith('byok_') ||
+          key.startsWith('byom_')) {
+        await prefs.remove(key);
+      }
+    }
+
+    final metadataList = await chatService.getAllChatMetadata();
+    for (var meta in metadataList) {
+      await chatService.deleteChat(meta['id'].toString());
+    }
+
+    // Restore Settings
+    if (fullPayload.containsKey('settings')) {
+      final Map<String, dynamic> stData = fullPayload['settings'];
+      for (var entry in stData.entries) {
+        final k = entry.key;
+        if (entry.value is String) await prefs.setString(k, entry.value);
+        if (entry.value is int) await prefs.setInt(k, entry.value);
+        if (entry.value is double) await prefs.setDouble(k, entry.value);
+        if (entry.value is bool) await prefs.setBool(k, entry.value);
+      }
+    }
+
+    // Restore Chats
+    if (fullPayload.containsKey('chats')) {
+      final Map<String, dynamic> ctData = fullPayload['chats'];
+      for (var entry in ctData.entries) {
+        final chatId = entry.key;
+        final msgs = List<Map<String, dynamic>>.from(entry.value);
+        await chatService.saveChat(chatId, msgs);
+      }
+    }
+
+    // Restore Summaries
+    if (fullPayload.containsKey('summaries')) {
+      final Map<String, dynamic> smData = fullPayload['summaries'];
+      for (var entry in smData.entries) {
+        final chatId = entry.key;
+        final sumMapStr = Map<String, dynamic>.from(entry.value);
+        final sumMapInt = sumMapStr.map(
+          (k, v) => MapEntry(int.parse(k), v.toString()),
+        );
+        await chatService.saveSummaries(chatId, sumMapInt);
+      }
+    }
+  }
+
+  Future<void> _applyRestore(String encryptedJson) async {
+    try {
+      final String plainJson = SecurityService.decryptData(encryptedJson);
+      final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
+      await _processRestorePayload(fullPayload);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('settings_restore_success')),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Decode/Apply Error: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -755,6 +843,151 @@ class _SettingsScreenState extends State<SettingsScreen>
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
+        Text(
+          tr('settings_tab_p2p_title'),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF135ACF),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(tr('settings_tab_p2p_desc')),
+        const SizedBox(height: 16),
+        Card(
+          elevation: 0,
+          color: const Color(0xFFFFF7E6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
+                  // =================== DESKTOP BUTTONS ===================
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                         Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => QrHostScreen(
+                               mode: 'download',
+                               getDownloadPayload: _getBackupPayload,
+                            )
+                         ));
+                      },
+                      icon: const Icon(Icons.qr_code_2),
+                      label: Text(tr('settings_p2p_btn_copy_to_mobile')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                         Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => QrHostScreen(
+                               mode: 'upload',
+                               onUploadReceived: (payload) async {
+                                  await _processRestorePayload(payload);
+                                  if (mounted) {
+                                     Navigator.of(context).pushAndRemoveUntil(
+                                        MaterialPageRoute(builder: (_) => const SplashScreen()),
+                                        (route) => false,
+                                     );
+                                  }
+                               },
+                            )
+                         ));
+                      },
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: Text(tr('settings_p2p_btn_receive_from_mobile')),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.orange),
+                        foregroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // =================== MOBILE BUTTONS ===================
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                         final payload = await _getBackupPayload();
+                         if (mounted) {
+                            Navigator.push(context, MaterialPageRoute(
+                               builder: (_) => QrScannerScreen(
+                                  mode: 'upload',
+                                  payloadToUpload: payload,
+                                  onComplete: (_) {
+                                     ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(tr('settings_p2p_success_mobile')), backgroundColor: Colors.green)
+                                     );
+                                  }
+                               )
+                            ));
+                         }
+                      },
+                      icon: const Icon(Icons.upload_file),
+                      label: Text(tr('settings_p2p_btn_copy_to_desktop')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                         Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => QrScannerScreen(
+                               mode: 'download',
+                               onComplete: (payload) async {
+                                  if (payload != null) {
+                                     await _processRestorePayload(payload);
+                                     if (mounted) {
+                                        Navigator.of(context).pushAndRemoveUntil(
+                                           MaterialPageRoute(builder: (_) => const SplashScreen()),
+                                           (route) => false,
+                                        );
+                                     }
+                                  }
+                               }
+                            )
+                         ));
+                      },
+                      icon: const Icon(Icons.download),
+                      label: Text(tr('settings_p2p_btn_receive_from_desktop')),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.orange),
+                        foregroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ]
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
         Text(
           tr('settings_backup_title'),
           style: const TextStyle(

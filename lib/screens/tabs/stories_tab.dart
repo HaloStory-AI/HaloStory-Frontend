@@ -7,7 +7,9 @@ import '../../services/localization_service.dart';
 import '../story_view_screen.dart';
 
 class StoriesTab extends StatefulWidget {
-  const StoriesTab({super.key});
+  final Function(List<Map<String, dynamic>> stories, int initialIndex)? onStorySelected;
+
+  const StoriesTab({super.key, this.onStorySelected});
 
   @override
   State<StoriesTab> createState() => _StoriesTabState();
@@ -278,15 +280,19 @@ class _StoriesTabState extends State<StoriesTab> {
                         );
                         if (targetIndex == -1) targetIndex = 0;
 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => StoryViewScreen(
-                              stories: botStories,
-                              initialIndex: targetIndex,
+                        if (widget.onStorySelected != null) {
+                          widget.onStorySelected!(botStories, targetIndex);
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => StoryViewScreen(
+                                stories: botStories,
+                                initialIndex: targetIndex,
+                              ),
                             ),
-                          ),
-                        ).then((_) => _loadData());
+                          ).then((_) => _loadData());
+                        }
                       },
                     );
                   },

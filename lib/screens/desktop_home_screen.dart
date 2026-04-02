@@ -14,6 +14,7 @@ import 'profile_screen.dart';
 import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'app_info_screen.dart';
+import 'story_view_screen.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({super.key});
@@ -31,6 +32,9 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _selectedBot;
   String? _defaultProvider;
+  List<Map<String, dynamic>>? _selectedStoryBots;
+  int _selectedStoryIndex = 0;
+  String? _initialChatMessage;
 
   @override
   void initState() {
@@ -58,6 +62,16 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   void _onChatSelected(Map<String, dynamic> bot) {
     setState(() {
       _selectedBot = bot;
+      _selectedStoryBots = null;
+      _initialChatMessage = null;
+    });
+  }
+
+  void _onStorySelected(List<Map<String, dynamic>> botStories, int initialIndex) {
+    setState(() {
+      _selectedStoryBots = botStories;
+      _selectedStoryIndex = initialIndex;
+      _selectedBot = null;
     });
   }
 
@@ -97,6 +111,32 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   Widget _buildRightPanel() {
+    if (_selectedStoryBots != null) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+        ),
+        child: StoryViewScreen(
+          key: ValueKey('story_${_selectedStoryBots!.first['bot_id']}'), 
+          stories: _selectedStoryBots!,
+          initialIndex: _selectedStoryIndex,
+          onClose: () {
+            setState(() {
+              _selectedStoryBots = null;
+            });
+          },
+          onReply: (bot, message) {
+            setState(() {
+              _selectedStoryBots = null;
+              _selectedBot = bot;
+              _initialChatMessage = message;
+            });
+          },
+        ),
+      );
+    }
+
     if (_selectedBot != null) {
       // Return chat detail screen but possibly hide its back button if we update the ChatDetailScreen
       // For now, we can wrap it in a ClipRRect if we want rounded corners or just directly display it.
@@ -106,10 +146,11 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           bottomLeft: Radius.circular(16),
         ),
         child: ChatDetailScreen(
-          key: ValueKey(_selectedBot!['id']), // force rebuild when bot changes
+          key: ValueKey('${_selectedBot!['id']}_$_initialChatMessage'), // force rebuild when bot or message changes
           bot: _selectedBot!,
           provider: _defaultProvider ?? 'gemini',
           isDesktopMode: true, // we will add this parameter to ChatDetailScreen
+          initialMessage: _initialChatMessage,
         ),
       );
     }
@@ -168,7 +209,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           children: [
             ChatTab(onChatSelected: _onChatSelected),
             const CreateTab(), // "Group" based on old mobile UI
-            const StoriesTab(),
+            StoriesTab(onStorySelected: _onStorySelected),
             const CalendarTab(),
           ],
         );
@@ -193,6 +234,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                 // Group (1) is different and closes the chat screen.
                 if (index == 1) {
                   _selectedBot = null;
+                  _selectedStoryBots = null;
                 }
               });
             },

@@ -10,6 +10,9 @@ class BotService {
 
   static const String _botsCacheKey = 'cached_bots_list';
   static const String _botsTimeKey = 'cached_bots_timestamp';
+  static const String _knownBotsDictKey = 'known_bots_dict';
+
+  static Map<String, dynamic>? _knownBots;
 
   // Static cache to persist across service instances in the same session
   static List<Map<String, dynamic>>? _cachedBots;
@@ -115,6 +118,25 @@ class BotService {
         final List<dynamic> data = jsonDecode(response.body);
         final result = List<Map<String, dynamic>>.from(data);
 
+        // --- NEW: UPDATE KNOWN BOTS ---
+        if (_knownBots == null) {
+          final localJson = prefs.getString(_knownBotsDictKey);
+          if (localJson != null) {
+            _knownBots = Map<String, dynamic>.from(jsonDecode(localJson));
+          } else {
+            _knownBots = {};
+          }
+        }
+        bool updatedKnownBots = false;
+        for (var bot in result) {
+          _knownBots![bot['id'].toString()] = bot;
+          updatedKnownBots = true;
+        }
+        if (updatedKnownBots) {
+          await prefs.setString(_knownBotsDictKey, jsonEncode(_knownBots));
+        }
+        // --- END ---
+
         // Only update global cache if fetching default 'Main' bots
         if ((type == null || type == 'Main') && category == null) {
           _cachedBots = result;
@@ -189,5 +211,20 @@ class BotService {
       print('DEBUG: recruitBot Error: $e');
       return false;
     }
+  }
+
+  Future<Map<String, dynamic>?> getBotById(String botId) async {
+    if (_knownBots != null && _knownBots!.containsKey(botId)) {
+      return _knownBots![botId];
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final localJson = prefs.getString(_knownBotsDictKey);
+    if (localJson != null) {
+      _knownBots = Map<String, dynamic>.from(jsonDecode(localJson));
+      if (_knownBots!.containsKey(botId)) {
+        return _knownBots![botId];
+      }
+    }
+    return null;
   }
 }

@@ -115,18 +115,22 @@ class _ChatTabState extends State<ChatTab> {
     List<Map<String, dynamic>> loadedChats = [];
 
     for (var meta in chatMetadata) {
-      final id = meta['id'];
+      final id = meta['id'].toString();
       final history = await _localChatService.loadChat(id);
 
-      final bot = _availableBots.firstWhere(
-        (b) => b['id'] == id,
-        orElse: () => {
-          'id': id,
-          'name': id,
-          'avatar': null,
-          'color': '0xFF607D8B',
-        },
-      );
+      Map<String, dynamic>? bot;
+      try {
+        bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
+      } catch (_) {
+        bot = await _botService.getBotById(id);
+      }
+
+      bot ??= {
+        'id': id,
+        'name': id,
+        'avatar': null,
+        'color': '0xFF607D8B',
+      };
 
       if (history.isNotEmpty) {
         loadedChats.add({
