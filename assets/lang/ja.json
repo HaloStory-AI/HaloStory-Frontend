@@ -267,5 +267,6 @@
   "setup_backup_date": "最終バックアップ日：{date}",
   "setup_backup_question": "今すぐデータを復元しますか？",
   "setup_btn_restore": "今すぐ復元",
-  "setup_btn_skip": "新しい設定を続行"
+  "setup_btn_skip": "新しい設定を続行",
+  "chat_sync_notice": "チャットデータは他のデバイスと同期されていません。データを移行するにはクラウド保存を使用してください。"
 }

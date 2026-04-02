@@ -267,5 +267,6 @@
   "setup_backup_date": "마지막 백업일: {date}",
   "setup_backup_question": "지금 데이터를 복원하시겠습니까?",
   "setup_btn_restore": "지금 복원",
-  "setup_btn_skip": "새 설정으로 계속"
+  "setup_btn_skip": "새 설정으로 계속",
+  "chat_sync_notice": "채팅 데이터는 다른 기기의 데이터와 동기화되지 않습니다. 데이터를 이동하려면 클라우드 저장을 사용하세요."
 }

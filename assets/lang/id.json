@@ -268,5 +268,6 @@
   "setup_backup_date": "Terakhir dicadangkan: {date}",
   "setup_backup_question": "Ingin memulihkan data Anda sekarang?",
   "setup_btn_restore": "Pulihkan Sekarang",
-  "setup_btn_skip": "Lanjut Setup Baru"
+  "setup_btn_skip": "Lanjut Setup Baru",
+  "chat_sync_notice": "Data chat tidak sinkron dengan data pada device terpisah, silahkan gunakan cloud saving untuk memindahkan datanya"
 }

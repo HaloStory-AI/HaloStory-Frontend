@@ -267,5 +267,6 @@
   "setup_backup_date": "最后备份日期：{date}",
   "setup_backup_question": "老师现在要恢复数据吗？",
   "setup_btn_restore": "立即恢复",
-  "setup_btn_skip": "继续全新设置"
+  "setup_btn_skip": "继续全新设置",
+  "chat_sync_notice": "聊天数据不会跨设备同步，请使用云备份来转移数据。"
 }

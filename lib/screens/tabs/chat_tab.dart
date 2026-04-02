@@ -11,7 +11,9 @@ import 'package:intl/intl.dart';
 import '../../widgets/skeleton_loader.dart';
 
 class ChatTab extends StatefulWidget {
-  const ChatTab({super.key});
+  final Function(Map<String, dynamic> bot)? onChatSelected;
+
+  const ChatTab({super.key, this.onChatSelected});
 
   @override
   State<ChatTab> createState() => _ChatTabState();
@@ -27,6 +29,7 @@ class _ChatTabState extends State<ChatTab> {
   bool _isLoadingChats = true;
   String _sortBy = 'Newest';
   bool _sortAscending = false;
+  bool _showSyncNotice = true;
 
   Color _parseColor(dynamic color) {
     if (color == null) return Colors.blueGrey;
@@ -494,6 +497,13 @@ class _ChatTabState extends State<ChatTab> {
           onTap: () async {
             Navigator.pop(context);
             _botService.recruitBot(bot['id']);
+            
+            if (widget.onChatSelected != null) {
+              widget.onChatSelected!(bot);
+              _loadActiveChats();
+              return;
+            }
+
             final prefs = await SharedPreferences.getInstance();
             final provider = AIService.normalizeProvider(
               prefs.getString('default_provider'),
@@ -532,6 +542,36 @@ class _ChatTabState extends State<ChatTab> {
   Widget _buildBody() {
     return Column(
       children: [
+        // Sync Notice
+        if (_showSyncNotice)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.amber.shade100,
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('chat_sync_notice'),
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showSyncNotice = false;
+                    });
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 8.0),
+                    child: Icon(Icons.close, color: Colors.black54, size: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        
         // Visual Header from Image
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -813,6 +853,11 @@ class _ChatTabState extends State<ChatTab> {
               ),
             ),
             onTap: () async {
+              if (widget.onChatSelected != null) {
+                widget.onChatSelected!(chat);
+                _loadActiveChats();
+                return;
+              }
               final prefs = await SharedPreferences.getInstance();
               final provider = AIService.normalizeProvider(
                 prefs.getString('default_provider'),
