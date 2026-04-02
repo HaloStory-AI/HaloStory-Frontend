@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:bluetalk_frontend/screens/splash_screen.dart';
-import 'package:bluetalk_frontend/services/localization_service.dart';
+import 'screens/splash_screen.dart';
+import 'services/localization_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
