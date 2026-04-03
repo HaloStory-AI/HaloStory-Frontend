@@ -9,7 +9,7 @@ import 'app_info_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'desktop_home_screen.dart';
 import '../services/localization_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -216,6 +216,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.of(context).size.width >= 800) {
+      return const DesktopHomeScreen();
+    }
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;

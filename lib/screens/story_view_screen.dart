@@ -16,11 +16,15 @@ import 'chat_screen.dart';
 class StoryViewScreen extends StatefulWidget {
   final List<Map<String, dynamic>> stories;
   final int initialIndex;
+  final VoidCallback? onClose;
+  final Function(Map<String, dynamic> bot, String message)? onReply;
 
   const StoryViewScreen({
     super.key,
     required this.stories,
     required this.initialIndex,
+    this.onClose,
+    this.onReply,
   });
 
   @override
@@ -250,7 +254,11 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     _timer?.cancel();
     _videoController?.pause();
     if (mounted) {
-      Navigator.of(context, rootNavigator: false).pop();
+      if (widget.onClose != null) {
+        widget.onClose!();
+      } else {
+        Navigator.of(context, rootNavigator: false).pop();
+      }
     }
   }
 
@@ -298,18 +306,22 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
           // Pastikan bot sudah terdaftar
           _botService.recruitBot(botId);
 
-          // Tutup story view lalu buka chat
-          Navigator.of(context, rootNavigator: false).pop();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChatDetailScreen(
-                bot: bot,
-                provider: provider,
-                initialMessage: message,
+          if (widget.onReply != null) {
+             widget.onReply!(bot, message);
+          } else {
+            // Tutup story view lalu buka chat
+            Navigator.of(context, rootNavigator: false).pop();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatDetailScreen(
+                  bot: bot,
+                  provider: provider,
+                  initialMessage: message,
+                ),
               ),
-            ),
-          );
+            );
+          }
         },
       ),
     ).then((_) {
@@ -376,233 +388,239 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
   Widget build(BuildContext context) {
     final story = widget.stories[_currentIndex];
 
+    final content = Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // BLURRED BACKGROUND (Glassmorphism Effect)
+          Positioned.fill(
+            child: _localFile != null && !_isVideo
+                ? Image.file(_localFile!, fit: BoxFit.cover)
+                : (story['bot_avatar'] != null
+                      ? Image.network(story['bot_avatar'], fit: BoxFit.cover)
+                      : Container(color: Colors.black)),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(color: Colors.black.withOpacity(0.4)),
+            ),
+          ),
+
+          // MAIN MEDIA CONTENT
+          Center(
+            child: _isLoadingMedia
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 150,
+                        child: LinearProgressIndicator(
+                          value: _downloadProgress,
+                          backgroundColor: Colors.white12,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _downloadProgress == 0.0
+                            ? 'Loading Sensei\'s memory...'
+                            : 'Loading Sensei\'s memory... ${(_downloadProgress * 100).toInt()}%',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  )
+                : _isVideo
+                ? (_videoController != null &&
+                          _videoController!.value.isInitialized
+                      ? AspectRatio(
+                          aspectRatio: _videoController!.value.aspectRatio,
+                          child: VideoPlayer(_videoController!),
+                        )
+                      : const CircularProgressIndicator(color: Colors.white))
+                : InteractiveViewer(
+                    child: (!kIsWeb && _localFile != null)
+                        ? Image.file(_localFile!, fit: BoxFit.contain)
+                        : Image.network(
+                            story['image_url'],
+                            fit: BoxFit.contain,
+                          ),
+                  ),
+          ),
+
+          // PROGRESS BARS (WhatsApp Style)
+          Positioned(
+            top: 50,
+            left: 10,
+            right: 10,
+            child: Row(
+              children: List.generate(
+                widget.stories.length,
+                (index) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: LinearProgressIndicator(
+                      value: index == _currentIndex
+                          ? _progress
+                          : (index < _currentIndex ? 1.0 : 0.0),
+                      backgroundColor: Colors.white24,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
+                      minHeight: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // HEADER
+          Positioned(
+            top: 70,
+            left: 20,
+            right: 20,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.white24,
+                  backgroundImage: story['bot_avatar'] != null
+                      ? NetworkImage(story['bot_avatar'])
+                      : null,
+                  child: story['bot_avatar'] == null
+                      ? Text(
+                          story['bot_name'][0].toUpperCase(),
+                          style: const TextStyle(color: Colors.white),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        story['bot_name'],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        _formatTimestamp(story['created_at']),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: _closeStory,
+                ),
+              ],
+            ),
+          ),
+
+          // INTERACTION AREAS
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: _prevStory,
+                  onLongPress: () {
+                    _timer?.cancel();
+                    _videoController?.pause();
+                  },
+                  onLongPressUp: () {
+                    if (_isVideo) {
+                      _videoController?.play();
+                      _startVideoTimer();
+                    } else {
+                      _startImageTimer();
+                    }
+                  },
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: _nextStory,
+                  onLongPress: () {
+                    _timer?.cancel();
+                    _videoController?.pause();
+                  },
+                  onLongPressUp: () {
+                    if (_isVideo) {
+                      _videoController?.play();
+                      _startVideoTimer();
+                    } else {
+                      _startImageTimer();
+                    }
+                  },
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+            ],
+          ),
+
+          // BOTTOM ACTIONS: Download + Reply
+          Positioned(
+            bottom: 0,
+            left: 16,
+            right: 16,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Download button
+                    _isOpeningWeb
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : _BottomActionButton(
+                            icon: Icons.open_in_browser_outlined,
+                            label: tr('tab_stories_open_web'),
+                            onTap: _openOnWeb,
+                          ),
+                    const SizedBox(width: 24),
+                    // Reply button
+                    _BottomActionButton(
+                      icon: Icons.reply_rounded,
+                      label: tr('tab_stories_reply'),
+                      onTap: _openReplyChat,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.onClose != null) {
+      return content;
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _closeStory();
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            // BLURRED BACKGROUND (Glassmorphism Effect)
-            Positioned.fill(
-              child: _localFile != null && !_isVideo
-                  ? Image.file(_localFile!, fit: BoxFit.cover)
-                  : (story['bot_avatar'] != null
-                        ? Image.network(story['bot_avatar'], fit: BoxFit.cover)
-                        : Container(color: Colors.black)),
-            ),
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                child: Container(color: Colors.black.withOpacity(0.4)),
-              ),
-            ),
-
-            // MAIN MEDIA CONTENT
-            Center(
-              child: _isLoadingMedia
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 150,
-                          child: LinearProgressIndicator(
-                            value: _downloadProgress,
-                            backgroundColor: Colors.white12,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _downloadProgress == 0.0
-                              ? 'Loading Sensei\'s memory...'
-                              : 'Loading Sensei\'s memory... ${(_downloadProgress * 100).toInt()}%',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    )
-                  : _isVideo
-                  ? (_videoController != null &&
-                            _videoController!.value.isInitialized
-                        ? AspectRatio(
-                            aspectRatio: _videoController!.value.aspectRatio,
-                            child: VideoPlayer(_videoController!),
-                          )
-                        : const CircularProgressIndicator(color: Colors.white))
-                  : InteractiveViewer(
-                      child: (!kIsWeb && _localFile != null)
-                          ? Image.file(_localFile!, fit: BoxFit.contain)
-                          : Image.network(
-                              story['image_url'],
-                              fit: BoxFit.contain,
-                            ),
-                    ),
-            ),
-
-            // PROGRESS BARS (WhatsApp Style)
-            Positioned(
-              top: 50,
-              left: 10,
-              right: 10,
-              child: Row(
-                children: List.generate(
-                  widget.stories.length,
-                  (index) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: LinearProgressIndicator(
-                        value: index == _currentIndex
-                            ? _progress
-                            : (index < _currentIndex ? 1.0 : 0.0),
-                        backgroundColor: Colors.white24,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Colors.white,
-                        ),
-                        minHeight: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // HEADER
-            Positioned(
-              top: 70,
-              left: 20,
-              right: 20,
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.white24,
-                    backgroundImage: story['bot_avatar'] != null
-                        ? NetworkImage(story['bot_avatar'])
-                        : null,
-                    child: story['bot_avatar'] == null
-                        ? Text(
-                            story['bot_name'][0].toUpperCase(),
-                            style: const TextStyle(color: Colors.white),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          story['bot_name'],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          _formatTimestamp(story['created_at']),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: _closeStory,
-                  ),
-                ],
-              ),
-            ),
-
-            // INTERACTION AREAS
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _prevStory,
-                    onLongPress: () {
-                      _timer?.cancel();
-                      _videoController?.pause();
-                    },
-                    onLongPressUp: () {
-                      if (_isVideo) {
-                        _videoController?.play();
-                        _startVideoTimer();
-                      } else {
-                        _startImageTimer();
-                      }
-                    },
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _nextStory,
-                    onLongPress: () {
-                      _timer?.cancel();
-                      _videoController?.pause();
-                    },
-                    onLongPressUp: () {
-                      if (_isVideo) {
-                        _videoController?.play();
-                        _startVideoTimer();
-                      } else {
-                        _startImageTimer();
-                      }
-                    },
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-              ],
-            ),
-
-            // BOTTOM ACTIONS: Download + Reply
-            Positioned(
-              bottom: 0,
-              left: 16,
-              right: 16,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Download button
-                      _isOpeningWeb
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : _BottomActionButton(
-                              icon: Icons.open_in_browser_outlined,
-                              label: tr('tab_stories_open_web'),
-                              onTap: _openOnWeb,
-                            ),
-                      const SizedBox(width: 24),
-                      // Reply button
-                      _BottomActionButton(
-                        icon: Icons.reply_rounded,
-                        label: tr('tab_stories_reply'),
-                        onTap: _openReplyChat,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ), // closes Scaffold
-    ); // closes PopScope
+      child: content,
+    );
   }
 }
 

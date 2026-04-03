@@ -42,12 +42,14 @@ class ChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> bot;
   final String provider;
   final String? initialMessage;
+  final bool isDesktopMode;
 
   const ChatDetailScreen({
     super.key,
     required this.bot,
     required this.provider,
     this.initialMessage,
+    this.isDesktopMode = false,
   });
 
   @override
@@ -519,14 +521,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _generateSummaries();
   }
 
-  Future<void> _showBondStats() async {
+  Future<Map<String, dynamic>?> _fetchBondStats() async {
     final authService = AuthService();
     final token = await authService.getToken();
-    if (token == null || !mounted || _isDisposed) return;
+    if (token == null || !mounted || _isDisposed) {
+      return null;
+    }
 
     final botId = widget.bot['id'];
-
-    Map<String, dynamic>? bondData;
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/bots/bond/$botId'),
@@ -536,171 +538,179 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         },
       );
       if (response.statusCode == 200) {
-        bondData = jsonDecode(response.body);
+        return jsonDecode(response.body);
       }
     } catch (_) {}
 
-    if (!mounted || _isDisposed) return;
+    return null;
+  }
 
-    final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
-    final xp = bondData?['xp'] ?? 0;
-    final xpInto = bondData?['xp_into_level'] ?? 0;
-    final xpPer = bondData?['xp_per_level'] ?? 5;
-    final progress = bondData != null
-        ? (bondData['progress_percent'] as num) / 100.0
-        : 0.0;
-
+  void _showBondStats() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          decoration: BoxDecoration(
-            color: _surfaceBackground(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        return FutureBuilder<Map<String, dynamic>?>(
+          future: _fetchBondStats(),
+          builder: (context, snapshot) {
+            final bondData = snapshot.data;
+            final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
+            final xp = bondData?['xp'] ?? 0;
+            final xpInto = bondData?['xp_into_level'] ?? 0;
+            final xpPer = bondData?['xp_per_level'] ?? 5;
+            final progress = bondData != null
+                ? (bondData['progress_percent'] as num) / 100.0
+                : 0.0;
+
+            return Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              decoration: BoxDecoration(
+                color: _surfaceBackground(context),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: _parseColor(widget.bot['color']),
-                    backgroundImage: widget.bot['image_url'] != null
-                        ? NetworkImage(widget.bot['image_url'])
-                        : null,
-                    child: widget.bot['image_url'] == null
-                        ? Text(
-                            (widget.bot['name'] as String)[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.bot['name'],
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _titleColor(context),
-                        ),
-                      ),
-                      Text(
-                        'Total XP: $xp',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _subtitleColor(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const Icon(
-                        Icons.favorite,
-                        color: Color(0xFFFBB6CE),
-                        size: 72,
-                      ),
-                      Text(
-                        '$hearts',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Bond Level',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _subtitleColor(context),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        'Lv. $hearts',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Progress to Lv. ${hearts + 1}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _subtitleColor(context),
-                        ),
-                      ),
-                      Text(
-                        '$xpInto / $xpPer XP',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _subtitleColor(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress.clamp(0.0, 1.0),
-                      minHeight: 12,
-                      backgroundColor: Colors.pink.shade50,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFFFB6F9D),
-                      ),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).dividerColor,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: _parseColor(widget.bot['color']),
+                        backgroundImage: widget.bot['image_url'] != null
+                            ? NetworkImage(widget.bot['image_url'])
+                            : null,
+                        child: widget.bot['image_url'] == null
+                            ? Text(
+                                (widget.bot['name'] as String)[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.bot['name'],
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _titleColor(context),
+                            ),
+                          ),
+                          Text(
+                            'Total XP: $xp',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _subtitleColor(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            color: Color(0xFFFBB6CE),
+                            size: 72,
+                          ),
+                          Text(
+                            '$hearts',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bond Level',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _subtitleColor(context),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            'Lv. $hearts',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Progress to Lv. ${hearts + 1}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _subtitleColor(context),
+                            ),
+                          ),
+                          Text(
+                            '$xpInto / $xpPer XP',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _subtitleColor(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: progress.clamp(0.0, 1.0),
+                          minHeight: 12,
+                          backgroundColor: Colors.pink.shade50,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFFFB6F9D),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1276,7 +1286,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       appBar: AppBar(
         backgroundColor: _pageBackground(context),
         elevation: 0,
-        leadingWidth: 40,
+        automaticallyImplyLeading: !widget.isDesktopMode,
+        leadingWidth: widget.isDesktopMode ? 16 : 40,
         title: GestureDetector(
           onTap: _showStudentBio,
           behavior: HitTestBehavior.opaque,

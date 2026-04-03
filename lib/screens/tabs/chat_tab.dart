@@ -13,7 +13,9 @@ import '../../widgets/skeleton_loader.dart';
 enum ChatSortType { newest, name, bond }
 
 class ChatTab extends StatefulWidget {
-  const ChatTab({super.key});
+  final Function(Map<String, dynamic> bot)? onChatSelected;
+
+  const ChatTab({super.key, this.onChatSelected});
 
   @override
   State<ChatTab> createState() => _ChatTabState();
@@ -30,6 +32,7 @@ class _ChatTabState extends State<ChatTab> {
   bool _isLoadingChats = true;
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
+  bool _showSyncNotice = true;
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
@@ -229,18 +232,22 @@ class _ChatTabState extends State<ChatTab> {
     List<Map<String, dynamic>> loadedChats = [];
 
     for (var meta in chatMetadata) {
-      final id = meta['id'];
+      final id = meta['id'].toString();
       final history = await _localChatService.loadChat(id);
 
-      final bot = _availableBots.firstWhere(
-        (b) => b['id'] == id,
-        orElse: () => {
-          'id': id,
-          'name': id,
-          'avatar': null,
-          'color': '0xFF607D8B',
-        },
-      );
+      Map<String, dynamic>? bot;
+      try {
+        bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
+      } catch (_) {
+        bot = await _botService.getBotById(id);
+      }
+
+      bot ??= {
+        'id': id,
+        'name': id,
+        'avatar': null,
+        'color': '0xFF607D8B',
+      };
 
       if (history.isNotEmpty) {
         loadedChats.add({
@@ -899,6 +906,13 @@ class _ChatTabState extends State<ChatTab> {
             final rootNavigator = Navigator.of(this.context);
             Navigator.pop(context);
             _botService.recruitBot(bot['id']);
+            
+            if (widget.onChatSelected != null) {
+              widget.onChatSelected!(bot);
+              _loadActiveChats();
+              return;
+            }
+
             final prefs = await SharedPreferences.getInstance();
             final provider = AIService.normalizeProvider(
               prefs.getString('default_provider'),
@@ -1102,6 +1116,37 @@ class _ChatTabState extends State<ChatTab> {
 
     return Column(
       children: [
+        // Sync Notice
+        if (_showSyncNotice)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.amber.shade100,
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('chat_sync_notice'),
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showSyncNotice = false;
+                    });
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 8.0),
+                    child: Icon(Icons.close, color: Colors.black54, size: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Visual Header from Image
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           color: Theme.of(context).scaffoldBackgroundColor,
@@ -1574,6 +1619,11 @@ class _ChatTabState extends State<ChatTab> {
                 return;
               }
 
+              if (widget.onChatSelected != null) {
+                widget.onChatSelected!(chat);
+                _loadActiveChats();
+                return;
+              }
               final prefs = await SharedPreferences.getInstance();
               final provider = AIService.normalizeProvider(
                 prefs.getString('default_provider'),
