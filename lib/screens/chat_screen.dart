@@ -72,6 +72,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   final TextEditingController _systemNoteController = TextEditingController();
   bool _isSystemNoteOpen = false;
+  String? _activeOverlay; // 'bio' or 'bond'
+
 
   bool _showScrollButton = false;
   bool _isDisposed = false;
@@ -546,6 +548,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _showBondStats() {
+    if (widget.isDesktopMode) {
+      if (Navigator.maybePop(context) == true) {
+        // If there's a popup (like more menu), close it first
+      }
+      setState(() => _activeOverlay = 'bond');
+      return;
+    }
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -555,166 +564,172 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           future: _fetchBondStats(),
           builder: (context, snapshot) {
             final bondData = snapshot.data;
-            final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
-            final xp = bondData?['xp'] ?? 0;
-            final xpInto = bondData?['xp_into_level'] ?? 0;
-            final xpPer = bondData?['xp_per_level'] ?? 5;
-            final progress = bondData != null
-                ? (bondData['progress_percent'] as num) / 100.0
-                : 0.0;
-
-            return Container(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-              decoration: BoxDecoration(
-                color: _surfaceBackground(context),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).dividerColor,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: _parseColor(widget.bot['color']),
-                        backgroundImage: widget.bot['image_url'] != null
-                            ? NetworkImage(widget.bot['image_url'])
-                            : null,
-                        child: widget.bot['image_url'] == null
-                            ? Text(
-                                (widget.bot['name'] as String)[0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.bot['name'],
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: _titleColor(context),
-                            ),
-                          ),
-                          Text(
-                            'Total XP: $xp',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: _subtitleColor(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const Icon(
-                            Icons.favorite,
-                            color: Color(0xFFFBB6CE),
-                            size: 72,
-                          ),
-                          Text(
-                            '$hearts',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Bond Level',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: _subtitleColor(context),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            'Lv. $hearts',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Progress to Lv. ${hearts + 1}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _subtitleColor(context),
-                            ),
-                          ),
-                          Text(
-                            '$xpInto / $xpPer XP',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _subtitleColor(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progress.clamp(0.0, 1.0),
-                          minHeight: 12,
-                          backgroundColor: Colors.pink.shade50,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFFFB6F9D),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
+            return _buildBondStatsContainer(bondData);
           },
         );
       },
     );
   }
+
+  Widget _buildBondStatsContainer(Map<String, dynamic>? bondData, {bool isDesktop = false}) {
+    final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
+    final xp = bondData?['xp'] ?? 0;
+    final xpInto = bondData?['xp_into_level'] ?? 0;
+    final xpPer = bondData?['xp_per_level'] ?? 5;
+    final progress = bondData != null
+        ? (bondData['progress_percent'] as num) / 100.0
+        : 0.0;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(24, isDesktop ? 32 : 16, 24, 32),
+      decoration: BoxDecoration(
+        color: _surfaceBackground(context),
+        borderRadius: isDesktop ? BorderRadius.circular(24) : BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isDesktop)
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: _parseColor(widget.bot['color']),
+                backgroundImage: widget.bot['image_url'] != null
+                    ? NetworkImage(widget.bot['image_url'])
+                    : null,
+                child: widget.bot['image_url'] == null
+                    ? Text(
+                        (widget.bot['name'] as String)[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.bot['name'],
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _titleColor(context),
+                    ),
+                  ),
+                  Text(
+                    'Total XP: $xp',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _subtitleColor(context),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.favorite,
+                    color: Color(0xFFFBB6CE),
+                    size: 72,
+                  ),
+                  Text(
+                    '$hearts',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bond Level',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _subtitleColor(context),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    'Lv. $hearts',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Progress to Lv. ${hearts + 1}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _subtitleColor(context),
+                    ),
+                  ),
+                  Text(
+                    '$xpInto / $xpPer XP',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _subtitleColor(context),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  minHeight: 12,
+                  backgroundColor: Colors.pink.shade50,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFFFB6F9D),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
 
   void _addSystemError(String timestamp, {int? statusCode, dynamic rawError}) {
     String errorMsg = 'Error: Failed to get response from ${widget.provider}.';
@@ -824,19 +839,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _showStudentBio() {
+    if (widget.isDesktopMode) {
+      if (Navigator.maybePop(context) == true) {
+        // If there's a popup (like more menu), close it first
+      }
+      setState(() => _activeOverlay = 'bio');
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-        decoration: BoxDecoration(
-          color: _surfaceBackground(context),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          children: [
+      builder: (context) => _buildStudentBioContainer(),
+    );
+  }
+
+  Widget _buildStudentBioContainer({bool isDesktop = false}) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      decoration: BoxDecoration(
+        color: _surfaceBackground(context),
+        borderRadius: isDesktop ? BorderRadius.circular(24) : BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        children: [
+          if (!isDesktop)
             Container(
               width: 40,
               height: 5,
@@ -845,208 +873,205 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: _parseColor(widget.bot['color']),
-                      backgroundImage: widget.bot['image_url'] != null
-                          ? NetworkImage(widget.bot['image_url'])
-                          : null,
-                      child: widget.bot['image_url'] == null
-                          ? Text(
-                              widget.bot['name'][0].toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
+          const SizedBox(height: 24),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundColor: _parseColor(widget.bot['color']),
+                    backgroundImage: widget.bot['image_url'] != null
+                        ? NetworkImage(widget.bot['image_url'])
+                        : null,
+                    child: widget.bot['image_url'] == null
+                        ? Text(
+                            widget.bot['name'][0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.bot['name'],
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: _titleColor(context),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.bot['name'],
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: _titleColor(context),
-                      ),
-                    ),
-                    if (_isBirthday(widget.bot['birthday']))
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          '🎂 Birthday Today!',
-                          style: TextStyle(
-                            color: Colors.pinkAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.bot['description'] ?? tr('bio_no_description'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: _subtitleColor(context),
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
+                  ),
+                  if (_isBirthday(widget.bot['birthday']))
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
                       child: Text(
-                        tr('personality_title_label'),
+                        '🎂 Birthday Today!',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.pinkAccent,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Builder(
-                        builder: (context) {
-                          final pData = widget.bot['personality'] ?? '';
-                          if (pData.trim().isEmpty) {
-                            return Text(
-                              tr('bio_no_personality'),
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: _subtitleColor(context),
-                              ),
-                            );
-                          }
-
-                          Map<String, String> parseBioAttributes(
-                            String personality,
-                          ) {
-                            Map<String, String> result = {
-                              'Nickname': '*Unknown*',
-                              'Age': '*Unknown*',
-                              'Nationality': '*Unknown*',
-                              'Height': '*Unknown*',
-                              'Weight': '*Unknown*',
-                              'Like': '*Unknown*',
-                              'Dislike': '*Unknown*',
-                            };
-
-                            String? findMatch(String pattern) {
-                              final regExp = RegExp(
-                                pattern,
-                                caseSensitive: false,
-                                multiLine: true,
-                              );
-                              final match = regExp.firstMatch(personality);
-                              if (match != null && match.groupCount >= 1) {
-                                String val = match.group(1)!.trim();
-                                val = val
-                                    .replaceAll(
-                                      RegExp('^["\'*]+|["\'*]+\$'),
-                                      '',
-                                    )
-                                    .trim();
-                                if (val.endsWith(','))
-                                  val = val.substring(0, val.length - 1).trim();
-                                return val;
-                              }
-                              return null;
-                            }
-
-                            result['Nickname'] =
-                                findMatch(
-                                  r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
-                                ) ??
-                                '*Unknown*';
-                            result['Age'] =
-                                findMatch(r'Age\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-                            result['Nationality'] =
-                                findMatch(
-                                  r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
-                                ) ??
-                                '*Unknown*';
-                            result['Height'] =
-                                findMatch(r'Height\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-                            result['Weight'] =
-                                findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-                            result['Like'] =
-                                findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-                            result['Dislike'] =
-                                findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-
-                            return result;
-                          }
-
-                          final attrs = parseBioAttributes(pData);
-
-                          Widget buildBioRow(String label, String value) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 100,
-                                    child: Text(
-                                      label,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: _subtitleColor(context),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      value,
-                                      style: TextStyle(
-                                        color: _titleColor(context),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              buildBioRow('Nickname', attrs['Nickname']!),
-                              buildBioRow('Age', attrs['Age']!),
-                              buildBioRow('Nationality', attrs['Nationality']!),
-                              buildBioRow('Height', attrs['Height']!),
-                              buildBioRow('Weight', attrs['Weight']!),
-                              buildBioRow('Like', attrs['Like']!),
-                              buildBioRow('Dislike', attrs['Dislike']!),
-                            ],
-                          );
-                        },
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.bot['description'] ?? tr('bio_no_description'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: _subtitleColor(context),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      tr('personality_title_label'),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Builder(
+                      builder: (context) {
+                        final pData = widget.bot['personality'] ?? '';
+                        if (pData.trim().isEmpty) {
+                          return Text(
+                            tr('bio_no_personality'),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: _subtitleColor(context),
+                            ),
+                          );
+                        }
+
+                        Map<String, String> parseBioAttributes(
+                          String personality,
+                        ) {
+                          Map<String, String> result = {
+                            'Nickname': '*Unknown*',
+                            'Age': '*Unknown*',
+                            'Nationality': '*Unknown*',
+                            'Height': '*Unknown*',
+                            'Weight': '*Unknown*',
+                            'Like': '*Unknown*',
+                            'Dislike': '*Unknown*',
+                          };
+
+                          String? findMatch(String pattern) {
+                            final regExp = RegExp(
+                              pattern,
+                              caseSensitive: false,
+                              multiLine: true,
+                            );
+                            final match = regExp.firstMatch(personality);
+                            if (match != null && match.groupCount >= 1) {
+                              String val = match.group(1)!.trim();
+                              val = val
+                                  .replaceAll(
+                                    RegExp('^["\'*]+|["\'*]+\$'),
+                                    '',
+                                  )
+                                  .trim();
+                              if (val.endsWith(','))
+                                val = val.substring(0, val.length - 1).trim();
+                              return val;
+                            }
+                            return null;
+                          }
+
+                          result['Nickname'] =
+                              findMatch(
+                                r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
+                              ) ??
+                              '*Unknown*';
+                          result['Age'] =
+                              findMatch(r'Age\s*[:\-]\s*(.+)$') ??
+                              '*Unknown*';
+                          result['Nationality'] =
+                              findMatch(
+                                r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
+                              ) ??
+                              '*Unknown*';
+                          result['Height'] =
+                              findMatch(r'Height\s*[:\-]\s*(.+)$') ??
+                              '*Unknown*';
+                          result['Weight'] =
+                              findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
+                              '*Unknown*';
+                          result['Like'] =
+                              findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
+                              '*Unknown*';
+                          result['Dislike'] =
+                              findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
+                              '*Unknown*';
+
+                          return result;
+                        }
+
+                        final attrs = parseBioAttributes(pData);
+
+                        Widget buildBioRow(String label, String value) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 90,
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: _subtitleColor(context),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    value,
+                                    style: TextStyle(
+                                      color: _titleColor(context),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: [
+                            buildBioRow('Nickname', attrs['Nickname']!),
+                            buildBioRow('Age', attrs['Age']!),
+                            buildBioRow('Nationality', attrs['Nationality']!),
+                            buildBioRow('Height', attrs['Height']!),
+                            buildBioRow('Weight', attrs['Weight']!),
+                            buildBioRow('Like', attrs['Like']!),
+                            buildBioRow('Dislike', attrs['Dislike']!),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1458,98 +1483,161 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
         ],
       ),
-      body: Container(
-        color: _pageBackground(context),
-        child: Column(
-          children: [
-            if (_isSummarizing && _summaryProgress >= 0.0)
-              LinearProgressIndicator(
-                value: _summaryProgress,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).colorScheme.primary,
-                ),
-                minHeight: 2,
-              ),
-            Expanded(
-              child: Stack(
-                children: [
-                  ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+      body: Stack(
+        children: [
+          Container(
+            color: _pageBackground(context),
+            child: Column(
+              children: [
+                if (_isSummarizing && _summaryProgress >= 0.0)
+                  LinearProgressIndicator(
+                    value: _summaryProgress,
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).colorScheme.primary,
                     ),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      final isUser = msg['role'] == 'user';
-                      final isSystem = msg['role'] == 'system';
+                    minHeight: 2,
+                  ),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
+                          final isUser = msg['role'] == 'user';
+                          final isSystem = msg['role'] == 'system';
 
-                      if (isSystem) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Text(
-                              msg['content'],
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                                fontSize: 12,
+                          if (isSystem) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  msg['content'],
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
+                            );
+                          }
+
+                          final timestamp = msg['timestamp'] != null
+                              ? DateTime.parse(msg['timestamp'])
+                              : null;
+
+                          final content = msg['content']?.toString() ?? '';
+
+                          final bubble = isUser
+                              ? _buildUserBubble(content, timestamp, index)
+                              : _buildBotBubble(
+                                  content,
+                                  timestamp,
+                                  index,
+                                  visibleParts: msg['visible_parts'] as int?,
+                                  isTypingNext: msg['is_typing_next'] == true,
+                                );
+
+                          return GestureDetector(
+                            onLongPress: () => _showMessageOptions(index, content),
+                            child: bubble,
+                          );
+                        },
+                      ),
+                      if (_showScrollButton)
+                        Positioned(
+                          bottom: 16,
+                          right: 16,
+                          child: FloatingActionButton(
+                            mini: true,
+                            elevation: 4,
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            onPressed: _scrollToBottom,
+                            child: Icon(
+                              Icons.arrow_downward_rounded,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              size: 20,
                             ),
                           ),
-                        );
-                      }
-
-                      final timestamp = msg['timestamp'] != null
-                          ? DateTime.parse(msg['timestamp'])
-                          : null;
-
-                      final content = msg['content']?.toString() ?? '';
-
-                      final bubble = isUser
-                          ? _buildUserBubble(content, timestamp, index)
-                          : _buildBotBubble(
-                              content,
-                              timestamp,
-                              index,
-                              visibleParts: msg['visible_parts'] as int?,
-                              isTypingNext: msg['is_typing_next'] == true,
-                            );
-
-                      return GestureDetector(
-                        onLongPress: () => _showMessageOptions(index, content),
-                        child: bubble,
-                      );
-                    },
-                  ),
-                  if (_showScrollButton)
-                    Positioned(
-                      bottom: 16,
-                      right: 16,
-                      child: FloatingActionButton(
-                        mini: true,
-                        elevation: 4,
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        onPressed: _scrollToBottom,
-                        child: Icon(
-                          Icons.arrow_downward_rounded,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                          size: 20,
                         ),
-                      ),
+                    ],
+                  ),
+                ),
+                if (_isLoading) _buildTypingIndicator(),
+                _buildSystemNoteArea(),
+                _buildInputArea(),
+              ],
+            ),
+          ),
+          if (_activeOverlay != null)
+            _buildDesktopOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopOverlay() {
+    final isBio = _activeOverlay == 'bio';
+
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withOpacity(0.4),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 450, maxHeight: 650),
+            child: Container(
+              margin: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: _surfaceBackground(context),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  if (isBio) _buildBioContent() else _buildBondContent(),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: IconButton(
+                      onPressed: () => setState(() => _activeOverlay = null),
+                      icon: Icon(Icons.close, color: _subtitleColor(context)),
                     ),
+                  ),
                 ],
               ),
             ),
-            if (_isLoading) _buildTypingIndicator(),
-            _buildSystemNoteArea(),
-            _buildInputArea(),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildBioContent() {
+    return _buildStudentBioContainer(isDesktop: true);
+  }
+
+  Widget _buildBondContent() {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _fetchBondStats(),
+      builder: (context, snapshot) {
+        final bondData = snapshot.data;
+        return _buildBondStatsContainer(bondData, isDesktop: true);
+      },
+    );
+  }
+
 
   Color _parseColor(dynamic color) {
     if (color == null) return Colors.blueGrey;

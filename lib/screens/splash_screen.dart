@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    _iconRotate = Tween<double>(begin: -0.3, end: 0.0).animate(
+    _iconRotate = Tween<double>(begin: 0.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _iconController,
         curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),

@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/localization_service.dart';
+import '../services/ai_service.dart';
+import '../theme/app_theme.dart';
+import 'chat_screen.dart';
+import 'admin_screen.dart';
+import 'student_request_screen.dart';
+import 'profile_screen.dart';
+import 'settings_screen.dart';
+import 'app_info_screen.dart';
+import 'desktop_home_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
-import 'profile_screen.dart';
-import 'settings_screen.dart';
-import 'app_info_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'desktop_home_screen.dart';
-import '../services/localization_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Container(
           padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 500),
           decoration: BoxDecoration(
             color: colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -136,31 +143,51 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  final List<Widget> _tabs = [
-    const ChatTab(),
-    const CreateTab(),
-    const StoriesTab(),
-    const CalendarTab(),
-  ];
+  List<Widget> get _tabs => [
+        ChatTab(onChatSelected: _onChatSelected),
+        const CreateTab(),
+        const StoriesTab(),
+        const CalendarTab(),
+      ];
+
+  void _onChatSelected(Map<String, dynamic> bot) {
+    final prefs = SharedPreferences.getInstance();
+    prefs.then((p) {
+      final provider = AIService.normalizeProvider(p.getString('default_provider'));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
+        ),
+      ).then((_) {
+        // Trigger a refresh if needed
+      });
+    });
+  }
 
   void _showDisclaimer() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          tr('disclaimer_title'),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
+      builder: (context) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: AlertDialog(
+            title: Text(
+              tr('disclaimer_title'),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            content: SingleChildScrollView(child: Text(tr('disclaimer_content'))),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(tr('disclaimer_understand')),
+              ),
+            ],
           ),
         ),
-        content: SingleChildScrollView(child: Text(tr('disclaimer_content'))),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr('disclaimer_understand')),
-          ),
-        ],
       ),
     );
   }
@@ -206,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
+    Navigator.maybePop(context);
     setState(() => _currentIndex = index);
     _pageController.animateToPage(
       index,
@@ -223,27 +251,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    const lightTopBar = Color(0xFF8DC5FF);
-    const lightSidebarBg = Color(0xFF4C5B72);
-    const lightSidebarSelectedBg = Color(0xFF627089);
-
-    final appBarBg = isDark ? theme.scaffoldBackgroundColor : lightTopBar;
-    final sidebarBg = isDark ? colorScheme.surface : lightSidebarBg;
+    final appBarBg =
+        isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar;
+    final sidebarBg =
+        isDark ? colorScheme.surface : AppTheme.momoRailBackground;
     final sidebarSelectedBg = isDark
         ? colorScheme.surfaceContainerHighest
-        : lightSidebarSelectedBg;
+        : AppTheme.momoRailSelected;
     final sidebarIconColor = isDark
         ? colorScheme.onSurfaceVariant
         : Colors.white.withValues(alpha: 0.7);
     final sidebarIconSelectedColor = isDark
         ? colorScheme.onSurface
         : Colors.white;
-    final sidebarSplashColor = isDark
-        ? colorScheme.onSurface.withValues(alpha: 0.12)
-        : Colors.white.withValues(alpha: 0.2);
-    final sidebarHighlightColor = isDark
-        ? colorScheme.onSurface.withValues(alpha: 0.08)
-        : Colors.white.withValues(alpha: 0.15);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -296,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Icon(
                   Icons.question_mark_rounded,
-                  color: isDark ? theme.scaffoldBackgroundColor : lightTopBar,
+                  color: isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar,
                   size: 16,
                   weight: 900,
                 ),
@@ -367,84 +387,138 @@ class _HomeScreenState extends State<HomeScreen> {
                   unselectedColor: sidebarIconColor,
                 ),
                 const Spacer(),
-                InkWell(
-                  onTap: () =>
-                      launchUrl(Uri.parse('https://s.my-bini.my.id/discord')),
-                  splashColor: sidebarSplashColor,
-                  highlightColor: sidebarHighlightColor,
-                  child: Container(
-                    height: 60,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.help_outline,
-                      color: sidebarIconColor,
-                      size: 24,
-                    ),
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_horiz_rounded, color: sidebarIconColor, size: 28),
+                  offset: const Offset(50, -120),
+                  color: isDark ? colorScheme.surfaceContainer : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
                   ),
-                ),
-                InkWell(
-                  onTap: () {
-                    _showAppInfoDialog();
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'admin':
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
+                        break;
+                      case 'suggest':
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const StudentRequestScreen()));
+                        break;
+                      case 'donation':
+                        launchUrl(Uri.parse('https://trakteer.id/rafiq8k'));
+                        break;
+                      case 'contributor':
+                        launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                        break;
+                      case 'help':
+                        launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                        break;
+                      case 'info':
+                        _showAppInfoDialog();
+                        break;
+                    }
                   },
-                  splashColor: sidebarSplashColor,
-                  highlightColor: sidebarHighlightColor,
-                  child: Container(
-                    height: 50,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.info_outline,
-                      color: sidebarIconColor,
-                      size: 24,
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'admin',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.admin_panel_settings, color: Colors.amber, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tr('sidebar_admin_panel'), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
-                  ),
+                    PopupMenuItem(
+                      value: 'suggest',
+                      child: Row(
+                        children: [
+                          Icon(Icons.add_task_rounded, color: colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tr('sidebar_suggest_student'), style: TextStyle(color: colorScheme.onSurface)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'donation',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tr('sidebar_donation'), style: TextStyle(color: colorScheme.onSurface)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'contributor',
+                      child: Row(
+                        children: [
+                          Icon(Icons.people_outline_rounded, color: colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tr('sidebar_contributor'), style: TextStyle(color: colorScheme.onSurface)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'help',
+                      child: Row(
+                        children: [
+                          Icon(Icons.help_outline, color: colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tr('sidebar_help'), style: TextStyle(color: colorScheme.onSurface)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'info',
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tr('sidebar_info'), style: TextStyle(color: colorScheme.onSurface)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 16),
                 InkWell(
-                  onTap: () {
-                    _showSettingsDialog();
-                  },
-                  splashColor: sidebarSplashColor,
-                  highlightColor: sidebarHighlightColor,
-                  child: Container(
-                    height: 60,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.settings_outlined,
-                      color: sidebarIconColor,
-                      size: 24,
-                    ),
+                  onTap: _showSettingsDialog,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.settings_outlined, color: sidebarIconColor, size: 28),
+                      const SizedBox(height: 4),
+                      Text(
+                        tr('sidebar_settings'),
+                        style: TextStyle(
+                          color: sidebarIconColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: SizedBox(
-                    width: 40,
-                    child: Divider(
-                      color: isDark
-                          ? colorScheme.outline
-                          : Colors.white.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 16),
                 InkWell(
-                  onTap: () {
-                    _showLogoutDialog();
-                  },
-                  splashColor: Colors.redAccent.withValues(alpha: 0.2),
-                  highlightColor: Colors.redAccent.withValues(alpha: 0.15),
-                  child: Container(
-                    height: 60,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.logout,
-                      color: Colors.redAccent.withValues(alpha: 0.8),
-                      size: 24,
-                    ),
+                  onTap: _showLogoutDialog,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.logout, color: Colors.redAccent.withOpacity(0.8), size: 24),
+                      const SizedBox(height: 4),
+                      Text(
+                        tr('sidebar_logout'),
+                        style: TextStyle(
+                          color: Colors.redAccent.withOpacity(0.8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),

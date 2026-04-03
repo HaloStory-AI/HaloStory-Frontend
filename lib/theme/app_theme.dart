@@ -5,6 +5,11 @@ class AppTheme {
   static const Color brandBlue = Color(0xFF135ACF);
   static const Color brandBlueSoft = Color(0xFFB8D8F8);
 
+  /// MomoTalk-style mobile / desktop rail (light theme only — dark uses [ColorScheme.surface]).
+  static const Color momoLightTopBar = Color(0xFF8DC5FF);
+  static const Color momoRailBackground = Color(0xFF4C5B72);
+  static const Color momoRailSelected = Color(0xFF627089);
+
   static const Color amoledBlack = Color(0xFF000000);
   static const Color amoledSurface = Color(0xFF0D0D0D);
   static const Color amoledSurfaceAlt = Color(0xFF141414);
@@ -30,9 +35,21 @@ class AppTheme {
       surfaceContainerHighest: const Color(0xFFF0F5FF),
     );
 
+    final textTheme = GoogleFonts.nunitoTextTheme(
+      ThemeData(
+        useMaterial3: true,
+        colorScheme: scheme,
+        brightness: Brightness.light,
+      ).textTheme,
+    ).apply(
+      bodyColor: scheme.onSurface,
+      displayColor: scheme.onSurface,
+    );
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      textTheme: textTheme,
       scaffoldBackgroundColor: scheme.surface,
       canvasColor: scheme.surface,
       dividerColor: scheme.outlineVariant,
@@ -121,10 +138,22 @@ class AppTheme {
       outline: amoledBorder,
     );
 
+    final textTheme = GoogleFonts.nunitoTextTheme(
+      ThemeData(
+        useMaterial3: true,
+        colorScheme: scheme,
+        brightness: Brightness.dark,
+      ).textTheme,
+    ).apply(
+      bodyColor: scheme.onSurface,
+      displayColor: scheme.onSurface,
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: scheme,
+      textTheme: textTheme,
       scaffoldBackgroundColor: amoledBlack,
       canvasColor: amoledBlack,
       dividerColor: amoledBorder,
