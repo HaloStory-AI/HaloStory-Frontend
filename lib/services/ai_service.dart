@@ -230,7 +230,7 @@ class AIService {
     if (response.statusCode == 503) {
       ConfigService.enterMaintenance();
     }
-    
+
     dynamic parsedBody;
     try {
       parsedBody = jsonDecode(response.body);
@@ -308,10 +308,7 @@ class AIService {
     // 1. Fetch system prompt from backend
     final promptResponse = await http.get(
       Uri.parse('${AppConstants.byomPromptUrl}/$botId?language=$language'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
     );
 
     String systemPrompt = "";
@@ -331,7 +328,7 @@ class AIService {
     // 3. Send directly to local/custom endpoint
     final headers = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      'Accept': 'application/json',
     };
     if (apiKey.isNotEmpty) {
       headers['Authorization'] = 'Bearer $apiKey';

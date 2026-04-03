@@ -18,9 +18,14 @@ class AdminService {
   // --- USERS ---
   Future<List<dynamic>> getUsers() async {
     try {
-      final response = await http.get(Uri.parse('${AppConstants.baseUrl}/admin/users'), headers: await _headers());
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/admin/users'),
+        headers: await _headers(),
+      );
       if (response.statusCode == 200) return jsonDecode(response.body);
-    } catch (e) { print('AdminService getUsers error: $e'); }
+    } catch (e) {
+      print('AdminService getUsers error: $e');
+    }
     return [];
   }
 
@@ -40,7 +45,10 @@ class AdminService {
 
   Future<bool> deleteUser(int id) async {
     try {
-      final response = await http.delete(Uri.parse('${AppConstants.baseUrl}/admin/users/$id'), headers: await _headers());
+      final response = await http.delete(
+        Uri.parse('${AppConstants.baseUrl}/admin/users/$id'),
+        headers: await _headers(),
+      );
       return response.statusCode == 200;
     } catch (e) {
       print('AdminService deleteUser error: $e');
@@ -51,9 +59,14 @@ class AdminService {
   // --- STUDENT REQUESTS ---
   Future<List<dynamic>> getStudentRequests() async {
     try {
-      final response = await http.get(Uri.parse('${AppConstants.baseUrl}/admin/student-requests'), headers: await _headers());
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/admin/student-requests'),
+        headers: await _headers(),
+      );
       if (response.statusCode == 200) return jsonDecode(response.body);
-    } catch (e) { print('AdminService getStudentRequests error: $e'); }
+    } catch (e) {
+      print('AdminService getStudentRequests error: $e');
+    }
     return [];
   }
 
@@ -74,9 +87,14 @@ class AdminService {
   // --- BOTS ---
   Future<List<dynamic>> getBots() async {
     try {
-      final response = await http.get(Uri.parse('${AppConstants.baseUrl}/admin/bots'), headers: await _headers());
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/admin/bots'),
+        headers: await _headers(),
+      );
       if (response.statusCode == 200) return jsonDecode(response.body);
-    } catch (e) { print('AdminService getBots error: $e'); }
+    } catch (e) {
+      print('AdminService getBots error: $e');
+    }
     return [];
   }
 
@@ -110,7 +128,10 @@ class AdminService {
 
   Future<bool> deleteBot(int id) async {
     try {
-      final response = await http.delete(Uri.parse('${AppConstants.baseUrl}/admin/bots/$id'), headers: await _headers());
+      final response = await http.delete(
+        Uri.parse('${AppConstants.baseUrl}/admin/bots/$id'),
+        headers: await _headers(),
+      );
       return response.statusCode == 200;
     } catch (e) {
       print('AdminService deleteBot error: $e');

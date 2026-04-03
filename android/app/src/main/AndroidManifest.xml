@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <!-- Required by image_gallery_saver on Android 13+ -->
     <uses-permission android:name="android.permission.WRITE_MEDIA_IMAGES"/>
+    <!-- Camera: Required by mobile_scanner for P2P Device QR Sync -->
+    <uses-permission android:name="android.permission.CAMERA"/>
 
 
     <application

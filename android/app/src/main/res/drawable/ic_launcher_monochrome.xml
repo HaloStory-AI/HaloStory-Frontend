@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome Icon for Material Design 3 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,25C39.6,25 28,36.6 28,51C28,65.4 39.6,77 54,77C68.4,77 80,65.4 80,51C80,36.6 68.4,25 54,25ZM54,33C63.9,33 72,41.1 72,51C72,60.9 63.9,69 54,69C44.1,69 36,60.9 36,51C36,41.1 44.1,33 54,33ZM54,40C49.1,40 45,44.1 45,49C45,53.9 49.1,58 54,58C58.9,58 63,53.9 63,49C63,44.1 58.9,40 54,40Z"
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"/>
+</vector>

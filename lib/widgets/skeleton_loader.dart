@@ -18,7 +18,8 @@ class SkeletonWidget extends StatefulWidget {
   State<SkeletonWidget> createState() => _SkeletonWidgetState();
 }
 
-class _SkeletonWidgetState extends State<SkeletonWidget> with SingleTickerProviderStateMixin {
+class _SkeletonWidgetState extends State<SkeletonWidget>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -40,13 +41,17 @@ class _SkeletonWidgetState extends State<SkeletonWidget> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return FadeTransition(
       opacity: _animation,
       child: Container(
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: widget.color ?? Colors.grey[300],
+          color:
+              widget.color ??
+              (isDark ? Colors.grey.shade800 : Colors.grey.shade300),
           borderRadius: BorderRadius.circular(widget.borderRadius),
         ),
       ),
@@ -59,11 +64,14 @@ class ChatListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dividerColor = Theme.of(context).dividerColor;
+
     return ListView.separated(
       itemCount: 8,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      separatorBuilder: (context, index) => const Divider(height: 1, indent: 80, endIndent: 16),
+      separatorBuilder: (context, index) =>
+          Divider(height: 1, indent: 80, endIndent: 16, color: dividerColor),
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -78,7 +86,10 @@ class ChatListSkeleton extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        SkeletonWidget(width: MediaQuery.of(context).size.width * 0.3, height: 16),
+                        SkeletonWidget(
+                          width: MediaQuery.of(context).size.width * 0.3,
+                          height: 16,
+                        ),
                         const SkeletonWidget(width: 40, height: 12),
                       ],
                     ),
@@ -100,6 +111,9 @@ class BotGridSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 6,
@@ -114,9 +128,11 @@ class BotGridSkeleton extends StatelessWidget {
       itemBuilder: (context, index) {
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? theme.colorScheme.surface : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade100),
+            border: Border.all(
+              color: isDark ? theme.colorScheme.outline : Colors.grey.shade100,
+            ),
           ),
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -156,17 +172,31 @@ class ProfileSkeleton extends StatelessWidget {
         const SizedBox(height: 40),
         const SkeletonWidget(width: 180, height: 20),
         const SizedBox(height: 15),
-        ...List.generate(3, (_) => const Padding(
-          padding: EdgeInsets.only(bottom: 12),
-          child: SkeletonWidget(width: double.infinity, height: 70, borderRadius: 12),
-        )),
+        ...List.generate(
+          3,
+          (_) => const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: SkeletonWidget(
+              width: double.infinity,
+              height: 70,
+              borderRadius: 12,
+            ),
+          ),
+        ),
         const SizedBox(height: 30),
         const SkeletonWidget(width: 100, height: 20),
         const SizedBox(height: 15),
-        ...List.generate(2, (_) => const Padding(
-          padding: EdgeInsets.only(bottom: 12),
-          child: SkeletonWidget(width: double.infinity, height: 50, borderRadius: 8),
-        )),
+        ...List.generate(
+          2,
+          (_) => const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: SkeletonWidget(
+              width: double.infinity,
+              height: 50,
+              borderRadius: 8,
+            ),
+          ),
+        ),
       ],
     );
   }

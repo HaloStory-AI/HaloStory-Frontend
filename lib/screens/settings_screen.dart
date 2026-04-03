@@ -11,6 +11,11 @@ import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import '../services/security_service.dart';
+import '../services/theme_service.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
+import 'qr_host_screen.dart';
+import 'qr_scanner_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -49,18 +54,16 @@ class _SettingsScreenState extends State<SettingsScreen>
   String _currentLanguage = 'id';
   bool _isLanguageChanged = false;
   bool _aiReasoningEnabled = false;
+  bool _amoledDarkEnabled = false;
 
-  // BYOK Controllers
   final TextEditingController _byokApiKeyController = TextEditingController();
   final TextEditingController _byokModelController = TextEditingController();
   final TextEditingController _byokBaseUrlController = TextEditingController();
 
-  // BYOM Controllers
   final TextEditingController _byomEndpointController = TextEditingController();
   final TextEditingController _byomModelController = TextEditingController();
   final TextEditingController _byomApiKeyController = TextEditingController();
 
-  // Advanced AI Controllers
   final TextEditingController _aiTempController = TextEditingController();
   final TextEditingController _aiResponseLengthController =
       TextEditingController();
@@ -82,6 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _currentLanguage = LocalizationService().currentLocale;
+    _amoledDarkEnabled = ThemeService().isAmoledDark;
     _loadSettings();
   }
 
@@ -117,6 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       );
       _byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
       _aiReasoningEnabled = prefs.getBool('ai_reasoning_enabled') ?? false;
+      _amoledDarkEnabled = ThemeService().isAmoledDark;
 
       _byokApiKeyController.text = prefs.getString('byok_api_key') ?? '';
       _byokModelController.text = prefs.getString('byok_model') ?? '';
@@ -147,6 +152,43 @@ class _SettingsScreenState extends State<SettingsScreen>
     });
   }
 
+  Future<Map<String, dynamic>> _getBackupPayload() async {
+    final prefs = await SharedPreferences.getInstance();
+    final allKeys = prefs.getKeys();
+    final Map<String, dynamic> settingsData = {};
+
+    for (String key in allKeys) {
+      if (key.startsWith('ai_') ||
+          key.startsWith('byok_') ||
+          key.startsWith('byom_') ||
+          key == 'default_provider' ||
+          key == 'app_language' ||
+          key == 'app_theme_mode') {
+        settingsData[key] = prefs.get(key);
+      }
+    }
+
+    final Map<String, dynamic> chatData = {};
+    final Map<String, dynamic> summaryData = {};
+    final chatService = LocalChatService();
+    final metadata = await chatService.getAllChatMetadata();
+    for (var meta in metadata) {
+      final id = meta['id'].toString();
+      final messages = await chatService.loadChat(id);
+      final summaries = await chatService.loadSummaries(id);
+      
+      chatData[id] = messages;
+      summaryData[id] = summaries.map((k, v) => MapEntry(k.toString(), v));
+    }
+
+    return {
+      'settings': settingsData,
+      'chats': chatData,
+      'summaries': summaryData,
+      'exported_at': DateTime.now().toIso8601String(),
+    };
+  }
+
   Future<void> _backupData() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -168,42 +210,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     if (confirm != true) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final allKeys = prefs.getKeys();
-    final Map<String, dynamic> settingsData = {};
+    final Map<String, dynamic> fullPayload = await _getBackupPayload();
 
-    for (String key in allKeys) {
-      if (key.startsWith('ai_') ||
-          key.startsWith('byok_') ||
-          key.startsWith('byom_') ||
-          key == 'default_provider' ||
-          key == 'app_language') {
-        settingsData[key] = prefs.get(key);
-      }
-    }
-
-    // GATHER CHAT HISTORY & SUMMARIES
-    final Map<String, dynamic> chatData = {};
-    final Map<String, dynamic> summaryData = {};
-    final chatService = LocalChatService();
-    final metadata = await chatService.getAllChatMetadata();
-    for (var meta in metadata) {
-      final id = meta['id'].toString();
-      final messages = await chatService.loadChat(id);
-      final summaries = await chatService.loadSummaries(id);
-      
-      chatData[id] = messages;
-      summaryData[id] = summaries.map((k, v) => MapEntry(k.toString(), v));
-    }
-
-    final Map<String, dynamic> fullPayload = {
-      'settings': settingsData,
-      'chats': chatData,
-      'summaries': summaryData,
-      'exported_at': DateTime.now().toIso8601String(),
-    };
-
-    // Encrypt the payload
     final String plainJson = jsonEncode(fullPayload);
     final String encryptedJson = SecurityService.encryptData(plainJson);
 
@@ -239,6 +247,87 @@ class _SettingsScreenState extends State<SettingsScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _processRestorePayload(Map<String, dynamic> fullPayload) async {
+    final prefs = await SharedPreferences.getInstance();
+    final chatService = LocalChatService();
+
+    // Clear old data safely
+    final allKeys = prefs.getKeys();
+    for (String key in allKeys) {
+      if (key.startsWith('ai_') ||
+          key.startsWith('byok_') ||
+          key.startsWith('byom_')) {
+        await prefs.remove(key);
+      }
+    }
+
+    final metadataList = await chatService.getAllChatMetadata();
+    for (var meta in metadataList) {
+      await chatService.deleteChat(meta['id'].toString());
+    }
+
+    // Restore Settings
+    if (fullPayload.containsKey('settings')) {
+      final Map<String, dynamic> stData = fullPayload['settings'];
+      for (var entry in stData.entries) {
+        final k = entry.key;
+        if (entry.value is String) await prefs.setString(k, entry.value);
+        if (entry.value is int) await prefs.setInt(k, entry.value);
+        if (entry.value is double) await prefs.setDouble(k, entry.value);
+        if (entry.value is bool) await prefs.setBool(k, entry.value);
+      }
+    }
+
+    // Restore Chats
+    if (fullPayload.containsKey('chats')) {
+      final Map<String, dynamic> ctData = fullPayload['chats'];
+      for (var entry in ctData.entries) {
+        final chatId = entry.key;
+        final msgs = List<Map<String, dynamic>>.from(entry.value);
+        await chatService.saveChat(chatId, msgs);
+      }
+    }
+
+    // Restore Summaries
+    if (fullPayload.containsKey('summaries')) {
+      final Map<String, dynamic> smData = fullPayload['summaries'];
+      for (var entry in smData.entries) {
+        final chatId = entry.key;
+        final sumMapStr = Map<String, dynamic>.from(entry.value);
+        final sumMapInt = sumMapStr.map(
+          (k, v) => MapEntry(int.parse(k), v.toString()),
+        );
+        await chatService.saveSummaries(chatId, sumMapInt);
+      }
+    }
+  }
+
+  Future<void> _applyRestore(String encryptedJson) async {
+    try {
+      final String plainJson = SecurityService.decryptData(encryptedJson);
+      final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
+      await _processRestorePayload(fullPayload);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('settings_restore_success')),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Decode/Apply Error: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -281,11 +370,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         if (responseBody['success'] == true && responseBody['data'] != null) {
           final String encryptedData = responseBody['data'];
 
-          // Decrypt the payload
           final String plainJson = SecurityService.decryptData(encryptedData);
           final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
 
-          // Restore Settings
           if (fullPayload.containsKey('settings')) {
             final Map<String, dynamic> settings = fullPayload['settings'];
             final prefs = await SharedPreferences.getInstance();
@@ -304,7 +391,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             }
           }
 
-          // Restore Chats
           if (fullPayload.containsKey('chats')) {
             final Map<String, dynamic> chats = fullPayload['chats'];
             final chatService = LocalChatService();
@@ -315,14 +401,15 @@ class _SettingsScreenState extends State<SettingsScreen>
             }
           }
 
-          // Restore Summaries
           if (fullPayload.containsKey('summaries')) {
             final Map<String, dynamic> summaries = fullPayload['summaries'];
             final chatService = LocalChatService();
             for (var entry in summaries.entries) {
               final id = entry.key;
               final summaryMap = Map<String, dynamic>.from(entry.value);
-              final properSummaries = summaryMap.map((k, v) => MapEntry(int.parse(k), v.toString()));
+              final properSummaries = summaryMap.map(
+                (k, v) => MapEntry(int.parse(k), v.toString()),
+              );
               await chatService.saveSummaries(id, properSummaries);
             }
           }
@@ -335,7 +422,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           );
 
-          // Force restart by navigating to splash screen
           await Future.delayed(const Duration(seconds: 2));
           if (!mounted) return;
           Navigator.of(context).pushAndRemoveUntil(
@@ -354,7 +440,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Restore Error: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Restore Error: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -390,7 +479,6 @@ class _SettingsScreenState extends State<SettingsScreen>
 
         return StatefulBuilder(
           builder: (BuildContext modalContext, StateSetter setModalState) {
-            // Perform fetch once when the bottom sheet opens
             if (isFetching && fetched.isEmpty && errorMessage.isEmpty) {
               final requestBody = {
                 'api_key': apiKey.isEmpty ? 'guest' : apiKey,
@@ -517,11 +605,11 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    await ThemeService().setAmoledDark(_amoledDarkEnabled);
     await prefs.setString('default_provider', _selectedProvider);
     await prefs.setString('byok_provider', _byokProvider);
     await prefs.setBool('ai_reasoning_enabled', _aiReasoningEnabled);
 
-    // Save Keys and Endpoints locally
     await prefs.setString('byok_api_key', _byokApiKeyController.text);
     await prefs.setString('byok_model', _byokModelController.text);
     await prefs.setString('byok_base_url', _byokBaseUrlController.text);
@@ -530,7 +618,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     await prefs.setString('byom_model', _byomModelController.text);
     await prefs.setString('byom_api_key', _byomApiKeyController.text);
 
-    // Collect non-sensitive data for Database Sync
     final syncPayload = {
       'default_provider': _selectedProvider,
       'byok_provider': _byokProvider,
@@ -549,7 +636,6 @@ class _SettingsScreenState extends State<SettingsScreen>
       'ai_history_depth': int.tryParse(_aiHistoryDepthController.text) ?? 5,
     };
 
-    // Save numeric data locally and sync all
     for (var entry in syncPayload.entries) {
       final k = entry.key;
       final v = entry.value;
@@ -567,7 +653,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     if (!mounted) return;
 
     if (_isLanguageChanged) {
-      // Force restart to apply language change everywhere
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const SplashScreen()),
         (route) => false,
@@ -585,35 +670,79 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    const lightBlueTone = Color(0xFF8DC5FF);
+    final accentColor = isDark ? colorScheme.primary : lightBlueTone;
+    final appBarBackground = isDark
+        ? theme.scaffoldBackgroundColor
+        : lightBlueTone;
+    final tabLabelColor = isDark ? colorScheme.primary : Colors.white;
+    final tabUnselectedLabelColor = isDark
+        ? colorScheme.onSurfaceVariant
+        : Colors.white.withValues(alpha: 0.7);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(tr('settings_title')),
+        backgroundColor: appBarBackground,
+        elevation: 0,
+        iconTheme: IconThemeData(
+          color: isDark ? colorScheme.onSurface : Colors.white,
+        ),
+        title: Text(
+          tr('settings_title'),
+          style: TextStyle(
+            color: isDark ? colorScheme.onSurface : Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF135ACF),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF135ACF),
+          labelColor: tabLabelColor,
+          labelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelColor: tabUnselectedLabelColor,
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+          indicatorColor: tabLabelColor,
+          indicatorWeight: 3,
           tabs: [
             Tab(icon: const Icon(Icons.tune), text: tr('settings_tab_general')),
             Tab(icon: const Icon(Icons.api), text: tr('settings_tab_ai')),
-            Tab(icon: const Icon(Icons.cloud_sync), text: tr('settings_tab_backup')),
+            Tab(
+              icon: const Icon(Icons.cloud_sync),
+              text: tr('settings_tab_backup'),
+            ),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildGeneralTab(),
-          _buildProvidersTab(),
-          _buildBackupTab(),
-        ],
+        children: [_buildGeneralTab(), _buildProvidersTab(), _buildBackupTab()],
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: ElevatedButton(
             onPressed: _saveSettings,
-            child: Text(tr('settings_save_btn')),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              tr('settings_save_btn'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
           ),
         ),
       ),
@@ -621,29 +750,40 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildGeneralTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color cardLikeColor = isDark
+        ? colorScheme.surface
+        : colorScheme.surfaceContainer;
+    final Color textColor = colorScheme.onSurface;
+    final List<BoxShadow> cardShadow = isDark
+        ? const []
+        : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+            ),
+          ];
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         Text(
           tr('settings_language'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+            color: colorScheme.primary,
           ),
         ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardLikeColor,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-              ),
-            ],
+            boxShadow: cardShadow,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -683,29 +823,62 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
         ),
+        const SizedBox(height: 24),
+        Text(
+          tr('settings_theme'),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: cardLikeColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: cardShadow,
+          ),
+          child: SwitchListTile(
+            title: Text(
+              tr('settings_theme_amoled_title'),
+              style: TextStyle(fontWeight: FontWeight.w700, color: textColor),
+            ),
+            subtitle: Text(
+              tr('settings_theme_amoled_desc'),
+              style: TextStyle(color: textColor.withValues(alpha: 0.7)),
+            ),
+            value: _amoledDarkEnabled,
+            activeThumbColor: colorScheme.primary,
+            onChanged: (bool value) {
+              setState(() {
+                _amoledDarkEnabled = value;
+              });
+              ThemeService().setAmoledDark(value);
+            },
+          ),
+        ),
         const SizedBox(height: 30),
         Text(
           tr('settings_ai_active'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+            color: colorScheme.primary,
           ),
         ),
         const SizedBox(height: 8),
-        Text(tr('settings_ai_active_desc')),
+        Text(
+          tr('settings_ai_active_desc'),
+          style: TextStyle(color: textColor.withValues(alpha: 0.8)),
+        ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardLikeColor,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-              ),
-            ],
+            boxShadow: cardShadow,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -722,16 +895,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         SwitchListTile(
           title: Text(
             'Enable AI Reasoning',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
           ),
-          subtitle: const Text(
+          subtitle: Text(
             'Allow the AI to use extended thinking/reasoning blocks before replying (Requires supported models like Claude 3.7 or DeepSeek-R1).',
+            style: TextStyle(color: textColor.withValues(alpha: 0.7)),
           ),
           value: _aiReasoningEnabled,
-          activeThumbColor: const Color(0xFF135ACF),
+          activeThumbColor: colorScheme.primary,
           onChanged: (bool value) {
             setState(() {
               _aiReasoningEnabled = value;
@@ -741,7 +912,11 @@ class _SettingsScreenState extends State<SettingsScreen>
         const SizedBox(height: 10),
         Text(
           tr('settings_about_mode'),
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
         ),
         const SizedBox(height: 10),
         _buildModeInfo('System', tr('settings_mode_system_desc')),
@@ -752,11 +927,16 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildBackupTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color textColor = colorScheme.onSurface;
+
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
         Text(
-          tr('settings_backup_title'),
+          tr('settings_tab_p2p_title'),
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -764,11 +944,161 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ),
         const SizedBox(height: 8),
-        Text(tr('settings_backup_desc')),
+        Text(tr('settings_tab_p2p_desc')),
+        const SizedBox(height: 16),
+        Card(
+          elevation: 0,
+          color: const Color(0xFFFFF7E6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
+                  // =================== DESKTOP BUTTONS ===================
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                         Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => QrHostScreen(
+                               mode: 'download',
+                               getDownloadPayload: _getBackupPayload,
+                            )
+                         ));
+                      },
+                      icon: const Icon(Icons.qr_code_2),
+                      label: Text(tr('settings_p2p_btn_copy_to_mobile')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                         Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => QrHostScreen(
+                               mode: 'upload',
+                               onUploadReceived: (payload) async {
+                                  await _processRestorePayload(payload);
+                                  if (mounted) {
+                                     Navigator.of(context).pushAndRemoveUntil(
+                                        MaterialPageRoute(builder: (_) => const SplashScreen()),
+                                        (route) => false,
+                                     );
+                                  }
+                               },
+                            )
+                         ));
+                      },
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: Text(tr('settings_p2p_btn_receive_from_mobile')),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.orange),
+                        foregroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // =================== MOBILE BUTTONS ===================
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                         final payload = await _getBackupPayload();
+                         if (mounted) {
+                            Navigator.push(context, MaterialPageRoute(
+                               builder: (_) => QrScannerScreen(
+                                  mode: 'upload',
+                                  payloadToUpload: payload,
+                                  onComplete: (_) {
+                                     ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(tr('settings_p2p_success_mobile')), backgroundColor: Colors.green)
+                                     );
+                                  }
+                               )
+                            ));
+                         }
+                      },
+                      icon: const Icon(Icons.upload_file),
+                      label: Text(tr('settings_p2p_btn_copy_to_desktop')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                         Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => QrScannerScreen(
+                               mode: 'download',
+                               onComplete: (payload) async {
+                                  if (payload != null) {
+                                     await _processRestorePayload(payload);
+                                     if (mounted) {
+                                        Navigator.of(context).pushAndRemoveUntil(
+                                           MaterialPageRoute(builder: (_) => const SplashScreen()),
+                                           (route) => false,
+                                        );
+                                     }
+                                  }
+                               }
+                            )
+                         ));
+                      },
+                      icon: const Icon(Icons.download),
+                      label: Text(tr('settings_p2p_btn_receive_from_desktop')),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.orange),
+                        foregroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ]
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        Text(
+          tr('settings_backup_title'),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          tr('settings_backup_desc'),
+          style: TextStyle(color: textColor.withValues(alpha: 0.8)),
+        ),
         const SizedBox(height: 24),
         Card(
           elevation: 0,
-          color: const Color(0xFFF0F5FF),
+          color: isDark
+              ? colorScheme.surface
+              : colorScheme.surfaceContainerHighest,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -783,7 +1113,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     icon: const Icon(Icons.cloud_upload),
                     label: Text(tr('settings_btn_backup')),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF135ACF),
+                      backgroundColor: colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -800,8 +1130,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                     icon: const Icon(Icons.cloud_download),
                     label: Text(tr('settings_btn_restore')),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF135ACF)),
-                      foregroundColor: const Color(0xFF135ACF),
+                      side: BorderSide(color: colorScheme.primary),
+                      foregroundColor: colorScheme.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -818,6 +1148,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildModeInfo(String title, String desc) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -825,27 +1157,34 @@ class _SettingsScreenState extends State<SettingsScreen>
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.blueGrey,
+              color: colorScheme.onSurface,
             ),
           ),
-          Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(
+            desc,
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildProvidersTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         Text(
           tr('settings_engine_config'),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF135ACF),
+            color: colorScheme.primary,
           ),
         ),
         const SizedBox(height: 20),
@@ -860,6 +1199,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                 child: ChoiceChip(
                   label: Text(p),
                   selected: isSelected,
+                  selectedColor: colorScheme.primary,
+                  backgroundColor: colorScheme.surfaceContainer,
+                  side: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.5),
+                  ),
+                  labelStyle: TextStyle(
+                    color: isSelected
+                        ? (isDark ? Colors.black : Colors.white)
+                        : colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
                   onSelected: (selected) {
                     if (selected) setState(() => _selectedProvider = p);
                   },
@@ -872,17 +1222,25 @@ class _SettingsScreenState extends State<SettingsScreen>
         const SizedBox(height: 30),
 
         if (_selectedProvider == 'BYOK') ...[
-          const Text(
+          Text(
             'BYOK Provider Platform',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? theme.colorScheme.surface : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: isDark
+                    ? theme.colorScheme.outline
+                    : Colors.grey.withValues(alpha: 0.2),
+              ),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -922,7 +1280,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               const SizedBox(width: 8),
               SizedBox(
-                height: 52, // Align with TextField standard height
+                height: 52,
                 child: ElevatedButton.icon(
                   onPressed: _showModelSearchBottomSheet,
                   icon: const Icon(Icons.cloud_download, size: 18),
@@ -931,7 +1289,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     minimumSize: const Size(
                       100,
                       52,
-                    ), // Override global infinite width
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -980,13 +1338,13 @@ class _SettingsScreenState extends State<SettingsScreen>
               child: Text(
                 tr('settings_system_mode_info'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
             ),
           ),
 
         const SizedBox(height: 30),
-        const Divider(),
+        Divider(color: colorScheme.outlineVariant),
         const SizedBox(height: 10),
 
         ExpansionTile(
@@ -994,7 +1352,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             tr('settings_advanced_title'),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          leading: const Icon(Icons.settings_suggest, color: Color(0xFF135ACF)),
+          leading: Icon(Icons.settings_suggest, color: colorScheme.primary),
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1004,9 +1362,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                   const SizedBox(height: 10),
                   Text(
                     tr('settings_gen_params'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.blueGrey,
+                      color: colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1054,9 +1412,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                   const SizedBox(height: 24),
                   Text(
                     tr('settings_memory_params'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.blueGrey,
+                      color: colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1101,13 +1459,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     String label,
     String hint,
   ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Row(
       children: [
         Expanded(
           flex: 3,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -1121,12 +1487,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                 decimal: true,
               ),
               textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 13),
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: hint,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 filled: true,
-                fillColor: Colors.grey.withValues(alpha: 0.05),
+                fillColor: isDark
+                    ? colorScheme.surface
+                    : colorScheme.surfaceContainer,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -1146,22 +1514,33 @@ class _SettingsScreenState extends State<SettingsScreen>
     required IconData icon,
     bool obscure = false,
   }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: colorScheme.onSurface,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           obscureText: obscure,
+          style: TextStyle(color: colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, size: 20),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: isDark
+                ? colorScheme.surface
+                : colorScheme.surfaceContainer,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -1173,6 +1552,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildHelpLink() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: TextButton.icon(
         onPressed: () => launchUrl(
@@ -1189,7 +1570,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             fontWeight: FontWeight.bold,
           ),
         ),
-        style: TextButton.styleFrom(foregroundColor: const Color(0xFF135ACF)),
+        style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
       ),
     );
   }

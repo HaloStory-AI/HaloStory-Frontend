@@ -40,7 +40,7 @@ class ConfigService {
 
       final response = await http
           .get(Uri.parse(antiCacheUrl), headers: {'Cache-Control': 'no-cache'})
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

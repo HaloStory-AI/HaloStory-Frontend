@@ -6,6 +6,10 @@ class CreateTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Center(
@@ -15,42 +19,44 @@ class CreateTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colorScheme.surfaceContainer,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+                boxShadow: isDark
+                    ? const []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.groups_rounded,
                 size: 64,
-                color: Color(0xFF135ACF),
+                color: colorScheme.primary,
               ),
             ),
             const SizedBox(height: 24),
             Text(
               tr('tab_group_chat'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF135ACF),
+                color: colorScheme.primary,
               ),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F5FF),
+                color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 tr('coming_soon'),
-                style: const TextStyle(
-                  color: Color(0xFF135ACF),
+                style: TextStyle(
+                  color: colorScheme.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -62,7 +68,7 @@ class CreateTab extends StatelessWidget {
                 "Segera hadir! Fitur chat grup untuk berinteraksi dengan banyak murid sekaligus.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.grey.shade600,
+                  color: colorScheme.onSurfaceVariant,
                   fontSize: 14,
                   height: 1.5,
                 ),

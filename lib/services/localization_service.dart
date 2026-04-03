@@ -15,15 +15,21 @@ class LocalizationService extends ChangeNotifier {
   // This ensures the app doesn't show a white screen if assets fail to load.
   final Map<String, String> _fallbackStrings = {
     'update_title': 'Pembaruan Tersedia',
-    'update_desc': 'Versi baru BlueTalk sudah tersedia. Yuk update ke versi terbaru!',
+    'update_desc':
+        'Versi baru BlueTalk sudah tersedia. Yuk update ke versi terbaru!',
     'update_version': 'Versi',
     'update_btn': 'Update Sekarang',
     'maintenance_title': 'Sedang Maintenance',
     'maintenance_info': 'Mohon maaf, BlueTalk sedang dalam pemeliharaan.',
     'exit_app': 'Keluar Aplikasi',
     'system_notice_title': 'Pemberitahuan Sistem',
-    'system_notice_content': 'Semua model AI sedang sibuk. Silakan coba lagi nanti.',
+    'system_notice_content':
+        'Semua model AI sedang sibuk. Silakan coba lagi nanti.',
     'system_notice_btn': 'Mengerti',
+    'settings_theme': 'Tampilan',
+    'settings_theme_amoled_title': 'Aktifkan Mode Gelap AMOLED',
+    'settings_theme_amoled_desc':
+        'Gunakan latar hitam pekat untuk kontras lebih tinggi dan efisiensi baterai pada layar OLED.',
   };
 
   String get currentLocale => _currentLocale;
@@ -43,19 +49,20 @@ class LocalizationService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       String? savedLocale = prefs.getString('app_language');
-      
+
       if (savedLocale == null) {
         // Detect device locale
         final deviceLocale = PlatformDispatcher.instance.locale.languageCode;
         if (_localeToName.containsKey(deviceLocale)) {
           _currentLocale = deviceLocale;
         } else {
-          _currentLocale = 'en'; // Fallback to English if device locale is not supported
+          _currentLocale =
+              'en'; // Fallback to English if device locale is not supported
         }
       } else {
         _currentLocale = savedLocale;
       }
-      
+
       await load(_currentLocale);
     } catch (e) {
       debugPrint('Localization Init Error: $e');

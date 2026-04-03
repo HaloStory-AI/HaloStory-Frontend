@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widget_previews.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../services/ai_service.dart';
@@ -16,16 +17,39 @@ import '../constants.dart';
 
 import '../services/localization_service.dart';
 
+@Preview(name: 'Chat Detail Screen', size: Size(390, 844))
+Widget chatDetailScreenPreview() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: ChatDetailScreen(
+      bot: <String, dynamic>{
+        'id': 'preview-bot-1',
+        'name': 'Airi',
+        'description': 'Preview bot for chat screen layout',
+        'personality':
+            'Nickname: Airi\nAge: 19\nNationality: Japanese\nHeight: 160 cm\nWeight: 48 kg\nLike: Music\nDislike: Silence',
+        'image_url': null,
+        'color': null,
+        'bond_hearts': 7,
+        'birthday': null,
+      },
+      provider: 'Preview',
+    ),
+  );
+}
+
 class ChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> bot;
   final String provider;
   final String? initialMessage;
+  final bool isDesktopMode;
 
   const ChatDetailScreen({
     super.key,
     required this.bot,
     required this.provider,
     this.initialMessage,
+    this.isDesktopMode = false,
   });
 
   @override
@@ -46,11 +70,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   double _summaryProgress = 0.0;
   bool _isTypingEffectActive = false;
 
-  // System Note
   final TextEditingController _systemNoteController = TextEditingController();
   bool _isSystemNoteOpen = false;
 
   bool _showScrollButton = false;
+  bool _isDisposed = false;
+  static const String _chatHeaderFont = 'Roboto';
 
   @override
   void initState() {
@@ -66,10 +91,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _scrollController.removeListener(_scrollListener);
+    _messageController.dispose();
     _scrollController.dispose();
     _systemNoteController.dispose();
     super.dispose();
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted || _isDisposed) return;
+    setState(fn);
   }
 
   void _scrollListener() {
@@ -78,7 +110,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final currentScroll = _scrollController.offset;
     final shouldShow = (maxScroll - currentScroll) > 300;
     if (_showScrollButton != shouldShow) {
-      setState(() {
+      _safeSetState(() {
         _showScrollButton = shouldShow;
       });
     }
@@ -87,9 +119,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Future<void> _loadSystemNote() async {
     final prefs = await SharedPreferences.getInstance();
     final note = prefs.getString('system_note_${widget.bot['id']}') ?? '';
-    setState(() {
-      _systemNoteController.text = note;
-    });
+    if (!mounted || _isDisposed) return;
+    _systemNoteController.text = note;
   }
 
   Future<void> _saveSystemNote() async {
@@ -102,14 +133,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   void _showSystemAiWarning() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isDisposed) return;
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) => Container(
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: _surfaceBackground(context),
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -119,7 +151,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -136,19 +168,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               const SizedBox(height: 24),
               Text(
                 tr('system_notice_title'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF135ACF),
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 tr('system_notice_content'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF4A5568),
+                  color: _subtitleColor(context),
                   height: 1.5,
                 ),
               ),
@@ -156,8 +188,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF0F5FF),
-                  foregroundColor: const Color(0xFF135ACF),
+                  backgroundColor: _surfaceAltBackground(context),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -187,22 +219,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Future<void> _loadHistory() async {
     final history = await _localChatService.loadChat(widget.bot['id']);
-    // Strip any temporary animation keys that might have been saved if the app was closed mid-typing
     for (var msg in history) {
       msg.remove('visible_parts');
       msg.remove('is_typing_next');
     }
     final summaries = await _localChatService.loadSummaries(widget.bot['id']);
-    setState(() {
+    if (!mounted || _isDisposed) return;
+    _safeSetState(() {
       _messages = history;
       _summaries = summaries;
     });
     _scrollToBottom();
 
-    // Auto-catchup / update summaries
     _generateSummaries();
 
-    // Jika ada pesan awal (dari reply story), kirim langsung
     if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
       _messageController.text = widget.initialMessage!;
       _sendMessage();
@@ -211,10 +241,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Future<void> _generateSummaries() async {
     if (_isSummarizing) return;
+    if (!mounted || _isDisposed) return;
 
     final int batchSize = 20;
 
-    // First, count total batches that need summarizing
     int totalBatchesToSummarize = 0;
     for (int i = 0; i <= _messages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
@@ -224,7 +254,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     if (totalBatchesToSummarize == 0) return;
 
-    setState(() {
+    _safeSetState(() {
       _isSummarizing = true;
       _summaryProgress = 0.0;
     });
@@ -232,7 +262,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     bool updated = false;
     int processedBatches = 0;
 
-    // Find batches that need summarizing
     for (int i = 0; i <= _messages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
         try {
@@ -260,11 +289,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         }
 
         processedBatches++;
-        if (mounted) {
-          setState(() {
-            _summaryProgress = processedBatches / totalBatchesToSummarize;
-          });
-        }
+        _safeSetState(() {
+          _summaryProgress = processedBatches / totalBatchesToSummarize;
+        });
       }
     }
 
@@ -272,35 +299,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       await _localChatService.saveSummaries(widget.bot['id'], _summaries);
     }
 
-    if (mounted) {
-      setState(() {
-        _isSummarizing = false;
-        _summaryProgress = 0.0;
-      });
-    }
+    _safeSetState(() {
+      _isSummarizing = false;
+      _summaryProgress = 0.0;
+    });
   }
 
   void _scrollToBottom() {
-    // Attempt 1: Standard immediate scroll after frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      if (!mounted || _isDisposed || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     });
 
-    // Attempt 2: Delayed scroll to catch late layout updates (e.g. images, long texts)
     Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted && _scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
+      if (!mounted || _isDisposed || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -310,9 +331,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final userMessage = _messageController.text.trim();
 
     if (userMessage.isEmpty) {
-      // C.AI Style Continue: If empty, remove trailing system errors if any, and fetch AI response.
       if (_messages.isNotEmpty && _messages.last['role'] == 'system') {
-        setState(() {
+        _safeSetState(() {
           _messages.removeLast();
         });
       }
@@ -322,7 +342,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     _messageController.clear();
     final timestamp = DateTime.now().toIso8601String();
-    setState(() {
+    _safeSetState(() {
       _messages.add({
         'role': 'user',
         'content': userMessage,
@@ -337,23 +357,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Future<void> _regenerateResponse() async {
     if (_isLoading || _messages.isEmpty) return;
 
-    // Check if the last message is from assistant or system (error)
     if (_messages.last['role'] == 'assistant' ||
         _messages.last['role'] == 'system') {
-      setState(() {
-        _messages.removeLast(); // Remove the old response
+      _safeSetState(() {
+        _messages.removeLast();
       });
       await _getAIResponse();
     }
   }
 
   Future<void> _getAIResponse() async {
-    setState(() {
+    _safeSetState(() {
       _isLoading = true;
     });
     _scrollToBottom();
 
-    // 1. Build Structured Summary Recap
     String? summaryPrompt;
     if (_summaries.isNotEmpty) {
       summaryPrompt = "[CONVERSATION RECAP]\n";
@@ -364,7 +382,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
 
-    // 2. Prepare recent messages (History Limit)
     List<Map<String, String>> fullHistory = _messages
         .where((m) => m['content'] != null && m['role'] != 'system')
         .map(
@@ -375,7 +392,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         )
         .toList();
 
-    // Optimization: Only send the last 4 messages (2 turns) if we have a summary recap
     List<Map<String, String>> aiMessages;
     if (summaryPrompt != null && fullHistory.length > 4) {
       aiMessages = fullHistory.sublist(fullHistory.length - 4);
@@ -383,7 +399,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       aiMessages = fullHistory;
     }
 
-    // Inject System Note if present
     if (_systemNoteController.text.trim().isNotEmpty) {
       aiMessages.insert(0, {
         'role': 'system',
@@ -391,14 +406,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       });
     }
 
-    // If the history ends with the assistant, we must supply a user prompt
-    // to satisfy strict API constraints (like Gemini) and instruct the model to continue.
     if (aiMessages.isNotEmpty && aiMessages.last['role'] == 'assistant') {
       aiMessages.add({'role': 'user', 'content': '[Continue]'});
     }
 
-    // Get language from settings or use default
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted || _isDisposed) return;
     String language = prefs.getString('app_language') ?? 'Indonesian';
 
     try {
@@ -410,7 +423,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         summary: summaryPrompt,
       );
 
-      setState(() {
+      if (!mounted || _isDisposed) return;
+
+      bool shouldStartTyping = false;
+      int partsLength = 0;
+
+      _safeSetState(() {
         _isLoading = false;
         final aiTimestamp = DateTime.now().toIso8601String();
 
@@ -419,7 +437,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             response['choices'] != null) {
           final aiContent = response['choices'][0]['message']['content'];
           if (aiContent != null && (aiContent as String).isNotEmpty) {
-            final parts = aiContent.split('\n\n').where((s) => s.trim().isNotEmpty).toList();
+            final parts = aiContent
+                .split('\n\n')
+                .where((s) => s.trim().isNotEmpty)
+                .toList();
             _messages.add({
               'role': 'assistant',
               'content': aiContent,
@@ -429,7 +450,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             });
 
             if (parts.length > 1) {
-              _startTypingEffect(parts.length);
+              shouldStartTyping = true;
+              partsLength = parts.length;
             }
           } else {
             _addSystemError(aiTimestamp);
@@ -448,14 +470,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           );
         }
       });
+
+      if (shouldStartTyping) {
+        _startTypingEffect(partsLength);
+      }
     } catch (e) {
-      setState(() {
+      if (!mounted || _isDisposed) return;
+      _safeSetState(() {
         _isLoading = false;
         _addSystemError(DateTime.now().toIso8601String());
       });
     }
 
-    // Save to local storage only if not handled by typing effect loop
     if (!_isTypingEffectActive) {
       await _localChatService.saveChat(widget.bot['id'], _messages);
       _generateSummaries();
@@ -464,44 +490,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _startTypingEffect(int totalParts) async {
-    setState(() {
+    _safeSetState(() {
       _isTypingEffectActive = true;
     });
 
     for (int i = 1; i < totalParts; i++) {
-      await Future.delayed(const Duration(milliseconds: 500)); // Natural typing pause
-      _scrollToBottom(); // Scroll to ensure typing indicator is visible
-      
-      await Future.delayed(const Duration(milliseconds: 1500)); // Simulated typing time
+      await Future.delayed(
+        const Duration(milliseconds: 500),
+      );
+      _scrollToBottom();
 
-      if (!mounted) return;
+      await Future.delayed(
+        const Duration(milliseconds: 1500),
+      );
 
-      setState(() {
+      if (!mounted || _isDisposed) return;
+
+      _safeSetState(() {
         _messages.last['visible_parts'] = i + 1;
         if (i == totalParts - 1) {
           _messages.last.remove('is_typing_next');
           _isTypingEffectActive = false;
         }
       });
-      
-      // Save state progressively
+
       await _localChatService.saveChat(widget.bot['id'], _messages);
       _scrollToBottom();
     }
-    
-    // Trigger bulk summaries after animation completes
+
     _generateSummaries();
   }
 
-  Future<void> _showBondStats() async {
+  Future<Map<String, dynamic>?> _fetchBondStats() async {
     final authService = AuthService();
     final token = await authService.getToken();
-    if (token == null || !mounted) return;
+    if (token == null || !mounted || _isDisposed) {
+      return null;
+    }
 
-    final prefs = await SharedPreferences.getInstance();
     final botId = widget.bot['id'];
-
-    Map<String, dynamic>? bondData;
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/bots/bond/$botId'),
@@ -511,175 +538,179 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         },
       );
       if (response.statusCode == 200) {
-        bondData = jsonDecode(response.body);
+        return jsonDecode(response.body);
       }
     } catch (_) {}
 
-    if (!mounted) return;
+    return null;
+  }
 
-    final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
-    final xp = bondData?['xp'] ?? 0;
-    final xpInto = bondData?['xp_into_level'] ?? 0;
-    final xpPer = bondData?['xp_per_level'] ?? 5;
-    final progress = bondData != null
-        ? (bondData['progress_percent'] as num) / 100.0
-        : 0.0;
-
+  void _showBondStats() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        return FutureBuilder<Map<String, dynamic>?>(
+          future: _fetchBondStats(),
+          builder: (context, snapshot) {
+            final bondData = snapshot.data;
+            final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
+            final xp = bondData?['xp'] ?? 0;
+            final xpInto = bondData?['xp_into_level'] ?? 0;
+            final xpPer = bondData?['xp_per_level'] ?? 5;
+            final progress = bondData != null
+                ? (bondData['progress_percent'] as num) / 100.0
+                : 0.0;
+
+            return Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              decoration: BoxDecoration(
+                color: _surfaceBackground(context),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              // Avatar + name
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: _parseColor(widget.bot['color']),
-                    backgroundImage: widget.bot['image_url'] != null
-                        ? NetworkImage(widget.bot['image_url'])
-                        : null,
-                    child: widget.bot['image_url'] == null
-                        ? Text(
-                            (widget.bot['name'] as String)[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.bot['name'],
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2D3748),
-                        ),
-                      ),
-                      Text(
-                        'Total XP: $xp',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              // Large heart + level display
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const Icon(
-                        Icons.favorite,
-                        color: Color(0xFFFBB6CE),
-                        size: 72,
-                      ),
-                      Text(
-                        '$hearts',
-                        style: const TextStyle(
-                          color: Color(0xFF135ACF),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Bond Level',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        'Lv. $hearts',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF135ACF),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // XP Progress Bar
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Progress to Lv. ${hearts + 1}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF4A5568),
-                        ),
-                      ),
-                      Text(
-                        '$xpInto / $xpPer XP',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress.clamp(0.0, 1.0),
-                      minHeight: 12,
-                      backgroundColor: Colors.pink.shade50,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFFFB6F9D),
-                      ),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).dividerColor,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: _parseColor(widget.bot['color']),
+                        backgroundImage: widget.bot['image_url'] != null
+                            ? NetworkImage(widget.bot['image_url'])
+                            : null,
+                        child: widget.bot['image_url'] == null
+                            ? Text(
+                                (widget.bot['name'] as String)[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.bot['name'],
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _titleColor(context),
+                            ),
+                          ),
+                          Text(
+                            'Total XP: $xp',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _subtitleColor(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            color: Color(0xFFFBB6CE),
+                            size: 72,
+                          ),
+                          Text(
+                            '$hearts',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bond Level',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _subtitleColor(context),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            'Lv. $hearts',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Progress to Lv. ${hearts + 1}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _subtitleColor(context),
+                            ),
+                          ),
+                          Text(
+                            '$xpInto / $xpPer XP',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _subtitleColor(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: progress.clamp(0.0, 1.0),
+                          minHeight: 12,
+                          backgroundColor: Colors.pink.shade50,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFFFB6F9D),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -713,7 +744,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (rawError is! Map<String, dynamic>) {
       if (rawError != null && rawError.toString().trim().isNotEmpty) {
         String errStr = rawError.toString();
-        // Detect if the error is an HTML page (e.g. 404/405 from Nginx/Laravel)
         if (errStr.trim().toLowerCase().startsWith('<!doctype html') ||
             errStr.toLowerCase().contains('<html')) {
           return '${statusCode != null ? '[$statusCode] ' : ''}Server returned an HTML error page. Endpoint might be incorrect or unavailable.';
@@ -727,22 +757,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     String? errMessage;
     String? errCode;
 
-    // 1. Direct "message" at root (HordeAI, MistralAI)
     if (rawError.containsKey('message') && rawError['message'] is String) {
       errMessage = rawError['message'];
     }
 
-    // 2. "detail" at root (Chutes)
     if (rawError.containsKey('detail') && rawError['detail'] is String) {
       errMessage ??= rawError['detail'];
     }
 
-    // 3. "status" / "error" at root (Nano GPT alternate)
     if (rawError.containsKey('error') && rawError['error'] is String) {
       errMessage ??= rawError['error'];
     }
 
-    // 4. "error" object
     if (rawError.containsKey('error') &&
         rawError['error'] is Map<String, dynamic>) {
       final eObj = rawError['error'] as Map<String, dynamic>;
@@ -753,7 +779,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (eObj.containsKey('code')) errCode ??= eObj['code'].toString();
     }
 
-    // 5. OpenRouter: {error: {code, message}} via response object
     if (rawError.containsKey('response') &&
         rawError['response'] is Map<String, dynamic>) {
       final resObj = rawError['response'] as Map<String, dynamic>;
@@ -766,7 +791,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
 
-    // Assign fallback types/codes from root
     if (rawError.containsKey('error_type') && rawError['error_type'] is String)
       errType ??= rawError['error_type'];
     if (rawError.containsKey('type') &&
@@ -778,7 +802,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (rawError.containsKey('rc') && rawError['rc'] is String)
       errCode ??= rawError['rc'];
 
-    // If we managed to parse something:
     if (errMessage != null) {
       String result = '';
       if (statusCode != null) result += '[$statusCode] ';
@@ -792,7 +815,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       return result;
     }
 
-    // Fallback: Dump JSON
     try {
       final encoder = const JsonEncoder.withIndent('  ');
       return '${statusCode != null ? '[$statusCode]\\n' : ''}```json\\n${encoder.convert(rawError)}\\n```';
@@ -809,8 +831,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.75,
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: _surfaceBackground(context),
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
@@ -819,7 +841,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               width: 40,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: Theme.of(context).dividerColor,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -849,10 +871,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     const SizedBox(height: 16),
                     Text(
                       widget.bot['name'],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D3748),
+                        color: _titleColor(context),
                       ),
                     ),
                     if (_isBirthday(widget.bot['birthday']))
@@ -872,7 +894,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 15,
-                        color: Colors.grey[600],
+                        color: _subtitleColor(context),
                         fontStyle: FontStyle.italic,
                       ),
                     ),
@@ -883,10 +905,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         tr('personality_title_label'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF135ACF),
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),
@@ -901,7 +923,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               tr('bio_no_personality'),
                               style: TextStyle(
                                 fontSize: 15,
-                                color: Colors.grey[600],
+                                color: _subtitleColor(context),
                               ),
                             );
                           }
@@ -919,7 +941,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               'Dislike': '*Unknown*',
                             };
 
-                            // Helper to find regex
                             String? findMatch(String pattern) {
                               final regExp = RegExp(
                                 pattern,
@@ -928,7 +949,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               );
                               final match = regExp.firstMatch(personality);
                               if (match != null && match.groupCount >= 1) {
-                                // Extract and strip formatting like quotes or asterisks if any
                                 String val = match.group(1)!.trim();
                                 val = val
                                     .replaceAll(
@@ -984,9 +1004,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                     width: 100,
                                     child: Text(
                                       label,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF4A5568),
+                                        color: _subtitleColor(context),
                                         fontSize: 14,
                                       ),
                                     ),
@@ -995,7 +1015,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                     child: Text(
                                       value,
                                       style: TextStyle(
-                                        color: Colors.grey[800],
+                                        color: _titleColor(context),
                                         fontSize: 14,
                                       ),
                                     ),
@@ -1034,130 +1054,144 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void _showMessageOptions(int index, String content) {
     final bool isLastMessage = index == _messages.length - 1;
     final String role = _messages[index]['role'] ?? '';
-    // Can regenerate if it's the last message and it's NOT from the user
     final bool canRegenerate =
         isLastMessage && (role == 'assistant' || role == 'system');
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          decoration: BoxDecoration(
+            color: _surfaceBackground(ctx),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            if (canRegenerate) ...[
-              // Regenerate Response option
+              if (canRegenerate) ...[
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: scheme.primaryContainer,
+                    child: Icon(
+                      Icons.refresh_rounded,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                  title: const Text(
+                    'Regenerate Response',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'Retry getting a new answer from the AI',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _regenerateResponse();
+                  },
+                ),
+                const Divider(height: 1),
+              ],
               ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE3F2FD),
-                  child: Icon(Icons.refresh_rounded, color: Color(0xFF1976D2)),
+                leading: CircleAvatar(
+                  backgroundColor: scheme.secondaryContainer,
+                  child: Icon(
+                    Icons.fast_rewind_rounded,
+                    color: scheme.onSecondaryContainer,
+                  ),
                 ),
-                title: const Text(
-                  'Regenerate Response',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                title: Text(
+                  tr('chat_rewind_title'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: const Text(
-                  'Retry getting a new answer from the AI',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                subtitle: Text(
+                  tr('chat_rewind_subtitle'),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(ctx);
-                  _regenerateResponse();
+                  final trimmed = _messages.sublist(0, index + 1);
+
+                  _safeSetState(() {
+                    _messages = trimmed;
+                    _summaries.removeWhere(
+                      (key, value) => key >= trimmed.length,
+                    );
+                  });
+
+                  await _localChatService.saveChat(widget.bot['id'], _messages);
+                  await _localChatService.saveSummaries(
+                    widget.bot['id'],
+                    _summaries,
+                  );
+                  _scrollToBottom();
                 },
               ),
               const Divider(height: 1),
-            ],
-            // Rewind option
-            ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFFFF3E0),
-                child: Icon(
-                  Icons.fast_rewind_rounded,
-                  color: Color(0xFFE65100),
-                ),
-              ),
-              title: Text(
-                tr('chat_rewind_title'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(
-                tr('chat_rewind_subtitle'),
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                // Keep messages 0..index (inclusive), remove everything after
-                final trimmed = _messages.sublist(0, index + 1);
-
-                setState(() {
-                  _messages = trimmed;
-                  _summaries.removeWhere((key, value) => key >= trimmed.length);
-                });
-
-                await _localChatService.saveChat(widget.bot['id'], _messages);
-                await _localChatService.saveSummaries(
-                  widget.bot['id'],
-                  _summaries,
-                );
-                _scrollToBottom();
-              },
-            ),
-            const Divider(height: 1),
-            // Copy option
-            ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFF0F5FF),
-                child: Icon(Icons.copy_rounded, color: Color(0xFF135ACF)),
-              ),
-              title: Text(
-                tr('chat_copy_text'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                Clipboard.setData(ClipboardData(text: content));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(tr('chat_copy_success')),
-                    duration: const Duration(seconds: 2),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: scheme.primaryContainer,
+                  child: Icon(
+                    Icons.copy_rounded,
+                    color: scheme.onPrimaryContainer,
                   ),
-                );
-              },
-            ),
-            const Divider(height: 1),
-            // Edit option
-            ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE8F5E9),
-                child: Icon(Icons.edit_rounded, color: Color(0xFF2E7D32)),
+                ),
+                title: Text(
+                  tr('chat_copy_text'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Clipboard.setData(ClipboardData(text: content));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(tr('chat_copy_success')),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
-              title: Text(
-                tr('chat_edit_message'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              const Divider(height: 1),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: scheme.tertiaryContainer,
+                  child: Icon(
+                    Icons.edit_rounded,
+                    color: scheme.onTertiaryContainer,
+                  ),
+                ),
+                title: Text(
+                  tr('chat_edit_message'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showEditMessageDialog(index);
+                },
               ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showEditMessageDialog(index);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1174,7 +1208,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (format == 'json') {
         content = jsonEncode(_messages);
       } else {
-        // TXT format
         final sb = StringBuffer();
         sb.writeln('=== Chat dengan ${widget.bot['name']} ===');
         sb.writeln('Provider: ${widget.provider}');
@@ -1229,14 +1262,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  /// Returns the best available Download directory across Android versions.
-  /// - Android ≤10: WRITE_EXTERNAL_STORAGE granted → uses external /Download
-  /// - Android 11+: permission always denied → falls back to getDownloadsDirectory()
-  /// - Ultimate fallback: app documents directory
   Future<Directory> _getDownloadDir() async {
     Directory? baseDir;
     if (Platform.isAndroid) {
-      // Construction for public Download folder on Android
       baseDir = Directory('/storage/emulated/0/Download/BlueTalk');
     } else {
       baseDir = await getDownloadsDirectory();
@@ -1256,9 +1284,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _pageBackground(context),
         elevation: 0,
-        leadingWidth: 40,
+        automaticallyImplyLeading: !widget.isDesktopMode,
+        leadingWidth: widget.isDesktopMode ? 16 : 40,
         title: GestureDetector(
           onTap: _showStudentBio,
           behavior: HitTestBehavior.opaque,
@@ -1289,10 +1318,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       children: [
                         Text(
                           widget.bot['name'],
-                          style: const TextStyle(
-                            color: Color(0xFF4A5568),
+                          style: TextStyle(
+                            color: _titleColor(context),
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            fontFamily: _chatHeaderFont,
                           ),
                         ),
                         if (_isBirthday(widget.bot['birthday']))
@@ -1315,18 +1345,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     children: [
                       const Icon(
                         Icons.favorite,
-                        color: Color(0xFFFBB6CE),
-                        size: 38,
+                        color: Color(0xFFE88FAA),
+                        size: 40,
+                      ),
+                      const Icon(
+                        Icons.favorite,
+                        color: Color(0xFFF9C3D4),
+                        size: 36,
                       ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 2),
                         child: Text(
                           '${widget.bot['bond_hearts'] ?? 0}',
-                          style: const TextStyle(
-                            color: Color(0xFF135ACF),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
+                          style: _bondCountHeaderStyle(context),
                         ),
                       ),
                     ],
@@ -1338,14 +1369,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.grey),
+            icon: Icon(Icons.more_vert, color: _subtitleColor(context)),
             onSelected: (value) async {
               if (value == 'export_txt') {
                 await _exportChat('txt');
               } else if (value == 'export_json') {
                 await _exportChat('json');
               } else if (value == 're_summary') {
-                setState(() => _summaries.clear());
+                _safeSetState(() => _summaries.clear());
                 await _localChatService.saveSummaries(
                   widget.bot['id'],
                   _summaries,
@@ -1358,86 +1389,85 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 }
               } else if (value == 'delete') {
                 await _localChatService.deleteChat(widget.bot['id']);
-                setState(() {
+                _safeSetState(() {
                   _messages = [];
                   _summaries.clear();
                 });
               }
             },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'export_txt',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.description_outlined,
-                      color: Colors.black54,
-                      size: 20,
-                    ),
-                    SizedBox(width: 8),
-                    Text('Export as TXT'),
-                  ],
+            itemBuilder: (BuildContext context) {
+              final scheme = Theme.of(context).colorScheme;
+              return <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(
+                  value: 'export_txt',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.description_outlined,
+                        color: scheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Export as TXT'),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'export_json',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.data_object_outlined,
-                      color: Colors.black54,
-                      size: 20,
-                    ),
-                    SizedBox(width: 8),
-                    Text('Export as JSON'),
-                  ],
+                PopupMenuItem<String>(
+                  value: 'export_json',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.data_object_outlined,
+                        color: scheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Export as JSON'),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuItem<String>(
-                value: 're_summary',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      color: Colors.black54,
-                      size: 20,
-                    ),
-                    SizedBox(width: 8),
-                    Text('Re-Summary'),
-                  ],
+                PopupMenuItem<String>(
+                  value: 're_summary',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        color: scheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Re-Summary'),
+                    ],
+                  ),
                 ),
-              ),
-              PopupMenuItem<String>(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.delete_outline,
-                      color: Colors.redAccent,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      tr('chat_delete_confirm'),
-                      style: const TextStyle(color: Colors.redAccent),
-                    ),
-                  ],
+                PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, color: scheme.error, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        tr('chat_delete_confirm'),
+                        style: TextStyle(color: scheme.error),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ];
+            },
           ),
         ],
       ),
       body: Container(
-        color: Colors.white,
+        color: _pageBackground(context),
         child: Column(
           children: [
             if (_isSummarizing && _summaryProgress >= 0.0)
               LinearProgressIndicator(
                 value: _summaryProgress,
-                backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF135ACF),
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).colorScheme.primary,
                 ),
                 minHeight: 2,
               ),
@@ -1462,8 +1492,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Text(
                               msg['content'],
-                              style: const TextStyle(
-                                color: Colors.red,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
                                 fontSize: 12,
                               ),
                             ),
@@ -1480,8 +1510,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       final bubble = isUser
                           ? _buildUserBubble(content, timestamp, index)
                           : _buildBotBubble(
-                              content, 
-                              timestamp, 
+                              content,
+                              timestamp,
                               index,
                               visibleParts: msg['visible_parts'] as int?,
                               isTypingNext: msg['is_typing_next'] == true,
@@ -1500,11 +1530,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       child: FloatingActionButton(
                         mini: true,
                         elevation: 4,
-                        backgroundColor: const Color(0xFF135ACF),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         onPressed: _scrollToBottom,
-                        child: const Icon(
+                        child: Icon(
                           Icons.arrow_downward_rounded,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                           size: 20,
                         ),
                       ),
@@ -1532,6 +1562,55 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
     return Colors.blueGrey;
+  }
+
+  bool _isDarkMode(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _pageBackground(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
+
+  Color _surfaceBackground(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
+
+  Color _surfaceAltBackground(BuildContext context) =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  Color _titleColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
+
+  Color _subtitleColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+
+  TextStyle _bondCountHeaderStyle(BuildContext context) {
+    final isDark = _isDarkMode(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final shadowColor = isDark
+        ? Colors.black.withValues(alpha: 0.45)
+        : Colors.white;
+
+    return TextStyle(
+      color: colorScheme.primary,
+      fontWeight: FontWeight.w800,
+      fontSize: 12,
+      shadows: [
+        Shadow(color: shadowColor, offset: const Offset(1, 0)),
+        Shadow(color: shadowColor, offset: const Offset(-1, 0)),
+        Shadow(color: shadowColor, offset: const Offset(0, 1)),
+        Shadow(color: shadowColor, offset: const Offset(0, -1)),
+      ],
+    );
+  }
+
+  Color _botBubbleBackground(BuildContext context) =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  Color _fieldBorderColor(BuildContext context) =>
+      Theme.of(context).colorScheme.outlineVariant;
+
+  Color _hintColor(BuildContext context) {
+    final color = Theme.of(context).inputDecorationTheme.hintStyle?.color;
+    return color ?? Theme.of(context).colorScheme.onSurfaceVariant;
   }
 
   String _formatMessageTime(DateTime? dt) {
@@ -1564,10 +1643,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             children: [
               Text(
                 widget.bot['name'],
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: _titleColor(context),
                 ),
               ),
               const SizedBox(height: 4),
@@ -1576,10 +1655,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   horizontal: 16,
                   vertical: 10,
                 ),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF414D66),
+                decoration: BoxDecoration(
+                  color: _botBubbleBackground(context),
                   borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(0),
+                    topLeft: Radius.circular(2),
                     topRight: Radius.circular(12),
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
@@ -1604,6 +1683,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildUserBubble(String content, DateTime? timestamp, int index) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
@@ -1614,15 +1695,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               padding: const EdgeInsets.only(bottom: 4, right: 4),
               child: Text(
                 _formatMessageTime(timestamp),
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           Align(
             alignment: Alignment.centerRight,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: const BoxDecoration(
-                color: Color(0xFF5A8DEE),
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -1648,16 +1732,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ],
                       ),
                       styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(color: Colors.white, fontSize: 12),
-                        strong: const TextStyle(
-                          color: Colors.white,
+                        p: TextStyle(
+                          color: colorScheme.onPrimary,
+                          fontSize: 12,
+                        ),
+                        strong: TextStyle(
+                          color: colorScheme.onPrimary,
                           fontWeight: FontWeight.bold,
                         ),
-                        em: const TextStyle(
-                          color: Color(0xDBDBDBDB),
+                        em: TextStyle(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.86),
                           fontStyle: FontStyle.italic,
                         ),
-                        listBullet: const TextStyle(color: Colors.white),
+                        listBullet: TextStyle(color: colorScheme.onPrimary),
                       ),
                     ),
                   ],
@@ -1670,14 +1757,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildBotBubble(String content, DateTime? timestamp, int index, {int? visibleParts, bool isTypingNext = false}) {
+  Widget _buildBotBubble(
+    String content,
+    DateTime? timestamp,
+    int index, {
+    int? visibleParts,
+    bool isTypingNext = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     final parts = content
         .split('\n\n')
         .where((s) => s.trim().isNotEmpty)
         .toList();
     if (parts.isEmpty) return const SizedBox.shrink();
 
-    final partsToRender = visibleParts != null ? parts.take(visibleParts).toList() : parts;
+    final partsToRender = visibleParts != null
+        ? parts.take(visibleParts).toList()
+        : parts;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1706,19 +1803,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   children: [
                     Text(
                       widget.bot['name'],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF4A5568),
+                        color: _titleColor(context),
                       ),
                     ),
                     const SizedBox(width: 8),
                     if (timestamp != null)
                       Text(
                         _formatMessageTime(timestamp),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
-                          color: Colors.grey,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                   ],
@@ -1739,7 +1836,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF414D66),
+                        color: _botBubbleBackground(context),
                         borderRadius: BorderRadius.only(
                           topLeft: isFirst
                               ? const Radius.circular(2)
@@ -1769,30 +1866,33 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               ],
                             ),
                             styleSheet: MarkdownStyleSheet(
-                              p: const TextStyle(
-                                color: Colors.white,
+                              p: TextStyle(
+                                color: colorScheme.onSurface,
                                 fontSize: 12,
                                 height: 1.3,
                               ),
-                              strong: const TextStyle(
-                                color: Colors.white,
+                              strong: TextStyle(
+                                color: colorScheme.onSurface,
                                 fontWeight: FontWeight.bold,
                               ),
-                              em: const TextStyle(
-                                color: Color(0xDBDBDBDB),
+                              em: TextStyle(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.86,
+                                ),
                                 fontStyle: FontStyle.italic,
                               ),
-                              code: const TextStyle(
-                                color: Color(0xFFB8D8F8),
-                                backgroundColor: Colors.black26,
-                                fontFamily: 'monospace',
+                              code: TextStyle(
+                                color: colorScheme.primary,
+                                backgroundColor: colorScheme.surfaceContainer,
                                 fontSize: 13,
                               ),
                               codeblockDecoration: BoxDecoration(
-                                color: Colors.black26,
+                                color: colorScheme.surfaceContainer,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              listBullet: const TextStyle(color: Colors.white),
+                              listBullet: TextStyle(
+                                color: colorScheme.onSurface,
+                              ),
                             ),
                           ),
                         ],
@@ -1804,9 +1904,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF414D66),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _botBubbleBackground(context),
                         borderRadius: BorderRadius.only(
                           topLeft: Radius.circular(12),
                           topRight: Radius.circular(12),
@@ -1840,9 +1943,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceBackground(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: _fieldBorderColor(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1854,19 +1957,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 Text(
                   tr('chat_system_note'),
-                  style: const TextStyle(
-                    color: Color(0xFF135ACF),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 GestureDetector(
                   onTap: () {
-                    setState(() {
+                    _safeSetState(() {
                       _isSystemNoteOpen = false;
                     });
                   },
-                  child: const Icon(Icons.close, color: Colors.grey, size: 16),
+                  child: Icon(
+                    Icons.close,
+                    color: _subtitleColor(context),
+                    size: 16,
+                  ),
                 ),
               ],
             ),
@@ -1875,11 +1982,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             controller: _systemNoteController,
             maxLines: 3,
             minLines: 1,
-            style: const TextStyle(color: Colors.black87, fontSize: 13),
+            style: TextStyle(color: _titleColor(context), fontSize: 13),
             onChanged: (_) => _saveSystemNote(),
             decoration: InputDecoration(
               hintText: tr('chat_system_note_hint'),
-              hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+              hintStyle: TextStyle(color: _hintColor(context), fontSize: 12),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -1896,8 +2003,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        color: _surfaceBackground(context),
+        border: Border(top: BorderSide(color: _fieldBorderColor(context))),
       ),
       child: SafeArea(
         child: Column(
@@ -1906,15 +2013,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             Row(
               children: [
                 GestureDetector(
-                  onTap: () =>
-                      setState(() => _isSystemNoteOpen = !_isSystemNoteOpen),
+                  onTap: () => _safeSetState(
+                    () => _isSystemNoteOpen = !_isSystemNoteOpen,
+                  ),
                   child: Icon(
                     _isSystemNoteOpen
                         ? Icons.sticky_note_2
                         : Icons.sticky_note_2_outlined,
                     color: _isSystemNoteOpen
-                        ? const Color(0xFF135ACF)
-                        : Colors.grey,
+                        ? Theme.of(context).colorScheme.primary
+                        : _subtitleColor(context),
                     size: 24,
                   ),
                 ),
@@ -1922,16 +2030,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: _surfaceBackground(context),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: _fieldBorderColor(context)),
                     ),
                     child: TextField(
                       controller: _messageController,
                       decoration: InputDecoration(
                         hintText: '${tr('tab_chat')} ${widget.bot['name']}',
                         hintStyle: TextStyle(
-                          color: Colors.grey.shade400,
+                          color: _hintColor(context),
                           fontSize: 14,
                         ),
                         border: InputBorder.none,
@@ -1950,7 +2058,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   onTap: _isTypingEffectActive ? null : _sendMessage,
                   child: Icon(
                     Icons.send_rounded,
-                    color: _isTypingEffectActive ? Colors.grey : const Color(0xFF135ACF),
+                    color: _isTypingEffectActive
+                        ? _subtitleColor(context)
+                        : Theme.of(context).colorScheme.primary,
                     size: 28,
                   ),
                 ),
@@ -1962,7 +2072,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 10,
-                color: Colors.grey.shade500,
+                color: _subtitleColor(context),
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -1994,7 +2104,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              setState(() {
+              _safeSetState(() {
                 _messages[index]['content'] = editController.text;
               });
               await _localChatService.saveChat(widget.bot['id'], _messages);
@@ -2048,15 +2158,14 @@ class _DotAnimState extends State<_DotAnim>
 
   @override
   Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+
     return FadeTransition(
       opacity: _animation,
       child: Container(
         width: 6,
         height: 6,
-        decoration: const BoxDecoration(
-          color: Colors.white70,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
   }

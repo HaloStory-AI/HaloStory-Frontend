@@ -53,7 +53,6 @@ class _SetupScreenState extends State<SetupScreen> {
   ];
 
   Future<void> _completeSetup() async {
-    // Explicitly request permissions before finishing
     if (!kIsWeb) {
       await [
         Permission.photos,
@@ -64,11 +63,10 @@ class _SetupScreenState extends State<SetupScreen> {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    // app_language is already saved by LocalizationService().load()
     await prefs.setString(
       'default_provider',
       'System',
-    ); // Always default to System
+    );
 
     await prefs.setBool('is_setup_completed', true);
 
@@ -122,53 +120,58 @@ class _SetupScreenState extends State<SetupScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.cloud_download, color: Color(0xFF135ACF)),
-            const SizedBox(width: 10),
-            Expanded(child: Text(tr('setup_backup_found'))),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tr('setup_backup_date').replaceFirst('{date}', date)),
-            const SizedBox(height: 12),
-            Text(
-              tr('setup_backup_question'),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              tr('setup_btn_skip'),
-              style: const TextStyle(color: Colors.grey),
-            ),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _restoreFromCloud(encryptedPayload);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF135ACF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          title: Row(
+            children: [
+              Icon(Icons.cloud_download, color: colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text(tr('setup_backup_found'))),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('setup_backup_date').replaceFirst('{date}', date)),
+              const SizedBox(height: 12),
+              Text(
+                tr('setup_backup_question'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                tr('setup_btn_skip'),
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
             ),
-            child: Text(
-              tr('setup_btn_restore'),
-              style: const TextStyle(color: Colors.white),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _restoreFromCloud(encryptedPayload);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                tr('setup_btn_restore'),
+                style: TextStyle(color: colorScheme.onPrimary),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -185,7 +188,6 @@ class _SetupScreenState extends State<SetupScreen> {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // Restore Settings
       if (data['settings'] != null) {
         final settings = data['settings'] as Map<String, dynamic>;
         settings.forEach((key, value) {
@@ -196,7 +198,6 @@ class _SetupScreenState extends State<SetupScreen> {
         });
       }
 
-      // Restore Chat History
       if (data['chats'] != null) {
         final chats = data['chats'] as Map<String, dynamic>;
         chats.forEach((key, value) {
@@ -207,11 +208,10 @@ class _SetupScreenState extends State<SetupScreen> {
       await prefs.setBool('is_setup_completed', true);
 
       if (mounted) {
-        Navigator.pop(context); // Close loading dialog
+        Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(tr('settings_restore_success'))));
-        // Force restart to sync all data
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
             Navigator.of(context).pushAndRemoveUntil(
@@ -223,7 +223,7 @@ class _SetupScreenState extends State<SetupScreen> {
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Close loading dialog
+        Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(tr('settings_restore_fail'))));
@@ -238,7 +238,7 @@ class _SetupScreenState extends State<SetupScreen> {
     String subTitle = tr('setup_subtitle_language');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
@@ -247,16 +247,19 @@ class _SetupScreenState extends State<SetupScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF135ACF),
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 subTitle,
-                style: const TextStyle(color: Colors.grey, fontSize: 16),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 32),
               Expanded(
@@ -287,6 +290,8 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildLanguageSelection() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       children: _languages.map((lang) {
         final isSelected = _selectedLanguageCode == lang['code'];
@@ -303,13 +308,11 @@ class _SetupScreenState extends State<SetupScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFF135ACF).withOpacity(0.05)
-                    : Colors.white,
+                    ? colorScheme.primary.withValues(alpha: 0.08)
+                    : colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF135ACF)
-                      : Colors.transparent,
+                  color: isSelected ? colorScheme.primary : Colors.transparent,
                   width: 2,
                 ),
                 boxShadow: [
@@ -330,14 +333,17 @@ class _SetupScreenState extends State<SetupScreen> {
                           ? FontWeight.bold
                           : FontWeight.normal,
                       color: isSelected
-                          ? const Color(0xFF135ACF)
-                          : Colors.black87,
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check_circle, color: Color(0xFF135ACF))
+                    Icon(Icons.check_circle, color: colorScheme.primary)
                   else
-                    const Icon(Icons.circle_outlined, color: Colors.grey),
+                    Icon(
+                      Icons.circle_outlined,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                 ],
               ),
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/localization_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -13,8 +14,6 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-
-  final List<Widget> _slides = [];
 
   @override
   void initState() {
@@ -46,7 +45,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               children: [_buildSlide1(), _buildSlide2(), _buildSlide3()],
             ),
 
-            // Custom Smooth Indicator
             Positioned(
               bottom: 60,
               left: 0,
@@ -57,18 +55,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ),
             ),
 
-            // Next / Skip Button for first 2 slides
-            if (_currentPage < 2) // This button is only for slides 0 and 1
+            if (_currentPage < 2)
               Positioned(
                 bottom: 40,
                 right: 24,
                 child: TextButton(
                   onPressed: _nextPage,
                   child: Text(
-                    // Changed to Text widget with tr()
                     _currentPage == 2 ? tr('btn_finish') : tr('btn_next'),
-                    style: const TextStyle(
-                      color: Color(0xFF135ACF),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
                     ),
@@ -82,6 +78,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Widget _buildDot(int index) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -89,59 +87,70 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       width: _currentPage == index ? 24 : 8,
       decoration: BoxDecoration(
         color: _currentPage == index
-            ? const Color(0xFF135ACF)
-            : Colors.grey.withOpacity(0.3),
+            ? colorScheme.primary
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(4),
       ),
     );
   }
 
   Widget _buildSlide1() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Image.asset(
-              'assets/icon/icon.jpg',
-              width: 150,
-              height: 150,
-              fit: BoxFit.cover,
+          Container(
+            width: 150,
+            height: 150,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 0,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: SvgPicture.asset(
+              'assets/icon/momo_logo.svg',
+              fit: BoxFit.contain,
             ),
           ),
           const SizedBox(height: 48),
           Text(
-            // Changed to Text widget with tr()
             tr('welcome_title'),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            // Changed to Text widget with tr()
             tr('welcome_subtitle'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
-              color: Colors.blueGrey.shade700,
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            // Changed to Text widget with tr()
             tr('welcome_made_by'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
               fontStyle: FontStyle.italic,
-              color: Colors.blueGrey.shade400,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -150,26 +159,26 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Widget _buildSlide2() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
       child: Column(
         children: [
           Row(
-            // Removed const from Row to allow non-const children
             children: [
-              const Icon(
+              Icon(
                 Icons.warning_amber_rounded,
-                color: Color(0xFF135ACF),
+                color: colorScheme.primary,
                 size: 28,
               ),
               const SizedBox(width: 12),
               Text(
-                // Changed to Text widget with tr()
                 tr('disclaimer_title'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF135ACF),
+                  color: colorScheme.primary,
                 ),
               ),
             ],
@@ -179,25 +188,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: SingleChildScrollView(
-                // Removed const from SingleChildScrollView
                 child: Text(
-                  // Changed to Text widget with tr()
                   tr('welcome_disclaimer_content'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     height: 1.6,
-                    color: Colors.black87,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -209,20 +216,21 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Widget _buildSlide3() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.favorite, size: 100, color: Color(0xFF135ACF)),
+          Icon(Icons.favorite, size: 100, color: colorScheme.primary),
           const SizedBox(height: 48),
           Text(
-            // Changed to Text widget with tr()
             tr('welcome_ready'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 40),
@@ -232,7 +240,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 context,
               ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
             },
-            child: Text(tr('btn_login')), // Changed to Text widget with tr()
+            child: Text(tr('btn_login')),
           ),
           const SizedBox(height: 16),
           OutlinedButton(
@@ -243,13 +251,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             },
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 50),
-              side: const BorderSide(color: Color(0xFF135ACF)),
+              side: BorderSide(color: colorScheme.primary),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              foregroundColor: const Color(0xFF135ACF),
+              foregroundColor: colorScheme.primary,
             ),
-            child: Text(tr('btn_register')), // Changed to Text widget with tr()
+            child: Text(tr('btn_register')),
           ),
         ],
       ),

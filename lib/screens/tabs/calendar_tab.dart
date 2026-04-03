@@ -49,6 +49,9 @@ class _CalendarTabState extends State<CalendarTab> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Column(
       children: [
         _buildHeader(),
@@ -76,27 +79,60 @@ class _CalendarTabState extends State<CalendarTab> {
                         });
                       },
                       eventLoader: _getEventsForDay,
-                      calendarStyle: const CalendarStyle(
+                      calendarStyle: CalendarStyle(
+                        defaultTextStyle: TextStyle(
+                          color: colorScheme.onSurface,
+                        ),
+                        weekendTextStyle: TextStyle(
+                          color: colorScheme.onSurface,
+                        ),
+                        outsideTextStyle: TextStyle(
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.8,
+                          ),
+                        ),
                         todayDecoration: BoxDecoration(
-                          color: Color(0xFFB8D8F8),
+                          color: colorScheme.secondary,
                           shape: BoxShape.circle,
                         ),
                         selectedDecoration: BoxDecoration(
-                          color: Color(0xFF135ACF),
+                          color: colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
-                        markerDecoration: BoxDecoration(
+                        todayTextStyle: TextStyle(
+                          color: colorScheme.onSecondary,
+                        ),
+                        selectedTextStyle: TextStyle(
+                          color: colorScheme.onPrimary,
+                        ),
+                        markerDecoration: const BoxDecoration(
                           color: Colors.pinkAccent,
                           shape: BoxShape.circle,
                         ),
                       ),
-                      headerStyle: const HeaderStyle(
+                      daysOfWeekStyle: DaysOfWeekStyle(
+                        weekdayStyle: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        weekendStyle: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      headerStyle: HeaderStyle(
                         formatButtonVisible: false,
                         titleCentered: true,
                         titleTextStyle: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
-                          color: Color(0xFF135ACF),
+                          color: colorScheme.primary,
+                        ),
+                        leftChevronIcon: Icon(
+                          Icons.chevron_left,
+                          color: colorScheme.onSurface,
+                        ),
+                        rightChevronIcon: Icon(
+                          Icons.chevron_right,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -110,11 +146,13 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   Widget _buildHeader() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
@@ -125,15 +163,15 @@ class _CalendarTabState extends State<CalendarTab> {
         children: [
           Text(
             tr('tab_calendar_title'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
+              color: colorScheme.primary,
             ),
           ),
           Text(
             tr('tab_calendar_subtitle'),
-            style: const TextStyle(color: Colors.grey),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -141,6 +179,9 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   Widget _buildEventList() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final events = _getEventsForDay(_selectedDay!);
 
     if (events.isEmpty) {
@@ -151,12 +192,15 @@ class _CalendarTabState extends State<CalendarTab> {
             Icon(
               Icons.event_available,
               size: 64,
-              color: Colors.grey.withOpacity(0.3),
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             ),
             const SizedBox(height: 16),
             Text(
               tr('tab_calendar_no_birthday'),
-              style: const TextStyle(color: Colors.grey, fontSize: 16),
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 16,
+              ),
             ),
           ],
         ),
@@ -172,15 +216,17 @@ class _CalendarTabState extends State<CalendarTab> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            boxShadow: isDark
+                ? const []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
@@ -195,9 +241,10 @@ class _CalendarTabState extends State<CalendarTab> {
                   children: [
                     Text(
                       bot['name'],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     Row(
@@ -222,12 +269,11 @@ class _CalendarTabState extends State<CalendarTab> {
                 ),
               ),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.chat_bubble_outline,
-                  color: Color(0xFF135ACF),
+                  color: colorScheme.primary,
                 ),
                 onPressed: () {
-                  // Navigation to chat logic could go here
                 },
               ),
             ],

@@ -88,7 +88,6 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  // --- USERS TAB ---
   Widget _buildUsersTab() {
     return ListView.builder(
       itemCount: _users.length,
@@ -159,8 +158,9 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  // --- BOTS TAB ---
   Widget _buildBotsTab() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       children: [
         Padding(
@@ -170,8 +170,8 @@ class _AdminScreenState extends State<AdminScreen> {
             label: Text(tr('admin_add_bot')),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
-              backgroundColor: const Color(0xFF135ACF),
-              foregroundColor: Colors.white,
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
             ),
             onPressed: () => _showBotEditor(null),
           ),
@@ -197,7 +197,10 @@ class _AdminScreenState extends State<AdminScreen> {
                 isThreeLine: true,
                 onTap: () => _showBotEditor(bot),
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: Icon(
+                    Icons.delete,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                   onPressed: () async {
                     final confirm = await _showConfirmDialog(
                       tr('admin_delete_confirm_title'),
@@ -235,8 +238,9 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  // --- REQUESTS TAB ---
   Widget _buildRequestsTab() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ListView.builder(
       itemCount: _requests.length,
       itemBuilder: (context, index) {
@@ -278,11 +282,17 @@ class _AdminScreenState extends State<AdminScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Requested by: ${req['user']?['name'] ?? 'Unknown'}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
                 Text(
                   'Date: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(req['created_at']))}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
                 if (req['status'] == 'pending') ...[
                   const SizedBox(height: 12),
@@ -290,14 +300,14 @@ class _AdminScreenState extends State<AdminScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton.icon(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close,
-                          color: Colors.red,
+                          color: colorScheme.error,
                           size: 18,
                         ),
-                        label: const Text(
+                        label: Text(
                           'Reject',
-                          style: TextStyle(color: Colors.red),
+                          style: TextStyle(color: colorScheme.error),
                         ),
                         onPressed: () =>
                             _updateRequestStatus(req['id'], 'rejected'),
@@ -307,8 +317,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Approve'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
                           minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
@@ -353,7 +363,10 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         ],
       ),
