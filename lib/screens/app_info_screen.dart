@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/localization_service.dart';
 
 class AppInfoScreen extends StatefulWidget {
@@ -27,61 +28,63 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(tr('sidebar_info'), style: const TextStyle(color: Colors.black, fontSize: 18)),
-        backgroundColor: Colors.white,
+        title: Text(
+          tr('sidebar_info'),
+          style: TextStyle(color: colorScheme.onSurface, fontSize: 18),
+        ),
+        backgroundColor: colorScheme.surface,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: colorScheme.onSurface),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App Icon
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                'assets/icon/icon.jpg', // Using the icon referenced in pubspec
-                width: 100,
-                height: 100,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.chat_bubble, size: 100, color: Color(0xFF135ACF)),
+            SvgPicture.asset(
+              'assets/icon/momo_logo.svg',
+              width: 100,
+              height: 100,
+              fit: BoxFit.contain,
+              colorFilter: ColorFilter.mode(
+                colorScheme.primary,
+                BlendMode.srcIn,
               ),
             ),
             const SizedBox(height: 24),
-            
-            // App Name
-            const Text(
+
+            Text(
               'BlueTalk',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
-            
-            // Version
+
             Text(
               '${tr('app_info_version')} $_version',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey.shade600,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 48),
-            
-            // Copyright
+
             Text(
               '© ${DateTime.now().year} R8K Studio',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade500,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
-            
+
             const SizedBox(height: 24),
             TextButton(
               onPressed: () {
@@ -91,14 +94,23 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
                   applicationVersion: _version,
                   applicationIcon: Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset('assets/icon/icon.jpg', width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (ctx, err, st) => const Icon(Icons.chat_bubble, size: 64, color: Color(0xFF135ACF))),
+                    child: SvgPicture.asset(
+                      'assets/icon/momo_logo.svg',
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.contain,
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.primary,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 );
               },
-              child: Text(tr('app_info_license'), style: const TextStyle(color: Color(0xFF135ACF))),
+              child: Text(
+                tr('app_info_license'),
+                style: TextStyle(color: colorScheme.primary),
+              ),
             ),
           ],
         ),

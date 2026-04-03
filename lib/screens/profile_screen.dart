@@ -27,6 +27,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  Color _surfaceColor(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
+
+  Color _surfaceAltColor(BuildContext context) =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  Color _primaryColor(BuildContext context) =>
+      Theme.of(context).colorScheme.primary;
+
+  Color _primaryTextColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
+
+  Color _secondaryTextColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+
   void _showChangePasswordDialog() {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
@@ -45,8 +60,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             left: 24,
             right: 24,
           ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: _surfaceColor(context),
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -56,17 +71,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
               const SizedBox(height: 24),
               Text(
                 tr('profile_change_password'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF135ACF),
+                  color: _primaryColor(context),
                 ),
               ),
               const SizedBox(height: 20),
@@ -77,7 +92,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: tr('profile_current_password'),
                   prefixIcon: const Icon(Icons.lock_outline),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: _surfaceAltColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -92,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: tr('profile_new_password'),
                   prefixIcon: const Icon(Icons.lock_reset),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: _surfaceAltColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -107,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: tr('profile_confirm_password'),
                   prefixIcon: const Icon(Icons.check_circle_outline),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: _surfaceAltColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -195,8 +210,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             left: 24,
             right: 24,
           ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: _surfaceColor(context),
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -206,23 +221,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
               const SizedBox(height: 24),
               Text(
                 tr('profile_change_email'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF135ACF),
+                  color: _primaryColor(context),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 tr('profile_update_email_info'),
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(
+                  color: _secondaryTextColor(context),
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -231,7 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: tr('profile_new_email'),
                   prefixIcon: const Icon(Icons.email_outlined),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: _surfaceAltColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -246,7 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: tr('profile_current_password'),
                   prefixIcon: const Icon(Icons.lock_outline),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: _surfaceAltColor(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -322,173 +340,166 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('profile_title')),
-        backgroundColor: const Color(0xFFB8D8F8),
+        backgroundColor: _surfaceColor(context),
         centerTitle: true,
       ),
       body: SafeArea(
         child: FutureBuilder<Map<String, dynamic>?>(
-        future: _userProfile,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const ProfileSkeleton();
-          }
+          future: _userProfile,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const ProfileSkeleton();
+            }
 
-          if (snapshot.hasError || snapshot.data == null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            if (snapshot.hasError || snapshot.data == null) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 60,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(tr('profile_load_error')),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: _refreshProfile,
+                      child: Text(tr('btn_retry')),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final user = snapshot.data!;
+            final String name = user['name'] ?? 'User Name';
+            final String email = user['email'] ?? 'email@example.com';
+
+            return RefreshIndicator(
+              onRefresh: _refreshProfile,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 30,
+                ),
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 60,
-                    color: Colors.redAccent,
+                  Center(
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: _surfaceAltColor(context),
+                          backgroundImage: const AssetImage(
+                            'assets/icon/avatar.png',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          name,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: _primaryTextColor(context),
+                          ),
+                        ),
+                        Text(
+                          email,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _secondaryTextColor(context),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(tr('profile_load_error')),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _refreshProfile,
-                    child: Text(tr('btn_retry')),
+                  const SizedBox(height: 40),
+
+                  Text(
+                    tr('profile_account_info'),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _primaryColor(context),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  _buildInfoTile(
+                    Icons.person_outline,
+                    tr('profile_full_name'),
+                    name,
+                  ),
+                  _buildInfoTile(
+                    Icons.email_outlined,
+                    tr('profile_email_address'),
+                    email,
+                  ),
+                  _buildInfoTile(
+                    Icons.calendar_today_outlined,
+                    tr('profile_joined'),
+                    user['created_at_human'] ?? 'Recently',
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  Text(
+                    tr('profile_security'),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _primaryColor(context),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  ListTile(
+                    leading: Icon(
+                      Icons.lock_outline,
+                      color: _primaryColor(context),
+                    ),
+                    title: Text(tr('profile_change_password')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _showChangePasswordDialog,
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      Icons.email_outlined,
+                      color: _primaryColor(context),
+                    ),
+                    title: Text(tr('profile_change_email')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _showChangeEmailDialog(email),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      Icons.verified_user_outlined,
+                      color: _primaryColor(context),
+                    ),
+                    title: Text(tr('profile_account_verification')),
+                    subtitle: Text(
+                      user['email_verified_at'] != null
+                          ? tr('profile_verified')
+                          : 'Unverified',
+                    ),
+                    trailing: user['email_verified_at'] != null
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : const Icon(Icons.warning, color: Colors.orange),
+                    onTap: user['email_verified_at'] != null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const VerifyEmailScreen(),
+                              ),
+                            ).then((_) => _refreshProfile());
+                          },
                   ),
                 ],
               ),
             );
-          }
-
-          final user = snapshot.data!;
-          final String name = user['name'] ?? 'User Name';
-          final String email = user['email'] ?? 'email@example.com';
-          final String initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
-
-          return RefreshIndicator(
-            onRefresh: _refreshProfile,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-              children: [
-                // Profile Header
-                Center(
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: const Color(0xFF135ACF),
-                        child: Text(
-                          initial,
-                          style: const TextStyle(
-                            fontSize: 40,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF212121),
-                        ),
-                      ),
-                      Text(
-                        email,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Account Info Section
-                Text(
-                  tr('profile_account_info'),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF135ACF),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                _buildInfoTile(
-                  Icons.person_outline,
-                  tr('profile_full_name'),
-                  name,
-                ),
-                _buildInfoTile(
-                  Icons.email_outlined,
-                  tr('profile_email_address'),
-                  email,
-                ),
-                _buildInfoTile(
-                  Icons.calendar_today_outlined,
-                  tr('profile_joined'),
-                  user['created_at_human'] ?? 'Recently',
-                ),
-
-                const SizedBox(height: 30),
-
-                // Security Section
-                Text(
-                  tr('profile_security'),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF135ACF),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                ListTile(
-                  leading: const Icon(
-                    Icons.lock_outline,
-                    color: Color(0xFF135ACF),
-                  ),
-                  title: Text(tr('profile_change_password')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _showChangePasswordDialog,
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.email_outlined,
-                    color: Color(0xFF135ACF),
-                  ),
-                  title: Text(tr('profile_change_email')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showChangeEmailDialog(email),
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.verified_user_outlined,
-                    color: Color(0xFF135ACF),
-                  ),
-                  title: Text(tr('profile_account_verification')),
-                  subtitle: Text(
-                    user['email_verified_at'] != null
-                        ? tr('profile_verified')
-                        : 'Unverified',
-                  ),
-                  trailing: user['email_verified_at'] != null
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : const Icon(Icons.warning, color: Colors.orange),
-                  onTap: user['email_verified_at'] != null
-                      ? null
-                      : () {
-                          // Already verified check is done in the backend
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const VerifyEmailScreen(),
-                            ),
-                          ).then((_) => _refreshProfile());
-                        },
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+          },
+        ),
       ),
     );
   }
@@ -498,7 +509,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceColor(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -510,7 +521,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF135ACF), size: 24),
+          Icon(icon, color: _primaryColor(context), size: 24),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -518,7 +529,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _secondaryTextColor(context),
+                  ),
                 ),
                 Text(
                   value,

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material Design 3 Adaptive Icon Background -->
+    <color name="ic_launcher_background">#92C7FD</color>
+    <!-- Branding colors -->
+    <color name="primary">#92C7FD</color>
+    <color name="surface">#FFFBFE</color>
+</resources>
