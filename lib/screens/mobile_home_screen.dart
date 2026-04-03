@@ -13,6 +13,9 @@ import 'student_request_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/localization_service.dart';
+import '../services/ai_service.dart';
+import 'chat_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MobileHomeScreen extends StatefulWidget {
   const MobileHomeScreen({super.key});
@@ -41,12 +44,26 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
     }
   }
 
-  final List<Widget> _tabs = [
-    const ChatTab(), // Index 0
-    const CreateTab(), // Index 1
-    const StoriesTab(), // Index 2
-    const CalendarTab(), // Index 3
-  ];
+  List<Widget> get _tabs => [
+        ChatTab(onChatSelected: _onChatSelected), // Index 0
+        const CreateTab(), // Index 1
+        const StoriesTab(), // Index 2
+        const CalendarTab(), // Index 3
+      ];
+
+  void _onChatSelected(Map<String, dynamic> bot) {
+    // Basic navigation for mobile
+    final prefs = SharedPreferences.getInstance();
+    prefs.then((p) {
+      final provider = AIService.normalizeProvider(p.getString('default_provider'));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
+        ),
+      );
+    });
+  }
 
   void _showLogoutDialog() {
     showDialog(

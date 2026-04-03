@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
-import '../../services/ai_service.dart';
 import '../../services/bot_service.dart';
 import '../../services/localization_service.dart';
-import '../chat_screen.dart';
 import '../student_request_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -13,9 +11,14 @@ import '../../widgets/skeleton_loader.dart';
 enum ChatSortType { newest, name, bond }
 
 class ChatTab extends StatefulWidget {
-  final Function(Map<String, dynamic> bot)? onChatSelected;
+  final Function(Map<String, dynamic>) onChatSelected;
+  final Function(Widget)? onShowSort;
 
-  const ChatTab({super.key, this.onChatSelected});
+  const ChatTab({
+    super.key,
+    required this.onChatSelected,
+    this.onShowSort,
+  });
 
   @override
   State<ChatTab> createState() => _ChatTabState();
@@ -460,6 +463,11 @@ class _ChatTabState extends State<ChatTab> {
   void _showSortSheet() {
     ChatSortType draftSort = _sortBy;
 
+    if (widget.onShowSort != null) {
+      widget.onShowSort!(_buildSortOverlayContent(draftSort));
+      return;
+    }
+
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -903,29 +911,11 @@ class _ChatTabState extends State<ChatTab> {
             color: Theme.of(context).colorScheme.primary,
           ),
           onTap: () async {
-            final rootNavigator = Navigator.of(this.context);
             Navigator.pop(context);
             _botService.recruitBot(bot['id']);
             
-            if (widget.onChatSelected != null) {
-              widget.onChatSelected!(bot);
-              _loadActiveChats();
-              return;
-            }
-
-            final prefs = await SharedPreferences.getInstance();
-            final provider = AIService.normalizeProvider(
-              prefs.getString('default_provider'),
-            );
-            if (!mounted) return;
-            rootNavigator
-                .push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ChatDetailScreen(bot: bot, provider: provider),
-                  ),
-                )
-                .then((_) => _loadActiveChats());
+            widget.onChatSelected(bot);
+            _loadActiveChats();
           },
         );
       },
@@ -1619,24 +1609,8 @@ class _ChatTabState extends State<ChatTab> {
                 return;
               }
 
-              if (widget.onChatSelected != null) {
-                widget.onChatSelected!(chat);
-                _loadActiveChats();
-                return;
-              }
-              final prefs = await SharedPreferences.getInstance();
-              final provider = AIService.normalizeProvider(
-                prefs.getString('default_provider'),
-              );
-
-              if (!context.mounted) return;
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ChatDetailScreen(bot: chat, provider: provider),
-                ),
-              ).then((_) => _loadActiveChats());
+              widget.onChatSelected(chat);
+              _loadActiveChats();
             },
             onLongPress: () => _toggleChatSelection(chatId, forceSelect: true),
           ),
@@ -1909,6 +1883,132 @@ class _ChatTabState extends State<ChatTab> {
 
     _clearSelection();
     await _initData();
+  }
+
+  Widget _buildSortOverlayContent(ChatSortType initialSort) {
+    ChatSortType draftSort = initialSort;
+    const compactControlHeight = 34.0;
+
+    return StatefulBuilder(
+      builder: (context, setSheetState) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final selectedColor = colorScheme.primary;
+        final titleTextColor = _primaryTextColor(context);
+
+        Widget buildSortChoice(ChatSortType value) {
+          final bool isSelected = draftSort == value;
+          return InkWell(
+            onTap: () => setSheetState(() => draftSort = value),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              height: compactControlHeight,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected ? selectedColor : _surfaceAltColor(context),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected ? selectedColor : _borderColor(context),
+                ),
+              ),
+              child: Text(
+                _sortLabel(value),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? colorScheme.onPrimary : _secondaryTextColor(context),
+                ),
+              ),
+            ),
+          );
+        }
+
+        Widget buildOptionsRow(List<ChatSortType> options) {
+          return Row(
+            children: [
+              for (int i = 0; i < options.length; i++) ...[
+                Expanded(child: buildSortChoice(options[i])),
+                if (i != options.length - 1) const SizedBox(width: 10),
+              ],
+            ],
+          );
+        }
+
+        return Container(
+          color: Colors.black.withOpacity(0.3),
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _surfaceColor(context),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          _trOr('sort_title', 'Sort'),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: titleTextColor),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () {
+                             if (widget.onShowSort != null) {
+                               widget.onShowSort!(const SizedBox.shrink());
+                             }
+                             if (Navigator.of(context).canPop()) {
+                               Navigator.pop(context);
+                             }
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        buildOptionsRow(_sortOptions.take(2).toList()),
+                        const SizedBox(height: 8),
+                        buildOptionsRow(_sortOptions.skip(2).toList()),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        setState(() {
+                          _sortBy = draftSort;
+                        });
+                        await _saveSortPreferences();
+                        await _loadActiveChats();
+                        if (widget.onShowSort != null) {
+                           widget.onShowSort!(const SizedBox.shrink());
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        minimumSize: const Size(double.infinity, 40),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(_trOr('sort_confirm', 'Confirm')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

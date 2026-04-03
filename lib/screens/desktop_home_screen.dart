@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../services/auth_service.dart';
 import '../services/ai_service.dart';
+import '../services/localization_service.dart';
+import '../theme/app_theme.dart';
 import 'desktop/desktop_sidebar.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart'; // this is actually the group tab? Group Tab has label "Group Chat" but uses CreateTab?
@@ -23,16 +26,17 @@ class DesktopHomeScreen extends StatefulWidget {
   State<DesktopHomeScreen> createState() => _DesktopHomeScreenState();
 }
 
-enum MiddlePanelState { tabs, settings, profile, admin, suggest, info }
+enum MiddlePanelState { tabs, settings, profile, admin, suggest, info, chat }
 
 class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   int _currentIndex = 0;
   MiddlePanelState _middlePanelState = MiddlePanelState.tabs;
-  final AuthService _authService = AuthService();
-  Map<String, dynamic>? _userProfile;
+  // Removed _userProfile as it is no longer used for the avatar
   Map<String, dynamic>? _selectedBot;
   String? _defaultProvider;
   List<Map<String, dynamic>>? _selectedStoryBots;
+  Widget? _middlePanelOverlay;
+
   int _selectedStoryIndex = 0;
   String? _initialChatMessage;
 
@@ -44,10 +48,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   Future<void> _loadProfile() async {
-    final profile = await _authService.getUserProfile();
-    if (mounted) {
-      setState(() => _userProfile = profile);
-    }
+    // Left empty as _userProfile is no longer used for the sidebar avatar
   }
 
   Future<void> _loadProvider() async {
@@ -77,29 +78,26 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
 
   void _openSettings() {
     setState(() {
+      _middlePanelOverlay = null; // Close any overlay
       _middlePanelState = MiddlePanelState.settings;
     });
   }
 
   void _handleMoreOptions(String option) {
+    if (option == 'disclaimer') _showDisclaimerOverlay();
+    if (option == 'donation') _showDonationOverlay();
+    if (option == 'contributor' || option == 'suggest' || option == 'help') {
+      launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+    }
+    if (option == 'info') {
+      _showInfoOverlay();
+    }
     switch (option) {
       case 'admin':
-        setState(() => _middlePanelState = MiddlePanelState.admin);
-        break;
-      case 'suggest':
-        setState(() => _middlePanelState = MiddlePanelState.suggest);
-        break;
-      case 'donation':
-        launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
-        break;
-      case 'contributor':
-        launchUrl(Uri.parse('https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html'));
-        break;
-      case 'help':
-        launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-        break;
-      case 'info':
-        setState(() => _middlePanelState = MiddlePanelState.info);
+        setState(() {
+          _middlePanelOverlay = null;
+          _middlePanelState = MiddlePanelState.admin;
+        });
         break;
     }
   }
@@ -108,6 +106,213 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     setState(() {
       _middlePanelState = MiddlePanelState.profile;
     });
+  }
+
+  void _showDisclaimerOverlay() {
+    setState(() {
+      _middlePanelOverlay = _buildLocalOverlay(
+        title: tr('disclaimer_title'),
+        content: SingleChildScrollView(child: Text(tr('disclaimer_content'))),
+      );
+    });
+  }
+
+  void _showDonationOverlay() {
+    final colorScheme = Theme.of(context).colorScheme;
+    setState(() {
+      _middlePanelOverlay = _buildLocalOverlay(
+        title: tr('donation_title'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(tr('donation_content'), textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => launchUrl(Uri.parse('https://trakteer.id/rafiq8k')),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(tr('donation_button')),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  void _showInfoOverlay() {
+    setState(() {
+      _middlePanelOverlay = _buildLocalOverlay(
+        title: tr('sidebar_info'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(
+              radius: 40,
+              backgroundImage: AssetImage('assets/icon/icon.png'),
+            ),
+            const SizedBox(height: 16),
+            Text(tr('app_name'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text('${tr('app_info_version')} 0.7.0', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 24),
+            Text(tr('welcome_made_by'), textAlign: TextAlign.center),
+          ],
+        ),
+      );
+    });
+  }
+
+  void _showSortOverlay(Widget content) {
+    setState(() {
+      _middlePanelOverlay = content;
+    });
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Implementation of actual logout usually goes here
+            },
+            child: const Text(
+              'Logout',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocalOverlay({required String title, required Widget content}) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.3),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => setState(() => _middlePanelOverlay = null),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 12),
+              content,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatColumnHeader() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final barColor =
+        isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar;
+
+    return Material(
+      color: barColor,
+      child: SizedBox(
+        height: 52,
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: SvgPicture.asset(
+                'assets/icon/momo_logo.svg',
+                width: 20,
+                height: 20,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'BlueTalk',
+              style: GoogleFonts.nunito(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 22,
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Disclaimer Icon
+            InkWell(
+              onTap: _showDisclaimerOverlay,
+              borderRadius: BorderRadius.circular(5),
+              child: Container(
+                width: 18,
+                height: 18,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Icon(
+                  Icons.question_mark_rounded,
+                  color: isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar,
+                  size: 14,
+                  weight: 900,
+                ),
+              ),
+            ),
+            const Spacer(),
+            // Profile Avatar
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: InkWell(
+                onTap: _openProfile,
+                borderRadius: BorderRadius.circular(12),
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: Colors.white.withValues(alpha: 0.3),
+                  backgroundImage: const AssetImage('assets/icon/avatar.png'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildRightPanel() {
@@ -138,24 +343,22 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     }
 
     if (_selectedBot != null) {
-      // Return chat detail screen but possibly hide its back button if we update the ChatDetailScreen
-      // For now, we can wrap it in a ClipRRect if we want rounded corners or just directly display it.
       return ClipRRect(
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           bottomLeft: Radius.circular(16),
         ),
         child: ChatDetailScreen(
-          key: ValueKey('${_selectedBot!['id']}_$_initialChatMessage'), // force rebuild when bot or message changes
+          key: ValueKey('${_selectedBot!['id']}_$_initialChatMessage'),
           bot: _selectedBot!,
           provider: _defaultProvider ?? 'gemini',
-          isDesktopMode: true, // we will add this parameter to ChatDetailScreen
+          isDesktopMode: true,
           initialMessage: _initialChatMessage,
         ),
       );
     }
 
-    // Empty state
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -170,20 +373,20 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'BlueTalk Desktop',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF135ACF),
+              color: cs.primary,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Select a chat to start messaging',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey,
+              color: cs.onSurfaceVariant,
             ),
           ),
         ],
@@ -192,6 +395,28 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   Widget _buildMiddlePanel() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: 380,
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(
+            color: isDark ? colorScheme.outlineVariant : Colors.grey.shade200,
+          ),
+        ),
+      ),
+      child: Stack(
+        children: [
+          _buildMainMiddleContent(isDark, colorScheme),
+          if (_middlePanelOverlay != null) _middlePanelOverlay!,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainMiddleContent(bool isDark, ColorScheme colorScheme) {
     switch (_middlePanelState) {
       case MiddlePanelState.settings:
         return const SettingsScreen();
@@ -203,14 +428,27 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         return const StudentRequestScreen();
       case MiddlePanelState.info:
         return const AppInfoScreen();
+      case MiddlePanelState.chat:
+        return const Center(child: Text("Chat View"));
       case MiddlePanelState.tabs:
-        return IndexedStack(
-          index: _currentIndex,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ChatTab(onChatSelected: _onChatSelected),
-            const CreateTab(), // "Group" based on old mobile UI
-            StoriesTab(onStorySelected: _onStorySelected),
-            const CalendarTab(),
+            _buildChatColumnHeader(),
+            Expanded(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  ChatTab(
+                    onChatSelected: _onChatSelected,
+                    onShowSort: _showSortOverlay,
+                  ),
+                  const CreateTab(),
+                  StoriesTab(onStorySelected: _onStorySelected),
+                  const CalendarTab(),
+                ],
+              ),
+            ),
           ],
         );
     }
@@ -218,16 +456,20 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FB),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Row(
         children: [
-          // Left Sidebar
           DesktopSidebar(
             currentIndex: _currentIndex,
             isSettingsSelected: _middlePanelState == MiddlePanelState.settings,
             onTabSelected: (index) {
+              Navigator.maybePop(context);
               setState(() {
+                _middlePanelOverlay = null; // Clear overlay on tab switch
                 _currentIndex = index;
                 _middlePanelState = MiddlePanelState.tabs;
                 // Calendar (3) and Stories (2) leave chat open. 
@@ -239,42 +481,21 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
               });
             },
             onSettingsPressed: _openSettings,
+            onLogoutPressed: _showLogoutDialog,
             onMoreOptionSelected: _handleMoreOptions,
-            profileAvatar: InkWell(
-              onTap: _openProfile,
-              child: CircleAvatar(
-                backgroundColor: const Color(0xFFB8D8F8),
-                radius: 24,
-                child: Text(
-                  (_userProfile?['name'] != null &&
-                          _userProfile!['name'].isNotEmpty)
-                      ? _userProfile!['name'][0].toUpperCase()
-                      : 'S',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF135ACF),
-                  ),
-                ),
-              ),
-            ),
           ),
-          // Vertical Divider
-          Container(width: 1, color: Colors.grey.shade300),
+          Container(width: 1, color: cs.outlineVariant),
 
-          // Middle List Panel (Chats, Stories, Calendar)
           SizedBox(
-            width: 380, // Fixed width for the list panel
+            width: 380,
             child: _buildMiddlePanel(),
           ),
 
-          // Vertical Divider
-          Container(width: 1, color: Colors.grey.shade300),
+          Container(width: 1, color: cs.outlineVariant),
 
-          // Right Chat/Detail Panel
           Expanded(
             child: Container(
-              color: Colors.white,
+              color: cs.surfaceContainer,
               child: _buildRightPanel(),
             ),
           ),
