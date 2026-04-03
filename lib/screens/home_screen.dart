@@ -144,16 +144,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> get _tabs => [
-        ChatTab(onChatSelected: _onChatSelected),
-        const CreateTab(),
-        const StoriesTab(),
-        const CalendarTab(),
-      ];
+    ChatTab(onChatSelected: _onChatSelected),
+    const CreateTab(),
+    const StoriesTab(),
+    const CalendarTab(),
+  ];
 
   void _onChatSelected(Map<String, dynamic> bot) {
     final prefs = SharedPreferences.getInstance();
     prefs.then((p) {
-      final provider = AIService.normalizeProvider(p.getString('default_provider'));
+      final provider = AIService.normalizeProvider(
+        p.getString('default_provider'),
+      );
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -179,7 +181,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            content: SingleChildScrollView(child: Text(tr('disclaimer_content'))),
+            content: SingleChildScrollView(
+              child: Text(tr('disclaimer_content')),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -251,10 +255,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final appBarBg =
-        isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar;
-    final sidebarBg =
-        isDark ? colorScheme.surface : AppTheme.momoRailBackground;
+    final appBarBg = isDark
+        ? theme.scaffoldBackgroundColor
+        : AppTheme.momoLightTopBar;
+    final sidebarBg = isDark
+        ? colorScheme.surface
+        : AppTheme.momoRailBackground;
     final sidebarSelectedBg = isDark
         ? colorScheme.surfaceContainerHighest
         : AppTheme.momoRailSelected;
@@ -316,7 +322,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Icon(
                   Icons.question_mark_rounded,
-                  color: isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar,
+                  color: isDark
+                      ? theme.scaffoldBackgroundColor
+                      : AppTheme.momoLightTopBar,
                   size: 16,
                   weight: 900,
                 ),
@@ -388,7 +396,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const Spacer(),
                 PopupMenuButton<String>(
-                  icon: Icon(Icons.more_horiz_rounded, color: sidebarIconColor, size: 28),
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: sidebarIconColor,
+                    size: 28,
+                  ),
                   offset: const Offset(50, -120),
                   color: isDark ? colorScheme.surfaceContainer : Colors.white,
                   shape: RoundedRectangleBorder(
@@ -398,13 +410,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   onSelected: (value) {
                     switch (value) {
                       case 'admin':
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminScreen(),
+                          ),
+                        );
                         break;
                       case 'suggest':
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const StudentRequestScreen()));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const StudentRequestScreen(),
+                          ),
+                        );
                         break;
                       case 'donation':
-                        launchUrl(Uri.parse('https://trakteer.id/rafiq8k'));
+                        launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
                         break;
                       case 'contributor':
                         launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
@@ -422,9 +444,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: 'admin',
                       child: Row(
                         children: [
-                          const Icon(Icons.admin_panel_settings, color: Colors.amber, size: 20),
+                          const Icon(
+                            Icons.admin_panel_settings,
+                            color: Colors.amber,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text(tr('sidebar_admin_panel'), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                          Text(
+                            tr('sidebar_admin_panel'),
+                            style: const TextStyle(
+                              color: Colors.amber,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -432,9 +464,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: 'suggest',
                       child: Row(
                         children: [
-                          Icon(Icons.add_task_rounded, color: colorScheme.primary, size: 20),
+                          Icon(
+                            Icons.add_task_rounded,
+                            color: colorScheme.primary,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text(tr('sidebar_suggest_student'), style: TextStyle(color: colorScheme.onSurface)),
+                          Text(
+                            tr('sidebar_suggest_student'),
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
                         ],
                       ),
                     ),
@@ -442,9 +481,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: 'donation',
                       child: Row(
                         children: [
-                          const Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 20),
+                          const Icon(
+                            Icons.favorite_rounded,
+                            color: Colors.pinkAccent,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text(tr('sidebar_donation'), style: TextStyle(color: colorScheme.onSurface)),
+                          Text(
+                            tr('sidebar_donation'),
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
                         ],
                       ),
                     ),
@@ -452,9 +498,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: 'contributor',
                       child: Row(
                         children: [
-                          Icon(Icons.people_outline_rounded, color: colorScheme.primary, size: 20),
+                          Icon(
+                            Icons.people_outline_rounded,
+                            color: colorScheme.primary,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text(tr('sidebar_contributor'), style: TextStyle(color: colorScheme.onSurface)),
+                          Text(
+                            tr('sidebar_contributor'),
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
                         ],
                       ),
                     ),
@@ -462,9 +515,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: 'help',
                       child: Row(
                         children: [
-                          Icon(Icons.help_outline, color: colorScheme.primary, size: 20),
+                          Icon(
+                            Icons.help_outline,
+                            color: colorScheme.primary,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text(tr('sidebar_help'), style: TextStyle(color: colorScheme.onSurface)),
+                          Text(
+                            tr('sidebar_help'),
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
                         ],
                       ),
                     ),
@@ -472,9 +532,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: 'info',
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
+                          Icon(
+                            Icons.info_outline,
+                            color: colorScheme.primary,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text(tr('sidebar_info'), style: TextStyle(color: colorScheme.onSurface)),
+                          Text(
+                            tr('sidebar_info'),
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
                         ],
                       ),
                     ),
@@ -486,7 +553,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.settings_outlined, color: sidebarIconColor, size: 28),
+                      Icon(
+                        Icons.settings_outlined,
+                        color: sidebarIconColor,
+                        size: 28,
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         tr('sidebar_settings'),
@@ -505,7 +576,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.logout, color: Colors.redAccent.withOpacity(0.8), size: 24),
+                      Icon(
+                        Icons.logout,
+                        color: Colors.redAccent.withOpacity(0.8),
+                        size: 24,
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         tr('sidebar_logout'),

@@ -32,7 +32,7 @@ class AppTheme {
 
     final scheme = lightColorScheme.copyWith(
       surfaceContainer: Colors.white,
-      surfaceContainerHighest: const Color(0xFFF0F5FF),
+      surfaceContainerHighest: const Color.fromARGB(76, 91, 114, 209),
     );
 
     final textTheme = GoogleFonts.nunitoTextTheme(
@@ -41,10 +41,7 @@ class AppTheme {
         colorScheme: scheme,
         brightness: Brightness.light,
       ).textTheme,
-    ).apply(
-      bodyColor: scheme.onSurface,
-      displayColor: scheme.onSurface,
-    );
+    ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
 
     return ThemeData(
       useMaterial3: true,
@@ -144,10 +141,7 @@ class AppTheme {
         colorScheme: scheme,
         brightness: Brightness.dark,
       ).textTheme,
-    ).apply(
-      bodyColor: scheme.onSurface,
-      displayColor: scheme.onSurface,
-    );
+    ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
 
     return ThemeData(
       useMaterial3: true,

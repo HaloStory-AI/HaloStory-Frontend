@@ -121,13 +121,23 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    await _requestPermissions();
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenWebNotice = prefs.getBool('web_notice_shown_session') ?? false;
+      if (!hasSeenWebNotice) {
+        if (!mounted) return;
+        await _showWebRecommendationBottomSheet();
+        await prefs.setBool('web_notice_shown_session', true);
+      }
+    } else {
+      await _requestPermissions();
+    }
 
     final results = await Future.wait([
       _authService.isLoggedIn(),
       _botService.getBots(),
-      SecurityService.isDeviceCompromised(),
-      Future.delayed(const Duration(seconds: 2)),
+      kIsWeb ? Future.value(false) : SecurityService.isDeviceCompromised(),
+      Future.delayed(Duration(seconds: kIsWeb ? 1 : 2)),
     ]);
 
     final bool isLoggedIn = results[0] as bool;
@@ -574,6 +584,108 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Text(
                   tr('security_notice_btn'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showWebRecommendationBottomSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ScaleTransition(
+                scale: _iconScale,
+                child: SvgPicture.asset(
+                  'assets/icon/momo_logo.svg',
+                  height: 90,
+                  width: 90,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr('web_recommendation_title'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                tr('web_recommendation_desc'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await launchUrl(
+                    Uri.parse('https://bluetalk.my-bini.my.id/download'),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+                icon: const Icon(Icons.download_rounded),
+                label: Text(
+                  tr('web_recommendation_download'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: Text(
+                  tr('web_recommendation_continue'),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

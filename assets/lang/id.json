@@ -293,5 +293,9 @@
   "p2p_scanner_receiving": "Ambil Data dari Komputer",
   "p2p_scanner_sending": "Salin Data ke Komputer",
   "p2p_scanner_processing": "Memproses pertukaran data...",
-  "p2p_scanner_hint": "Arahkan kamera ke QR Code di layar PC"
+  "p2p_scanner_hint": "Arahkan kamera ke QR Code di layar PC",
+  "web_recommendation_title": "Gunakan Aplikasi BlueTalk",
+  "web_recommendation_desc": "Sensei... Untuk pengalaman terbaik, kami menyarankan menggunakan aplikasi BlueTalk (Android/Windows) ketimbang menggunakan website.",
+  "web_recommendation_download": "Download App",
+  "web_recommendation_continue": "Lanjut di Web"
 }

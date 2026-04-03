@@ -1187,7 +1187,9 @@ class _SettingsScreenState extends State<SettingsScreen>
             color: colorScheme.primary,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
+        _buildHelpLink(),
+        const SizedBox(height: 12),
 
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -1449,7 +1451,6 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
 
         const SizedBox(height: 24),
-        _buildHelpLink(),
       ],
     );
   }
@@ -1553,13 +1554,19 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Widget _buildHelpLink() {
     final colorScheme = Theme.of(context).colorScheme;
+    String helpUrl = 'https://docs.my-bini.my.id/books/bluetalk/page/model-configuration';
+    
+    if (_selectedProvider == 'BYOK') {
+      helpUrl = 'https://s.my-bini.my.id/byok';
+    } else if (_selectedProvider == 'BYOM') {
+      helpUrl = 'https://s.my-bini.my.id/byom';
+    }
 
-    return Center(
+    return Align(
+      alignment: Alignment.centerLeft,
       child: TextButton.icon(
         onPressed: () => launchUrl(
-          Uri.parse(
-            'https://docs.my-bini.my.id/books/bluetalk/page/model-configuration',
-          ),
+          Uri.parse(helpUrl),
           mode: LaunchMode.externalApplication,
         ),
         icon: const Icon(Icons.help_outline, size: 18),
@@ -1568,9 +1575,13 @@ class _SettingsScreenState extends State<SettingsScreen>
           style: const TextStyle(
             decoration: TextDecoration.underline,
             fontWeight: FontWeight.bold,
+            fontSize: 13,
           ),
         ),
-        style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+        style: TextButton.styleFrom(
+          foregroundColor: colorScheme.primary,
+          padding: EdgeInsets.zero,
+        ),
       ),
     );
   }

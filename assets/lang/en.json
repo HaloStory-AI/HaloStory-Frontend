@@ -292,5 +292,9 @@
   "p2p_scanner_receiving": "Get Data from Computer",
   "p2p_scanner_sending": "Copy Data to Computer",
   "p2p_scanner_processing": "Processing data exchange...",
-  "p2p_scanner_hint": "Point camera at QR Code on PC screen"
+  "p2p_scanner_hint": "Point camera at QR Code on PC screen",
+  "web_recommendation_title": "Use BlueTalk App",
+  "web_recommendation_desc": "Sensei... For the best experience, we recommend using the BlueTalk app (Android/Windows) instead of the website.",
+  "web_recommendation_download": "Download App",
+  "web_recommendation_continue": "Continue on Web"
 }
