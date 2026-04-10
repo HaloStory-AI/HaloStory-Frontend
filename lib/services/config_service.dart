@@ -23,6 +23,7 @@ class ConfigService {
 
   /// Manually trigger maintenance mode (e.g. on 503 error)
   static void enterMaintenance([String? msg]) {
+    if (kDebugMode) return;
     _isMaintenance = true;
     if (msg != null) _maintenanceMsg = msg;
     print("DEBUG: ConfigService - Entered Maintenance Mode via 503");
@@ -57,7 +58,7 @@ class ConfigService {
 
   static void _applyConfig(Map<String, dynamic> data) {
     _baseUrl = data['api_url'];
-    _isMaintenance = data['status'] == 'maintenance';
+    _isMaintenance = kDebugMode ? false : (data['status'] == 'maintenance');
     _maintenanceMsg = data['maintenance_message'] ?? _maintenanceMsg;
     _remoteVersion = data['version'] ?? "0.0.0";
   }

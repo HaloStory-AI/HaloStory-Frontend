@@ -292,5 +292,14 @@
   "p2p_scanner_receiving": "パソコンからデータを取得",
   "p2p_scanner_sending": "パソコンにデータをコピー",
   "p2p_scanner_processing": "データ交換を処理中...",
-  "p2p_scanner_hint": "PC画面のQRコードにカメラを向けてください"
+  "p2p_scanner_hint": "PC画面のQRコードにカメラを向けてください",
+  "vip_status_title": "あなたのVIPステータス",
+  "vip_status_active": "VIP 有効",
+  "vip_status_inactive": "VIP未加入",
+  "vip_status_expires": "有効期限: {date}",
+  "vip_status_admin": "管理者 (無制限VIP)",
+  "vip_benefit_priority": "優先的なGemini AI",
+  "vip_benefit_fallback": "マルチキーフォールバック",
+  "vip_benefit_badge": "専用バッジ",
+  "donation_confirm_discord": "Discordで確認"
 }

@@ -18,6 +18,7 @@ import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'app_info_screen.dart';
 import 'story_view_screen.dart';
+import 'donation_screen.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({super.key});
@@ -26,7 +27,7 @@ class DesktopHomeScreen extends StatefulWidget {
   State<DesktopHomeScreen> createState() => _DesktopHomeScreenState();
 }
 
-enum MiddlePanelState { tabs, settings, profile, admin, suggest, info, chat }
+enum MiddlePanelState { tabs, settings, profile, admin, suggest, info, chat, donation }
 
 class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   int _currentIndex = 0;
@@ -118,28 +119,9 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   void _showDonationOverlay() {
-    final colorScheme = Theme.of(context).colorScheme;
     setState(() {
-      _middlePanelOverlay = _buildLocalOverlay(
-        title: tr('donation_title'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(tr('donation_content'), textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => launchUrl(Uri.parse('https://trakteer.id/rafiq8k')),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text(tr('donation_button')),
-            ),
-          ],
-        ),
-      );
+      _middlePanelOverlay = null;
+      _middlePanelState = MiddlePanelState.donation;
     });
   }
 
@@ -430,6 +412,8 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         return const AppInfoScreen();
       case MiddlePanelState.chat:
         return const Center(child: Text("Chat View"));
+      case MiddlePanelState.donation:
+        return const DonationScreen(isDesktopMiddlePanel: true);
       case MiddlePanelState.tabs:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -69,19 +70,26 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
   bool _isTypingEffectActive = false;
+  bool _isDisposed = false;
+  bool _showScrollButton = false;
 
   final TextEditingController _systemNoteController = TextEditingController();
   bool _isSystemNoteOpen = false;
   String? _activeOverlay; // 'bio' or 'bond'
 
+  // Bond state
+  String _bondStatus = 'normal';
+  String _bondRelationship = 'Orang Asing';
+  late int _bondLevel;
+  String? _pendingBondEvent;
 
-  bool _showScrollButton = false;
-  bool _isDisposed = false;
   static const String _chatHeaderFont = 'Roboto';
+  bool _showExplosion = false;
 
   @override
   void initState() {
     super.initState();
+    _bondLevel = widget.bot['bond_hearts'] ?? 0;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
     _loadSystemNote();
@@ -287,7 +295,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             updated = true;
           }
         } catch (e) {
-          print('DEBUG: Summarization failed for batch $i: $e');
+          // Log failed batch if needed
         }
 
         processedBatches++;
@@ -473,6 +481,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         }
       });
 
+      // Update bond state from response
+      if (response != null) {
+        _safeSetState(() {
+          _bondStatus       = response['bond_status']        ?? _bondStatus;
+          _bondRelationship = response['relationship_label'] ?? _bondRelationship;
+          _bondLevel        = (response['bond_level'] as int?) ?? _bondLevel;
+          _pendingBondEvent = response['bond_event'] as String?;
+        });
+      }
+
       if (shouldStartTyping) {
         _startTypingEffect(partsLength);
       }
@@ -489,6 +507,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _generateSummaries();
     }
     _scrollToBottom();
+
+    // Handle bond event from AI response (after UI has settled)
+    if (_pendingBondEvent != null) {
+      final evt = _pendingBondEvent!;
+      _pendingBondEvent = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_isDisposed) _handleBondEvent(evt);
+      });
+    }
   }
 
   Future<void> _startTypingEffect(int totalParts) async {
@@ -523,6 +550,212 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _generateSummaries();
   }
 
+  // ───────────────────────────────────────────────────────────────
+  // Bond Simulator (Debug Only)
+  // ───────────────────────────────────────────────────────────────
+
+  void _showBondSimulator() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: _surfaceBackground(ctx),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("Bond Simulator (God Mode)", style: TextStyle(fontWeight: FontWeight.bold, color: scheme.primary)),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton(onPressed: () => _simulateBond(xp: 1000), child: const Text("+1k XP")),
+                  ElevatedButton(onPressed: () => _simulateBond(level: 25), child: const Text("Lv 25")),
+                  ElevatedButton(onPressed: () => _simulateBond(level: 100), child: const Text("Lv 100")),
+                  ElevatedButton(onPressed: () => _simulateBond(level: 150), child: const Text("Lv 150")),
+                  ElevatedButton(
+                    onPressed: () => _handleBondEvent('confession_triggered'), 
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, foregroundColor: Colors.white),
+                    child: const Text("Trigger Confession"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _handleBondEvent('marriage_triggered'), 
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, foregroundColor: Colors.white),
+                    child: const Text("Trigger Marriage"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _simulateBond(reset: true), 
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text("Reset Bond", style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text("Note: Changes on server will sync on next message or refresh", style: TextStyle(fontSize: 10, color: Colors.grey)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _simulateBond({int? xp, int? level, bool reset = false}) async {
+    final token = await AuthService().getToken();
+    if (token == null) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/bots/bond/${widget.bot['id']}/debug'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: jsonEncode({
+          if (xp != null) 'xp': xp,
+          if (level != null) 'level': level,
+          if (reset) 'reset': true,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _safeSetState(() {
+          _bondStatus = data['bond_status'];
+          _bondRelationship = data['relationship_label'];
+          _bondLevel = data['bond_hearts'];
+        });
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Simulasi Berhasil!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        final errorData = jsonDecode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Simulasi Gagal: ${response.statusCode} - ${errorData['error'] ?? 'Unknown Error'}"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Simulator Error: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Bond Event Handling
+  // ───────────────────────────────────────────────────────────────
+
+  void _handleBondEvent(String event) {
+    if (!mounted || _isDisposed) return;
+
+    switch (event) {
+      case 'relationship_damaged':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.heart_broken, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('Hubungan kalian memburuk...', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        break;
+
+      case 'xp_lost':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.mood_bad, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('Bond XP berkurang...', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        break;
+      case 'relationship_upgraded':
+        _triggerBondExplosion();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.favorite, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text('Hubungan kalian naik ke: $_bondRelationship! ✨', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            backgroundColor: Colors.pink.shade400,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        break;
+
+      case 'level_up':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.favorite, color: Colors.pinkAccent, size: 18),
+                const SizedBox(width: 8),
+                Text('Bond naik! Lv. $_bondLevel — $_bondRelationship'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF2D2D2D),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        break;
+
+      case 'confession_triggered':
+        // Popups removed for Natural Flow. AI handles dialogue.
+        break;
+
+      case 'marriage_triggered':
+        // Popups removed for Natural Flow. AI handles dialogue.
+        break;
+      case 'relationship_stuck':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Keputusan telah dibuat. Status hubungan tidak berubah.'),
+            backgroundColor: Colors.blueGrey,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        break;
+    }
+  }
+
+
+
   Future<Map<String, dynamic>?> _fetchBondStats() async {
     final authService = AuthService();
     final token = await authService.getToken();
@@ -547,9 +780,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return null;
   }
 
-  void _showBondStats() {
+  Future<void> _showBondStats() async {
     if (widget.isDesktopMode) {
-      if (Navigator.maybePop(context) == true) {
+      if (await Navigator.maybePop(context)) {
         // If there's a popup (like more menu), close it first
       }
       setState(() => _activeOverlay = 'bond');
@@ -635,6 +868,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       color: _subtitleColor(context),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _relationshipColor(_bondStatus).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _relationshipColor(_bondStatus).withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      _bondRelationship.isNotEmpty ? _bondRelationship : (bondData?['relationship_label'] ?? 'Orang Asing'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _relationshipColor(_bondStatus),
+                      ),
                     ),
                   ),
                 ],
@@ -787,11 +1037,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (rawError.containsKey('error') &&
         rawError['error'] is Map<String, dynamic>) {
       final eObj = rawError['error'] as Map<String, dynamic>;
-      if (eObj.containsKey('message') && eObj['message'] is String)
+      if (eObj.containsKey('message') && eObj['message'] is String) {
         errMessage ??= eObj['message'];
-      if (eObj.containsKey('type') && eObj['type'] is String)
+      }
+      if (eObj.containsKey('type') && eObj['type'] is String) {
         errType ??= eObj['type'];
-      if (eObj.containsKey('code')) errCode ??= eObj['code'].toString();
+      }
+      if (eObj.containsKey('code')) {
+        errCode ??= eObj['code'].toString();
+      }
     }
 
     if (rawError.containsKey('response') &&
@@ -800,22 +1054,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (resObj.containsKey('error') &&
           resObj['error'] is Map<String, dynamic>) {
         final eObj = resObj['error'] as Map<String, dynamic>;
-        if (eObj.containsKey('message') && eObj['message'] is String)
+        if (eObj.containsKey('message') && eObj['message'] is String) {
           errMessage ??= eObj['message'];
-        if (eObj.containsKey('code')) errCode ??= eObj['code'].toString();
+        }
+        if (eObj.containsKey('code')) {
+          errCode ??= eObj['code'].toString();
+        }
       }
     }
 
-    if (rawError.containsKey('error_type') && rawError['error_type'] is String)
+    if (rawError.containsKey('error_type') && rawError['error_type'] is String) {
       errType ??= rawError['error_type'];
+    }
     if (rawError.containsKey('type') &&
         rawError['type'] is String &&
-        rawError['type'] != 'error')
+        rawError['type'] != 'error') {
       errType ??= rawError['type'];
-    if (rawError.containsKey('code') && rawError['code'] is String)
+    }
+    if (rawError.containsKey('code') && rawError['code'] is String) {
       errCode ??= rawError['code'];
-    if (rawError.containsKey('rc') && rawError['rc'] is String)
+    }
+    if (rawError.containsKey('rc') && rawError['rc'] is String) {
       errCode ??= rawError['rc'];
+    }
 
     if (errMessage != null) {
       String result = '';
@@ -838,9 +1099,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  void _showStudentBio() {
+  Future<void> _showStudentBio() async {
     if (widget.isDesktopMode) {
-      if (Navigator.maybePop(context) == true) {
+      if (await Navigator.maybePop(context)) {
         // If there's a popup (like more menu), close it first
       }
       setState(() => _activeOverlay = 'bio');
@@ -984,12 +1245,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                     '',
                                   )
                                   .trim();
-                              if (val.endsWith(','))
-                                val = val.substring(0, val.length - 1).trim();
-                              return val;
+                                if (val.endsWith(',')) {
+                                  val = val.substring(0, val.length - 1).trim();
+                                }
+                                return val;
+                              }
+                              return null;
                             }
-                            return null;
-                          }
 
                           result['Nickname'] =
                               findMatch(
@@ -1381,7 +1643,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 2),
                         child: Text(
-                          '${widget.bot['bond_hearts'] ?? 0}',
+                          '$_bondLevel',
                           style: _bondCountHeaderStyle(context),
                         ),
                       ),
@@ -1485,6 +1747,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
       body: Stack(
         children: [
+          if (_showExplosion)
+            Positioned.fill(
+              child: _BondExplosionEffect(
+                onFinished: () {
+                  _safeSetState(() => _showExplosion = false);
+                },
+              ),
+            ),
           Container(
             color: _pageBackground(context),
             child: Column(
@@ -1566,6 +1836,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             ),
                           ),
                         ),
+                      if (kDebugMode)
+                        Positioned(
+                          bottom: 72,
+                          right: 16,
+                          child: FloatingActionButton(
+                            mini: true,
+                            heroTag: "bond_simulator",
+                            backgroundColor: Colors.orange.shade700,
+                            onPressed: _showBondSimulator,
+                            child: const Icon(Icons.bug_report, color: Colors.white),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1587,7 +1869,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(0.4),
+        color: Colors.black.withValues(alpha: 0.4),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 450, maxHeight: 650),
@@ -1598,7 +1880,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -1669,6 +1951,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Color _subtitleColor(BuildContext context) =>
       Theme.of(context).colorScheme.onSurfaceVariant;
+
+  Color _relationshipColor(String status) {
+    return switch (status) {
+      'enemy'    => Colors.red.shade400,
+      'married'  => Colors.purple.shade400,
+      'lover'    => const Color(0xFFFB6F9D),
+      'rejected' => Colors.grey.shade500,
+      'stuck'    => Colors.orange.shade400,
+      _          => Colors.blue.shade400,
+    };
+  }
 
   TextStyle _bondCountHeaderStyle(BuildContext context) {
     final isDark = _isDarkMode(context);
@@ -2206,7 +2499,139 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
     );
   }
+  void _triggerBondExplosion() {
+    _safeSetState(() {
+      _showExplosion = true;
+    });
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Visual Effect: Bond Explosion (Particle Hearts)
+// ─────────────────────────────────────────────────────────────────────────────
+class _BondExplosionEffect extends StatefulWidget {
+  final VoidCallback onFinished;
+  const _BondExplosionEffect({required this.onFinished});
+
+  @override
+  State<_BondExplosionEffect> createState() => _BondExplosionEffectState();
+}
+
+class _BondExplosionEffectState extends State<_BondExplosionEffect>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final List<_Particle> _particles = [];
+  final int _count = 50;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+
+    final random = math.Random();
+    for (int i = 0; i < _count; i++) {
+      _particles.add(_Particle(random));
+    }
+
+    _controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+
+    _controller.forward().then((_) => widget.onFinished());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(
+        painter: _ParticlePainter(_particles, _controller.value),
+        child: Container(),
+      ),
+    );
+  }
+}
+
+class _Particle {
+  late double x, y;
+  late double vx, vy;
+  late double size;
+  late Color color;
+
+  _Particle(math.Random rand) {
+    x = 0.5;
+    y = 0.4; // Explode from slightly above center (near avatar area)
+    final angle = rand.nextDouble() * 2 * math.pi;
+    final speed = 0.05 + rand.nextDouble() * 0.15;
+    vx = math.cos(angle) * speed;
+    vy = math.sin(angle) * speed;
+    size = 12.0 + rand.nextDouble() * 20.0;
+    color = rand.nextBool() ? Colors.pinkAccent : Colors.redAccent;
+  }
+}
+
+class _ParticlePainter extends CustomPainter {
+  final List<_Particle> particles;
+  final double progress;
+  _ParticlePainter(this.particles, this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    for (var p in particles) {
+      final t = progress;
+      final dx = size.width * (p.x + p.vx * t);
+      final dy = size.height * (p.y + p.vy * t - 0.15 * t * t);
+
+      final fade = (1.0 - t).clamp(0.0, 1.0);
+      paint.color = p.color.withValues(alpha: fade);
+
+      final heartSize = p.size * (0.5 + t);
+      _drawHeart(canvas, Offset(dx, dy), heartSize, paint);
+    }
+  }
+
+  void _drawHeart(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path();
+    final width = size;
+    final height = size;
+
+    path.moveTo(center.dx, center.dy + height * 0.35);
+    path.cubicTo(center.dx + width * 0.1, center.dy, center.dx + width * 0.5,
+        center.dy, center.dx + width * 0.5, center.dy + height * 0.35);
+    path.cubicTo(
+        center.dx + width * 0.5,
+        center.dy + height * 0.6,
+        center.dx + width * 0.25,
+        center.dy + height * 0.85,
+        center.dx,
+        center.dy + height);
+    path.cubicTo(
+        center.dx - width * 0.25,
+        center.dy + height * 0.85,
+        center.dx - width * 0.5,
+        center.dy + height * 0.6,
+        center.dx - width * 0.5,
+        center.dy + height * 0.35);
+    path.cubicTo(center.dx - width * 0.5, center.dy, center.dx - width * 0.1,
+        center.dy, center.dx, center.dy + height * 0.35);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
 
 class _DotAnim extends StatefulWidget {
   final double delay;

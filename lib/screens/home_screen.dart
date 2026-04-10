@@ -13,6 +13,7 @@ import 'profile_screen.dart';
 import 'settings_screen.dart';
 import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
+import 'donation_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
 import 'tabs/stories_tab.dart';
@@ -121,8 +122,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () =>
-                    launchUrl(Uri.parse('https://trakteer.id/r8kstudio')),
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DonationScreen(),
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
                 label: Text(tr('donation_button')),
                 style: ElevatedButton.styleFrom(
@@ -463,7 +471,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                           break;
                         case 'donation':
-                          launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const DonationScreen(),
+                            ),
+                          );
                           break;
                         case 'contributor':
                           launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
@@ -761,7 +774,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: Text(tr('sidebar_donation')),
                   onTap: () {
                     Navigator.pop(context);
-                    launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DonationScreen(),
+                      ),
+                    );
                   },
                 ),
                 ListTile(

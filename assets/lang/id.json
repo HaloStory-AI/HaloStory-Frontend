@@ -298,5 +298,14 @@
   "web_recommendation_title": "Gunakan Aplikasi BlueTalk",
   "web_recommendation_desc": "Sensei... Untuk pengalaman terbaik, kami menyarankan menggunakan aplikasi BlueTalk (Android/Windows) ketimbang menggunakan website.",
   "web_recommendation_download": "Download App",
-  "web_recommendation_continue": "Lanjut di Web"
+  "web_recommendation_continue": "Lanjut di Web",
+  "vip_status_title": "Status VIP Kamu",
+  "vip_status_active": "VIP Aktif",
+  "vip_status_inactive": "Belum Member VIP",
+  "vip_status_expires": "Kadaluarsa pada: {date}",
+  "vip_status_admin": "Admin (VIP Tak Terbatas)",
+  "vip_benefit_priority": "Prioritas Gemini AI",
+  "vip_benefit_fallback": "Multi-key Fallback",
+  "vip_benefit_badge": "Badge Eksklusif",
+  "donation_confirm_discord": "Konfirmasi via Discord"
 }
