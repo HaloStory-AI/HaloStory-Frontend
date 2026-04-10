@@ -128,6 +128,7 @@
   "btn_retry": "Try Again",
   "profile_account_verification": "Account Verification",
   "profile_verified": "Verified",
+  "sidebar_menu": "Menu",
   "sidebar_admin_panel": "Admin Panel",
   "sidebar_suggest_student": "Suggest a Student",
   "sidebar_donation": "Donate (Trakteer)",
@@ -292,5 +293,18 @@
   "p2p_scanner_receiving": "Get Data from Computer",
   "p2p_scanner_sending": "Copy Data to Computer",
   "p2p_scanner_processing": "Processing data exchange...",
-  "p2p_scanner_hint": "Point camera at QR Code on PC screen"
+  "p2p_scanner_hint": "Point camera at QR Code on PC screen",
+  "web_recommendation_title": "Use BlueTalk App",
+  "web_recommendation_desc": "Sensei... For the best experience, we recommend using the BlueTalk app (Android/Windows) instead of the website.",
+  "web_recommendation_download": "Download App",
+  "web_recommendation_continue": "Continue on Web",
+  "vip_status_title": "Your VIP Status",
+  "vip_status_active": "VIP Active",
+  "vip_status_inactive": "Not a VIP yet",
+  "vip_status_expires": "Expires on: {date}",
+  "vip_status_admin": "Admin (Unlimited VIP)",
+  "vip_benefit_priority": "Priority Gemini AI",
+  "vip_benefit_fallback": "Multi-key Fallback",
+  "vip_benefit_badge": "Exclusive Badge",
+  "donation_confirm_discord": "Confirm via Discord"
 }

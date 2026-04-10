@@ -21,10 +21,10 @@ class ChatTab extends StatefulWidget {
   });
 
   @override
-  State<ChatTab> createState() => _ChatTabState();
+  State<ChatTab> createState() => ChatTabState();
 }
 
-class _ChatTabState extends State<ChatTab> {
+class ChatTabState extends State<ChatTab> {
   final LocalChatService _localChatService = LocalChatService();
   final BotService _botService = BotService();
   List<Map<String, dynamic>> _activeChats = [];
@@ -182,7 +182,7 @@ class _ChatTabState extends State<ChatTab> {
       _sortAscending = savedAscending;
     });
 
-    await _initData();
+    await initData();
   }
 
   Future<void> _saveSortPreferences() async {
@@ -197,7 +197,7 @@ class _ChatTabState extends State<ChatTab> {
     _loadSortPreferencesAndInit();
   }
 
-  Future<void> _initData({bool force = false}) async {
+  Future<void> initData({bool force = false}) async {
     setState(() {
       _isLoadingBots = true;
       _isLoadingChats = true;
@@ -209,7 +209,7 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   Future<void> _handleRefresh() async {
-    await _initData(force: true);
+    await initData(force: true);
   }
 
   Future<void> _loadAvailableBots({bool force = false}) async {
@@ -1882,7 +1882,7 @@ class _ChatTabState extends State<ChatTab> {
     }
 
     _clearSelection();
-    await _initData();
+    await initData();
   }
 
   Widget _buildSortOverlayContent(ChatSortType initialSort) {

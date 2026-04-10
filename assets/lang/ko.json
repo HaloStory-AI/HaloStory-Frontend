@@ -292,5 +292,14 @@
   "p2p_scanner_receiving": "컴퓨터에서 데이터 가져오기",
   "p2p_scanner_sending": "컴퓨터로 데이터 복사하기",
   "p2p_scanner_processing": "데이터 교환 처리 중...",
-  "p2p_scanner_hint": "PC 화면의 QR 코드를 카메라로 비추세요"
+  "p2p_scanner_hint": "PC 화면의 QR 코드를 카메라로 비추세요",
+  "vip_status_title": "당신의 VIP 상태",
+  "vip_status_active": "VIP 활성화",
+  "vip_status_inactive": "아직 VIP가 아님",
+  "vip_status_expires": "만료일: {date}",
+  "vip_status_admin": "관리자 (무제한 VIP)",
+  "vip_benefit_priority": "우선순위 Gemini AI",
+  "vip_benefit_fallback": "멀티키 폴백",
+  "vip_benefit_badge": "독점 배지",
+  "donation_confirm_discord": "Discord를 통한 확인"
 }

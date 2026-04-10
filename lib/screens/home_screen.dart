@@ -13,10 +13,12 @@ import 'profile_screen.dart';
 import 'settings_screen.dart';
 import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
+import 'donation_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
+import '../services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,12 +30,23 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late final PageController _pageController;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final AuthService _authService = AuthService();
+  Map<String, dynamic>? _userProfile;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
+    _loadProfile();
     _checkDonation();
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await _authService.getUserProfile();
+    if (mounted) {
+      setState(() => _userProfile = profile);
+    }
   }
 
   @override
@@ -109,8 +122,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () =>
-                    launchUrl(Uri.parse('https://trakteer.id/r8kstudio')),
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DonationScreen(),
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
                 label: Text(tr('donation_button')),
                 style: ElevatedButton.styleFrom(
@@ -144,16 +164,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> get _tabs => [
-        ChatTab(onChatSelected: _onChatSelected),
-        const CreateTab(),
-        const StoriesTab(),
-        const CalendarTab(),
-      ];
+    ChatTab(onChatSelected: _onChatSelected),
+    const CreateTab(),
+    const StoriesTab(),
+    const CalendarTab(),
+  ];
 
   void _onChatSelected(Map<String, dynamic> bot) {
     final prefs = SharedPreferences.getInstance();
     prefs.then((p) {
-      final provider = AIService.normalizeProvider(p.getString('default_provider'));
+      final provider = AIService.normalizeProvider(
+        p.getString('default_provider'),
+      );
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -179,7 +201,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-            content: SingleChildScrollView(child: Text(tr('disclaimer_content'))),
+            content: SingleChildScrollView(
+              child: Text(tr('disclaimer_content')),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -242,19 +266,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _onBottomNavTap(int index) {
+    if (index == 2) {
+      _scaffoldKey.currentState?.openDrawer();
+      return;
+    }
+
+    int pageIndex = index;
+    if (index > 2) pageIndex = index - 1;
+
+    if (pageIndex == _currentIndex) return;
+
+    setState(() => _currentIndex = pageIndex);
+    _pageController.animateToPage(
+      pageIndex,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.of(context).size.width >= 800) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width >= 800;
+
+    if (isDesktop) {
       return const DesktopHomeScreen();
     }
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final appBarBg =
-        isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar;
-    final sidebarBg =
-        isDark ? colorScheme.surface : AppTheme.momoRailBackground;
+    final appBarBg = isDark
+        ? theme.scaffoldBackgroundColor
+        : AppTheme.momoLightTopBar;
+    final sidebarBg = isDark
+        ? colorScheme.surface
+        : AppTheme.momoRailBackground;
     final sidebarSelectedBg = isDark
         ? colorScheme.surfaceContainerHighest
         : AppTheme.momoRailSelected;
@@ -266,7 +314,9 @@ class _HomeScreenState extends State<HomeScreen> {
         : Colors.white;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: theme.scaffoldBackgroundColor,
+      drawer: isDesktop ? null : _buildDrawer(context),
       appBar: AppBar(
         backgroundColor: appBarBg,
         elevation: 0,
@@ -316,7 +366,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Icon(
                   Icons.question_mark_rounded,
-                  color: isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar,
+                  color: isDark
+                      ? theme.scaffoldBackgroundColor
+                      : AppTheme.momoLightTopBar,
                   size: 16,
                   weight: 900,
                 ),
@@ -348,190 +400,442 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Row(
         children: [
-          Container(
-            width: 55,
-            color: sidebarBg,
-            child: Column(
-              children: [
-                _buildSidebarNavItem(
-                  iconAsset: 'assets/icon/sidebar_chat.svg',
-                  iconSize: 20,
-                  index: 0,
-                  isSelected: _currentIndex == 0,
-                  selectedBackgroundColor: sidebarSelectedBg,
-                  selectedColor: sidebarIconSelectedColor,
-                  unselectedColor: sidebarIconColor,
-                ),
-                _buildSidebarNavItem(
-                  iconAsset: 'assets/icon/sidebar_groups.svg',
-                  index: 1,
-                  isSelected: _currentIndex == 1,
-                  selectedBackgroundColor: sidebarSelectedBg,
-                  selectedColor: sidebarIconSelectedColor,
-                  unselectedColor: sidebarIconColor,
-                ),
-                _buildSidebarNavItem(
-                  iconAsset: 'assets/icon/sidebar_stories.svg',
-                  index: 2,
-                  isSelected: _currentIndex == 2,
-                  selectedBackgroundColor: sidebarSelectedBg,
-                  selectedColor: sidebarIconSelectedColor,
-                  unselectedColor: sidebarIconColor,
-                ),
-                _buildSidebarNavItem(
-                  iconAsset: 'assets/icon/sidebar_calendar.svg',
-                  index: 3,
-                  isSelected: _currentIndex == 3,
-                  selectedBackgroundColor: sidebarSelectedBg,
-                  selectedColor: sidebarIconSelectedColor,
-                  unselectedColor: sidebarIconColor,
-                ),
-                const Spacer(),
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_horiz_rounded, color: sidebarIconColor, size: 28),
-                  offset: const Offset(50, -120),
-                  color: isDark ? colorScheme.surfaceContainer : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
+          if (isDesktop)
+            Container(
+              width: 55,
+              color: sidebarBg,
+              child: Column(
+                children: [
+                  _buildSidebarNavItem(
+                    iconAsset: 'assets/icon/sidebar_chat.svg',
+                    iconSize: 20,
+                    index: 0,
+                    isSelected: _currentIndex == 0,
+                    selectedBackgroundColor: sidebarSelectedBg,
+                    selectedColor: sidebarIconSelectedColor,
+                    unselectedColor: sidebarIconColor,
                   ),
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'admin':
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
-                        break;
-                      case 'suggest':
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const StudentRequestScreen()));
-                        break;
-                      case 'donation':
-                        launchUrl(Uri.parse('https://trakteer.id/rafiq8k'));
-                        break;
-                      case 'contributor':
-                        launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-                        break;
-                      case 'help':
-                        launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-                        break;
-                      case 'info':
-                        _showAppInfoDialog();
-                        break;
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'admin',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.admin_panel_settings, color: Colors.amber, size: 20),
-                          const SizedBox(width: 8),
-                          Text(tr('sidebar_admin_panel'), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+                  _buildSidebarNavItem(
+                    iconAsset: 'assets/icon/sidebar_groups.svg',
+                    index: 1,
+                    isSelected: _currentIndex == 1,
+                    selectedBackgroundColor: sidebarSelectedBg,
+                    selectedColor: sidebarIconSelectedColor,
+                    unselectedColor: sidebarIconColor,
+                  ),
+                  _buildSidebarNavItem(
+                    iconAsset: 'assets/icon/sidebar_stories.svg',
+                    index: 2,
+                    isSelected: _currentIndex == 2,
+                    selectedBackgroundColor: sidebarSelectedBg,
+                    selectedColor: sidebarIconSelectedColor,
+                    unselectedColor: sidebarIconColor,
+                  ),
+                  _buildSidebarNavItem(
+                    iconAsset: 'assets/icon/sidebar_calendar.svg',
+                    index: 3,
+                    isSelected: _currentIndex == 3,
+                    selectedBackgroundColor: sidebarSelectedBg,
+                    selectedColor: sidebarIconSelectedColor,
+                    unselectedColor: sidebarIconColor,
+                  ),
+                  const Spacer(),
+                  PopupMenuButton<String>(
+                    icon: Icon(
+                      Icons.more_horiz_rounded,
+                      color: sidebarIconColor,
+                      size: 28,
                     ),
-                    PopupMenuItem(
-                      value: 'suggest',
-                      child: Row(
-                        children: [
-                          Icon(Icons.add_task_rounded, color: colorScheme.primary, size: 20),
-                          const SizedBox(width: 8),
-                          Text(tr('sidebar_suggest_student'), style: TextStyle(color: colorScheme.onSurface)),
-                        ],
-                      ),
+                    offset: const Offset(50, -120),
+                    color: isDark ? colorScheme.surfaceContainer : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
                     ),
-                    PopupMenuItem(
-                      value: 'donation',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 20),
-                          const SizedBox(width: 8),
-                          Text(tr('sidebar_donation'), style: TextStyle(color: colorScheme.onSurface)),
-                        ],
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'admin':
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminScreen(),
+                            ),
+                          );
+                          break;
+                        case 'suggest':
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const StudentRequestScreen(),
+                            ),
+                          );
+                          break;
+                        case 'donation':
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const DonationScreen(),
+                            ),
+                          );
+                          break;
+                        case 'contributor':
+                          launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                          break;
+                        case 'help':
+                          launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                          break;
+                        case 'info':
+                          _showAppInfoDialog();
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'admin',
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.admin_panel_settings,
+                              color: Colors.amber,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('sidebar_admin_panel'),
+                              style: const TextStyle(
+                                color: Colors.amber,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      PopupMenuItem(
+                        value: 'suggest',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.add_task_rounded,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('sidebar_suggest_student'),
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'donation',
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.favorite_rounded,
+                              color: Colors.pinkAccent,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('sidebar_donation'),
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'contributor',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.people_outline_rounded,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('sidebar_contributor'),
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'help',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.help_outline,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('sidebar_help'),
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'info',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('sidebar_info'),
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: _showSettingsDialog,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.settings_outlined,
+                          color: sidebarIconColor,
+                          size: 28,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          tr('sidebar_settings'),
+                          style: TextStyle(
+                            color: sidebarIconColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    PopupMenuItem(
-                      value: 'contributor',
-                      child: Row(
-                        children: [
-                          Icon(Icons.people_outline_rounded, color: colorScheme.primary, size: 20),
-                          const SizedBox(width: 8),
-                          Text(tr('sidebar_contributor'), style: TextStyle(color: colorScheme.onSurface)),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: _showLogoutDialog,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.logout,
+                          color: Colors.redAccent.withOpacity(0.8),
+                          size: 24,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          tr('sidebar_logout'),
+                          style: TextStyle(
+                            color: Colors.redAccent.withOpacity(0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    PopupMenuItem(
-                      value: 'help',
-                      child: Row(
-                        children: [
-                          Icon(Icons.help_outline, color: colorScheme.primary, size: 20),
-                          const SizedBox(width: 8),
-                          Text(tr('sidebar_help'), style: TextStyle(color: colorScheme.onSurface)),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'info',
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
-                          const SizedBox(width: 8),
-                          Text(tr('sidebar_info'), style: TextStyle(color: colorScheme.onSurface)),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          Expanded(
+            child: SafeArea(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  if (index == _currentIndex) return;
+                  setState(() => _currentIndex = index);
+                },
+                children: _tabs,
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: isDesktop
+          ? null
+          : SafeArea(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? colorScheme.surface : Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: _showSettingsDialog,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.settings_outlined, color: sidebarIconColor, size: 28),
-                      const SizedBox(height: 4),
-                      Text(
-                        tr('sidebar_settings'),
-                        style: TextStyle(
-                          color: sidebarIconColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: BottomNavigationBar(
+                  currentIndex: _currentIndex >= 2 ? _currentIndex + 1 : _currentIndex,
+                  onTap: _onBottomNavTap,
+                  type: BottomNavigationBarType.fixed,
+                  backgroundColor: isDark ? colorScheme.surface : Colors.white,
+                  selectedItemColor: colorScheme.primary,
+                  unselectedItemColor: isDark
+                      ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
+                      : Colors.grey,
+                  selectedFontSize: 12,
+                  unselectedFontSize: 12,
+                  elevation: 0,
+                  items: [
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.chat_bubble_rounded),
+                      label: tr('tab_chat'),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.groups_rounded),
+                      label: tr('tab_group_chat'),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.menu),
+                      label: tr('sidebar_menu'),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.auto_stories_rounded),
+                      label: tr('tab_stories'),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.calendar_month_rounded),
+                      label: tr('tab_calendar'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: _showLogoutDialog,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.logout, color: Colors.redAccent.withOpacity(0.8), size: 24),
-                      const SizedBox(height: 4),
-                      Text(
-                        tr('sidebar_logout'),
-                        style: TextStyle(
-                          color: Colors.redAccent.withOpacity(0.8),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Drawer(
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                if (_userProfile?['role'] == 'admin')
+                  ListTile(
+                    leading: const Icon(
+                      Icons.admin_panel_settings,
+                      color: Colors.amber,
+                    ),
+                    title: Text(
+                      tr('sidebar_admin_panel'),
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminScreen(),
+                        ),
+                      );
+                    },
                   ),
+                ListTile(
+                  leading: Icon(
+                    Icons.add_task_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: Text(tr('sidebar_suggest_student')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const StudentRequestScreen(),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 24),
+                ListTile(
+                  leading: const Icon(
+                    Icons.favorite_rounded,
+                    color: Colors.pinkAccent,
+                  ),
+                  title: Text(tr('sidebar_donation')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DonationScreen(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.people_outline_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: Text(tr('sidebar_contributor')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.settings_outlined,
+                    color: colorScheme.primary,
+                  ),
+                  title: Text(tr('sidebar_settings')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSettingsDialog();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.help_outline, color: colorScheme.primary),
+                  title: Text(tr('sidebar_help')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.info_outline, color: colorScheme.primary),
+                  title: Text(tr('sidebar_info')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAppInfoDialog();
+                  },
+                ),
               ],
             ),
           ),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (index) {
-                if (index == _currentIndex) return;
-                setState(() => _currentIndex = index);
-              },
-              children: _tabs,
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.redAccent),
+            title: Text(
+              tr('sidebar_logout'),
+              style: const TextStyle(color: Colors.redAccent),
             ),
+            onTap: () {
+              Navigator.pop(context);
+              _showLogoutDialog();
+            },
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );

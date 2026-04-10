@@ -11,6 +11,7 @@ import 'profile_screen.dart';
 import 'settings_screen.dart';
 import 'student_request_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'donation_screen.dart';
 
 import '../services/localization_service.dart';
 import '../services/ai_service.dart';
@@ -27,6 +28,7 @@ class MobileHomeScreen extends StatefulWidget {
 class _MobileHomeScreenState extends State<MobileHomeScreen> {
   int _currentIndex = 0;
   final AuthService _authService = AuthService();
+  final GlobalKey<ChatTabState> _chatTabKey = GlobalKey<ChatTabState>();
   Map<String, dynamic>? _userProfile;
 
   @override
@@ -34,8 +36,6 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
     super.initState();
     _loadProfile();
   }
-
-
 
   Future<void> _loadProfile() async {
     final profile = await _authService.getUserProfile();
@@ -45,24 +45,28 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
   }
 
   List<Widget> get _tabs => [
-        ChatTab(onChatSelected: _onChatSelected), // Index 0
+        ChatTab(
+          key: _chatTabKey,
+          onChatSelected: _onChatSelected,
+        ), // Index 0
         const CreateTab(), // Index 1
         const StoriesTab(), // Index 2
         const CalendarTab(), // Index 3
       ];
 
-  void _onChatSelected(Map<String, dynamic> bot) {
+  Future<void> _onChatSelected(Map<String, dynamic> bot) async {
     // Basic navigation for mobile
-    final prefs = SharedPreferences.getInstance();
-    prefs.then((p) {
-      final provider = AIService.normalizeProvider(p.getString('default_provider'));
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
-        ),
-      );
-    });
+    final prefs = await SharedPreferences.getInstance();
+    final provider = AIService.normalizeProvider(prefs.getString('default_provider'));
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
+      ),
+    );
+    // Refresh list when returning from chat
+    _chatTabKey.currentState?.initData();
   }
 
   void _showLogoutDialog() {
@@ -176,7 +180,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: Colors.white, width: 1.5),
                 ),
@@ -292,7 +296,12 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               title: Text(tr('sidebar_donation')),
               onTap: () {
                 Navigator.pop(context);
-                launchUrl(Uri.parse('https://trakteer.id/r8kstudio'));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DonationScreen(),
+                  ),
+                );
               },
             ),
             ListTile(
@@ -370,7 +379,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
