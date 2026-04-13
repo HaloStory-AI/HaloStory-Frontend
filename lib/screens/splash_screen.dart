@@ -625,7 +625,7 @@ class _SplashScreenState extends State<SplashScreen>
               ScaleTransition(
                 scale: _iconScale,
                 child: SvgPicture.asset(
-                  'assets/icon/momo_logo.svg',
+                  'assets/icon/HaloStory.svg',
                   height: 90,
                   width: 90,
                   fit: BoxFit.contain,
@@ -724,7 +724,7 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Transform.rotate(
                   angle: _iconRotate.value,
                   child: SvgPicture.asset(
-                    'assets/icon/momo_logo.svg',
+                    'assets/icon/HaloStory.svg',
                     width: 80,
                     height: 80,
                     fit: BoxFit.contain,
@@ -738,7 +738,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: FadeTransition(
                 opacity: _textOpacity,
                 child: Text(
-                  'BlueTalk',
+                  'HaloStory',
                   style: GoogleFonts.nunito(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,

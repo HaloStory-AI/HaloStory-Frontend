@@ -9,7 +9,6 @@ import '../theme/app_theme.dart';
 import 'desktop/desktop_sidebar.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart'; // this is actually the group tab? Group Tab has label "Group Chat" but uses CreateTab?
-import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
@@ -17,7 +16,6 @@ import 'profile_screen.dart';
 import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'app_info_screen.dart';
-import 'story_view_screen.dart';
 import 'donation_screen.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
@@ -27,7 +25,16 @@ class DesktopHomeScreen extends StatefulWidget {
   State<DesktopHomeScreen> createState() => _DesktopHomeScreenState();
 }
 
-enum MiddlePanelState { tabs, settings, profile, admin, suggest, info, chat, donation }
+enum MiddlePanelState {
+  tabs,
+  settings,
+  profile,
+  admin,
+  suggest,
+  info,
+  chat,
+  donation,
+}
 
 class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   int _currentIndex = 0;
@@ -35,10 +42,8 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   // Removed _userProfile as it is no longer used for the avatar
   Map<String, dynamic>? _selectedBot;
   String? _defaultProvider;
-  List<Map<String, dynamic>>? _selectedStoryBots;
   Widget? _middlePanelOverlay;
 
-  int _selectedStoryIndex = 0;
   String? _initialChatMessage;
 
   @override
@@ -64,18 +69,10 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   void _onChatSelected(Map<String, dynamic> bot) {
     setState(() {
       _selectedBot = bot;
-      _selectedStoryBots = null;
       _initialChatMessage = null;
     });
   }
 
-  void _onStorySelected(List<Map<String, dynamic>> botStories, int initialIndex) {
-    setState(() {
-      _selectedStoryBots = botStories;
-      _selectedStoryIndex = initialIndex;
-      _selectedBot = null;
-    });
-  }
 
   void _openSettings() {
     setState(() {
@@ -134,11 +131,19 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           children: [
             const CircleAvatar(
               radius: 40,
-              backgroundImage: AssetImage('assets/icon/icon.png'),
+              backgroundImage: AssetImage('assets/icon/avatar.png'),
             ),
             const SizedBox(height: 16),
-            Text(tr('app_name'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            Text('${tr('app_info_version')} 0.7.0', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            Text(
+              tr('app_name'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              '${tr('app_info_version')} 0.7.0',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 24),
             Text(tr('welcome_made_by'), textAlign: TextAlign.center),
           ],
@@ -207,7 +212,10 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -229,8 +237,9 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   Widget _buildChatColumnHeader() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final barColor =
-        isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar;
+    final barColor = isDark
+        ? theme.scaffoldBackgroundColor
+        : AppTheme.momoLightTopBar;
 
     return Material(
       color: barColor,
@@ -241,7 +250,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
             Padding(
               padding: const EdgeInsets.only(left: 12),
               child: SvgPicture.asset(
-                'assets/icon/momo_logo.svg',
+                'assets/icon/HaloStory.svg',
                 width: 20,
                 height: 20,
                 fit: BoxFit.contain,
@@ -249,7 +258,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
             ),
             const SizedBox(width: 4),
             Text(
-              'BlueTalk',
+              'HaloStory',
               style: GoogleFonts.nunito(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -271,7 +280,9 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                 ),
                 child: Icon(
                   Icons.question_mark_rounded,
-                  color: isDark ? theme.scaffoldBackgroundColor : AppTheme.momoLightTopBar,
+                  color: isDark
+                      ? theme.scaffoldBackgroundColor
+                      : AppTheme.momoLightTopBar,
                   size: 14,
                   weight: 900,
                 ),
@@ -298,32 +309,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   Widget _buildRightPanel() {
-    if (_selectedStoryBots != null) {
-      return ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          bottomLeft: Radius.circular(16),
-        ),
-        child: StoryViewScreen(
-          key: ValueKey('story_${_selectedStoryBots!.first['bot_id']}'), 
-          stories: _selectedStoryBots!,
-          initialIndex: _selectedStoryIndex,
-          onClose: () {
-            setState(() {
-              _selectedStoryBots = null;
-            });
-          },
-          onReply: (bot, message) {
-            setState(() {
-              _selectedStoryBots = null;
-              _selectedBot = bot;
-              _initialChatMessage = message;
-            });
-          },
-        ),
-      );
-    }
-
     if (_selectedBot != null) {
       return ClipRRect(
         borderRadius: const BorderRadius.only(
@@ -348,7 +333,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: Image.asset(
-              'assets/icon/icon.jpg',
+              'assets/icon/HaloStory.png',
               width: 120,
               height: 120,
               fit: BoxFit.cover,
@@ -356,7 +341,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'BlueTalk Desktop',
+            'HaloStory Desktop',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -366,10 +351,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           const SizedBox(height: 8),
           Text(
             'Select a chat to start messaging',
-            style: TextStyle(
-              fontSize: 16,
-              color: cs.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant),
           ),
         ],
       ),
@@ -428,7 +410,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                     onShowSort: _showSortOverlay,
                   ),
                   const CreateTab(),
-                  StoriesTab(onStorySelected: _onStorySelected),
                   const CalendarTab(),
                 ],
               ),
@@ -456,11 +437,10 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                 _middlePanelOverlay = null; // Clear overlay on tab switch
                 _currentIndex = index;
                 _middlePanelState = MiddlePanelState.tabs;
-                // Calendar (3) and Stories (2) leave chat open. 
+                // Calendar (2) leaves chat open.
                 // Group (1) is different and closes the chat screen.
                 if (index == 1) {
                   _selectedBot = null;
-                  _selectedStoryBots = null;
                 }
               });
             },
@@ -470,10 +450,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           ),
           Container(width: 1, color: cs.outlineVariant),
 
-          SizedBox(
-            width: 380,
-            child: _buildMiddlePanel(),
-          ),
+          SizedBox(width: 380, child: _buildMiddlePanel()),
 
           Container(width: 1, color: cs.outlineVariant),
 

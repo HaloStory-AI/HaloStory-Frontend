@@ -5,10 +5,10 @@ import 'admin_screen.dart';
 import 'app_info_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
-import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
+import 'setup_screen.dart';
 import 'student_request_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'donation_screen.dart';
@@ -45,19 +45,17 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
   }
 
   List<Widget> get _tabs => [
-        ChatTab(
-          key: _chatTabKey,
-          onChatSelected: _onChatSelected,
-        ), // Index 0
-        const CreateTab(), // Index 1
-        const StoriesTab(), // Index 2
-        const CalendarTab(), // Index 3
-      ];
+    ChatTab(key: _chatTabKey, onChatSelected: _onChatSelected), // Index 0
+    const CreateTab(), // Index 1
+    const CalendarTab(), // Index 2
+  ];
 
   Future<void> _onChatSelected(Map<String, dynamic> bot) async {
     // Basic navigation for mobile
     final prefs = await SharedPreferences.getInstance();
-    final provider = AIService.normalizeProvider(prefs.getString('default_provider'));
+    final provider = AIService.normalizeProvider(
+      prefs.getString('default_provider'),
+    );
     if (!mounted) return;
     await Navigator.push(
       context,
@@ -155,7 +153,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.asset(
-                'assets/icon/icon.jpg',
+                'assets/icon/HaloStory.png',
                 height: 32,
                 width: 32,
                 fit: BoxFit.cover,
@@ -163,7 +161,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
             ),
             const SizedBox(width: 8),
             const Text(
-              'BlueTalk',
+              'HaloStory',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -387,7 +385,16 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          onTap: (index) {
+            if (index == 3) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SetupScreen()),
+              );
+              return;
+            }
+            setState(() => _currentIndex = index);
+          },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           selectedItemColor: const Color(0xFF135ACF),
@@ -405,12 +412,12 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               label: tr('tab_group_chat'),
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.auto_stories_rounded),
-              label: tr('tab_stories'),
-            ),
-            BottomNavigationBarItem(
               icon: const Icon(Icons.calendar_month_rounded),
               label: tr('tab_calendar'),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.settings_outlined),
+              label: tr('sidebar_settings'),
             ),
           ],
         ),

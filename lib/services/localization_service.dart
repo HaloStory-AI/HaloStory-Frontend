@@ -16,11 +16,11 @@ class LocalizationService extends ChangeNotifier {
   final Map<String, String> _fallbackStrings = {
     'update_title': 'Pembaruan Tersedia',
     'update_desc':
-        'Versi baru BlueTalk sudah tersedia. Yuk update ke versi terbaru!',
+        'Versi baru HaloStory sudah tersedia. Yuk update ke versi terbaru!',
     'update_version': 'Versi',
     'update_btn': 'Update Sekarang',
     'maintenance_title': 'Sedang Maintenance',
-    'maintenance_info': 'Mohon maaf, BlueTalk sedang dalam pemeliharaan.',
+    'maintenance_info': 'Mohon maaf, HaloStory sedang dalam pemeliharaan.',
     'exit_app': 'Keluar Aplikasi',
     'system_notice_title': 'Pemberitahuan Sistem',
     'system_notice_content':

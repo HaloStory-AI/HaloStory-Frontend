@@ -11,12 +11,12 @@ import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
+import 'setup_screen.dart';
 import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
 import 'donation_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/create_tab.dart';
-import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import '../services/auth_service.dart';
 
@@ -166,7 +166,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Widget> get _tabs => [
     ChatTab(onChatSelected: _onChatSelected),
     const CreateTab(),
-    const StoriesTab(),
     const CalendarTab(),
   ];
 
@@ -271,15 +270,20 @@ class _HomeScreenState extends State<HomeScreen> {
       _scaffoldKey.currentState?.openDrawer();
       return;
     }
+    
+    if (index == 3) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SetupScreen()),
+      );
+      return;
+    }
 
-    int pageIndex = index;
-    if (index > 2) pageIndex = index - 1;
+    if (index == _currentIndex) return;
 
-    if (pageIndex == _currentIndex) return;
-
-    setState(() => _currentIndex = pageIndex);
+    setState(() => _currentIndex = index);
     _pageController.animateToPage(
-      pageIndex,
+      index,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
@@ -327,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(
               padding: const EdgeInsets.only(left: 16),
               child: SvgPicture.asset(
-                'assets/icon/momo_logo.svg',
+                'assets/icon/HaloStory.svg',
                 width: 20,
                 height: 20,
                 fit: BoxFit.contain,
@@ -335,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 4),
             Text(
-              'BlueTalk',
+              'HaloStory',
               style: GoogleFonts.nunito(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -424,17 +428,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     unselectedColor: sidebarIconColor,
                   ),
                   _buildSidebarNavItem(
-                    iconAsset: 'assets/icon/sidebar_stories.svg',
+                    iconAsset: 'assets/icon/sidebar_calendar.svg',
                     index: 2,
                     isSelected: _currentIndex == 2,
-                    selectedBackgroundColor: sidebarSelectedBg,
-                    selectedColor: sidebarIconSelectedColor,
-                    unselectedColor: sidebarIconColor,
-                  ),
-                  _buildSidebarNavItem(
-                    iconAsset: 'assets/icon/sidebar_calendar.svg',
-                    index: 3,
-                    isSelected: _currentIndex == 3,
                     selectedBackgroundColor: sidebarSelectedBg,
                     selectedColor: sidebarIconSelectedColor,
                     unselectedColor: sidebarIconColor,
@@ -676,7 +672,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 child: BottomNavigationBar(
-                  currentIndex: _currentIndex >= 2 ? _currentIndex + 1 : _currentIndex,
+                  currentIndex: _currentIndex,
                   onTap: _onBottomNavTap,
                   type: BottomNavigationBarType.fixed,
                   backgroundColor: isDark ? colorScheme.surface : Colors.white,
@@ -701,12 +697,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: tr('sidebar_menu'),
                     ),
                     BottomNavigationBarItem(
-                      icon: const Icon(Icons.auto_stories_rounded),
-                      label: tr('tab_stories'),
-                    ),
-                    BottomNavigationBarItem(
                       icon: const Icon(Icons.calendar_month_rounded),
                       label: tr('tab_calendar'),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.settings_outlined),
+                      label: tr('sidebar_settings'),
                     ),
                   ],
                 ),

@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "R8KStudio" "\0"
-            VALUE "FileDescription", "BlueTalk" "\0"
+            VALUE "FileDescription", "HaloStory" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "BlueTalk" "\0"
+            VALUE "InternalName", "HaloStory" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 R8KStudio. All rights reserved." "\0"
-            VALUE "OriginalFilename", "BlueTalk.exe" "\0"
-            VALUE "ProductName", "BlueTalk" "\0"
+            VALUE "OriginalFilename", "HaloStory.exe" "\0"
+            VALUE "ProductName", "HaloStory" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

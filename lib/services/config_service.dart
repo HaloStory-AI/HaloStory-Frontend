@@ -9,7 +9,7 @@ class ConfigService {
 
   static String? _baseUrl;
   static bool _isMaintenance = false;
-  static String _maintenanceMsg = "BlueTalk is under maintenance.";
+  static String _maintenanceMsg = "HaloStory is under maintenance.";
   static String _remoteVersion = "0.0.0";
   static bool _needsUpdate = false;
 

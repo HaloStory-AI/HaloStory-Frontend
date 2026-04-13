@@ -119,7 +119,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ],
             ),
             child: SvgPicture.asset(
-              'assets/icon/momo_logo.svg',
+              'assets/icon/HaloStory.svg',
               fit: BoxFit.contain,
             ),
           ),

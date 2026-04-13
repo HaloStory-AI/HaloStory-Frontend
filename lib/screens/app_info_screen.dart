@@ -47,7 +47,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SvgPicture.asset(
-              'assets/icon/momo_logo.svg',
+              'assets/icon/HaloStory.svg',
               width: 100,
               height: 100,
               fit: BoxFit.contain,
@@ -59,7 +59,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
             const SizedBox(height: 24),
 
             Text(
-              'BlueTalk',
+              'HaloStory',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -90,12 +90,12 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
               onPressed: () {
                 showLicensePage(
                   context: context,
-                  applicationName: 'BlueTalk',
+                  applicationName: 'HaloStory',
                   applicationVersion: _version,
                   applicationIcon: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: SvgPicture.asset(
-                      'assets/icon/momo_logo.svg',
+                      'assets/icon/HaloStory.svg',
                       width: 64,
                       height: 64,
                       fit: BoxFit.contain,

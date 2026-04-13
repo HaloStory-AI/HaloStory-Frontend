@@ -38,11 +38,11 @@ void main() async {
     }
   });
 
-  runApp(const BlueTalkApp());
+  runApp(const HaloStoryApp());
 }
 
-class BlueTalkApp extends StatelessWidget {
-  const BlueTalkApp({super.key});
+class HaloStoryApp extends StatelessWidget {
+  const HaloStoryApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +51,7 @@ class BlueTalkApp extends StatelessWidget {
       builder: (context, child) {
         return MaterialApp(
           scaffoldMessengerKey: rootScaffoldMessengerKey,
-          title: 'BlueTalk',
+          title: 'HaloStory',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme(),
           darkTheme: AppTheme.amoledTheme(),

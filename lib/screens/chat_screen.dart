@@ -15,6 +15,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:intl/intl.dart';
 import '../constants.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/localization_service.dart';
 
@@ -85,6 +86,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   static const String _chatHeaderFont = 'Roboto';
   bool _showExplosion = false;
+  bool _showSafetyBar = false;
 
   @override
   void initState() {
@@ -445,8 +447,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         if (response != null &&
             response['error'] != true &&
             response['choices'] != null) {
-          final aiContent = response['choices'][0]['message']['content'];
-          if (aiContent != null && (aiContent as String).isNotEmpty) {
+          String aiContent = response['choices'][0]['message']['content'] ?? '';
+          
+          if (aiContent.contains('[Need Help]')) {
+            _showSafetyBar = true;
+            aiContent = aiContent.replaceAll('[Need Help]', '').trim();
+          }
+
+          if (aiContent.isNotEmpty) {
             final parts = aiContent
                 .split('\n\n')
                 .where((s) => s.trim().isNotEmpty)
@@ -1519,7 +1527,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         RegExp(r'[^a-zA-Z0-9]'),
         '_',
       );
-      final fileName = 'BlueTalk_Chat_${safeName}_$dateStr.$format';
+      final fileName = 'HaloStory_Chat_${safeName}_$dateStr.$format';
 
       if (kIsWeb) {
         ScaffoldMessenger.of(
@@ -1552,11 +1560,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Future<Directory> _getDownloadDir() async {
     Directory? baseDir;
     if (Platform.isAndroid) {
-      baseDir = Directory('/storage/emulated/0/Download/BlueTalk');
+      baseDir = Directory('/storage/emulated/0/Download/HaloStory');
     } else {
       baseDir = await getDownloadsDirectory();
       if (baseDir != null) {
-        baseDir = Directory('${baseDir.path}/BlueTalk');
+        baseDir = Directory('${baseDir.path}/HaloStory');
       }
     }
 
@@ -1759,6 +1767,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             color: _pageBackground(context),
             child: Column(
               children: [
+                if (_showSafetyBar) _buildSafetyBar(),
                 if (_isSummarizing && _summaryProgress >= 0.0)
                   LinearProgressIndicator(
                     value: _summaryProgress,
@@ -2503,6 +2512,69 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _safeSetState(() {
       _showExplosion = true;
     });
+  }
+
+  Widget _buildSafetyBar() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.1),
+        border: Border(
+          bottom: BorderSide(color: Colors.redAccent.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: Colors.redAccent, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "We care about your safety.",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.redAccent,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  "If you are going through a difficult time, please know that you are not alone.",
+                  style: TextStyle(
+                    color: Colors.redAccent.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () => launchUrl(Uri.parse('https://findahelpline.com/')),
+                  child: const Text(
+                    "Find a helpline →",
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.redAccent, size: 20),
+            onPressed: () {
+              _safeSetState(() {
+                _showSafetyBar = false;
+              });
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 
