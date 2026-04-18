@@ -373,6 +373,38 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> updateName(String name) async {
+    final token = await getToken();
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/user/update-name'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'name': name}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        // Cache the updated user profile
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
+        return {'success': true, 'message': 'Username updated successfully'};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to update username',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error occurred'};
+    }
+  }
+
   Future<Map<String, dynamic>> updatePassword(
     String currentPassword,
     String newPassword,

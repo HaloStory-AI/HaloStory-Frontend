@@ -94,6 +94,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _bondLevel = widget.bot['bond_hearts'] ?? 0;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
+    _syncBondStats();
     _loadSystemNote();
     if (widget.provider == 'System' && !_hasShownSystemAiWarning) {
       _showSystemAiWarning();
@@ -448,7 +449,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             response['error'] != true &&
             response['choices'] != null) {
           String aiContent = response['choices'][0]['message']['content'] ?? '';
-          
+
           if (aiContent.contains('[Need Help]')) {
             _showSafetyBar = true;
             aiContent = aiContent.replaceAll('[Need Help]', '').trim();
@@ -492,9 +493,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       // Update bond state from response
       if (response != null) {
         _safeSetState(() {
-          _bondStatus       = response['bond_status']        ?? _bondStatus;
-          _bondRelationship = response['relationship_label'] ?? _bondRelationship;
-          _bondLevel        = (response['bond_level'] as int?) ?? _bondLevel;
+          _bondStatus = response['bond_status'] ?? _bondStatus;
+          _bondRelationship =
+              response['relationship_label'] ?? _bondRelationship;
+          _bondLevel = (response['bond_level'] as int?) ?? _bondLevel;
           _pendingBondEvent = response['bond_event'] as String?;
         });
       }
@@ -532,14 +534,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
 
     for (int i = 1; i < totalParts; i++) {
-      await Future.delayed(
-        const Duration(milliseconds: 500),
-      );
+      await Future.delayed(const Duration(milliseconds: 500));
       _scrollToBottom();
 
-      await Future.delayed(
-        const Duration(milliseconds: 1500),
-      );
+      await Future.delayed(const Duration(milliseconds: 1500));
 
       if (!mounted || _isDisposed) return;
 
@@ -577,35 +575,67 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("Bond Simulator (God Mode)", style: TextStyle(fontWeight: FontWeight.bold, color: scheme.primary)),
+              Text(
+                "Bond Simulator (God Mode)",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: scheme.primary,
+                ),
+              ),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  ElevatedButton(onPressed: () => _simulateBond(xp: 1000), child: const Text("+1k XP")),
-                  ElevatedButton(onPressed: () => _simulateBond(level: 25), child: const Text("Lv 25")),
-                  ElevatedButton(onPressed: () => _simulateBond(level: 100), child: const Text("Lv 100")),
-                  ElevatedButton(onPressed: () => _simulateBond(level: 150), child: const Text("Lv 150")),
                   ElevatedButton(
-                    onPressed: () => _handleBondEvent('confession_triggered'), 
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, foregroundColor: Colors.white),
+                    onPressed: () => _simulateBond(xp: 1000),
+                    child: const Text("+1k XP"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _simulateBond(level: 25),
+                    child: const Text("Lv 25"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _simulateBond(level: 100),
+                    child: const Text("Lv 100"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _simulateBond(level: 150),
+                    child: const Text("Lv 150"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _handleBondEvent('confession_triggered'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pinkAccent,
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text("Trigger Confession"),
                   ),
                   ElevatedButton(
-                    onPressed: () => _handleBondEvent('marriage_triggered'), 
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, foregroundColor: Colors.white),
+                    onPressed: () => _handleBondEvent('marriage_triggered'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purpleAccent,
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text("Trigger Marriage"),
                   ),
                   ElevatedButton(
-                    onPressed: () => _simulateBond(reset: true), 
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    child: const Text("Reset Bond", style: TextStyle(color: Colors.white)),
+                    onPressed: () => _simulateBond(reset: true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text(
+                      "Reset Bond",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              const Text("Note: Changes on server will sync on next message or refresh", style: TextStyle(fontSize: 10, color: Colors.grey)),
+              const Text(
+                "Note: Changes on server will sync on next message or refresh",
+                style: TextStyle(fontSize: 10, color: Colors.grey),
+              ),
             ],
           ),
         );
@@ -619,11 +649,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/bots/bond/${widget.bot['id']}/debug'),
+        Uri.parse(
+          '${AppConstants.baseUrl}/bots/bond/${widget.bot['id']}/debug',
+        ),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
         body: jsonEncode({
           if (xp != null) 'xp': xp,
@@ -653,7 +685,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("Simulasi Gagal: ${response.statusCode} - ${errorData['error'] ?? 'Unknown Error'}"),
+              content: Text(
+                "Simulasi Gagal: ${response.statusCode} - ${errorData['error'] ?? 'Unknown Error'}",
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -686,7 +720,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 Icon(Icons.heart_broken, color: Colors.white, size: 18),
                 SizedBox(width: 8),
-                Text('Hubungan kalian memburuk...', style: TextStyle(color: Colors.white)),
+                Text(
+                  'Hubungan kalian memburuk...',
+                  style: TextStyle(color: Colors.white),
+                ),
               ],
             ),
             backgroundColor: Colors.red.shade700,
@@ -702,7 +739,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 Icon(Icons.mood_bad, color: Colors.white, size: 18),
                 SizedBox(width: 8),
-                Text('Bond XP berkurang...', style: TextStyle(color: Colors.white)),
+                Text(
+                  'Bond XP berkurang...',
+                  style: TextStyle(color: Colors.white),
+                ),
               ],
             ),
             backgroundColor: Colors.orange.shade800,
@@ -718,7 +758,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 const Icon(Icons.favorite, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
-                Text('Hubungan kalian naik ke: $_bondRelationship! ✨', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(
+                  'Hubungan kalian naik ke: $_bondRelationship! ✨',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             backgroundColor: Colors.pink.shade400,
@@ -753,7 +799,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       case 'relationship_stuck':
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Keputusan telah dibuat. Status hubungan tidak berubah.'),
+            content: Text(
+              'Keputusan telah dibuat. Status hubungan tidak berubah.',
+            ),
             backgroundColor: Colors.blueGrey,
             duration: Duration(seconds: 3),
           ),
@@ -762,7 +810,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-
+  Future<void> _syncBondStats() async {
+    try {
+      final data = await _fetchBondStats();
+      if (data != null && mounted && !_isDisposed) {
+        _safeSetState(() {
+          _bondStatus = data['bond_status'] ?? _bondStatus;
+          _bondRelationship = data['relationship_label'] ?? _bondRelationship;
+          _bondLevel = (data['bond_level'] as int?) ?? _bondLevel;
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<Map<String, dynamic>?> _fetchBondStats() async {
     final authService = AuthService();
@@ -812,7 +871,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildBondStatsContainer(Map<String, dynamic>? bondData, {bool isDesktop = false}) {
+  Widget _buildBondStatsContainer(
+    Map<String, dynamic>? bondData, {
+    bool isDesktop = false,
+  }) {
     final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
     final xp = bondData?['xp'] ?? 0;
     final xpInto = bondData?['xp_into_level'] ?? 0;
@@ -825,7 +887,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       padding: EdgeInsets.fromLTRB(24, isDesktop ? 32 : 16, 24, 32),
       decoration: BoxDecoration(
         color: _surfaceBackground(context),
-        borderRadius: isDesktop ? BorderRadius.circular(24) : BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: isDesktop
+            ? BorderRadius.circular(24)
+            : BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -880,14 +944,25 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: _relationshipColor(_bondStatus).withValues(alpha: 0.15),
+                      color: _relationshipColor(
+                        _bondStatus,
+                      ).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _relationshipColor(_bondStatus).withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: _relationshipColor(
+                          _bondStatus,
+                        ).withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
-                      _bondRelationship.isNotEmpty ? _bondRelationship : (bondData?['relationship_label'] ?? 'Orang Asing'),
+                      _bondRelationship.isNotEmpty
+                          ? _bondRelationship
+                          : (bondData?['relationship_label'] ?? 'Orang Asing'),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -988,11 +1063,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-
   void _addSystemError(String timestamp, {int? statusCode, dynamic rawError}) {
     String errorMsg = 'Error: Failed to get response from ${widget.provider}.';
 
-    if (statusCode == 429) {
+    if (statusCode == 503) {
+      errorMsg = 'Server is under maintenance, try again later';
+      rawError = null; // Skip raw payload formatting
+    } else if (statusCode == 429) {
       errorMsg = tr('error_rate_limit');
     } else if (statusCode == 400 || statusCode == 401) {
       errorMsg = tr('error_api_key');
@@ -1019,7 +1096,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         String errStr = rawError.toString();
         if (errStr.trim().toLowerCase().startsWith('<!doctype html') ||
             errStr.toLowerCase().contains('<html')) {
-          return '${statusCode != null ? '[$statusCode] ' : ''}Server returned an HTML error page. Endpoint might be incorrect or unavailable.';
+          return '${statusCode != null ? '[$statusCode] ' : ''}Server returned an HTML error page. you can press the send message to resend it';
         }
         return '${statusCode != null ? '[$statusCode] ' : ''}$errStr';
       }
@@ -1071,7 +1148,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
 
-    if (rawError.containsKey('error_type') && rawError['error_type'] is String) {
+    if (rawError.containsKey('error_type') &&
+        rawError['error_type'] is String) {
       errType ??= rawError['error_type'];
     }
     if (rawError.containsKey('type') &&
@@ -1129,7 +1207,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
       decoration: BoxDecoration(
         color: _surfaceBackground(context),
-        borderRadius: isDesktop ? BorderRadius.circular(24) : BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: isDesktop
+            ? BorderRadius.circular(24)
+            : BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         children: [
@@ -1248,18 +1328,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             if (match != null && match.groupCount >= 1) {
                               String val = match.group(1)!.trim();
                               val = val
-                                  .replaceAll(
-                                    RegExp('^["\'*]+|["\'*]+\$'),
-                                    '',
-                                  )
+                                  .replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '')
                                   .trim();
-                                if (val.endsWith(',')) {
-                                  val = val.substring(0, val.length - 1).trim();
-                                }
-                                return val;
+                              if (val.endsWith(',')) {
+                                val = val.substring(0, val.length - 1).trim();
                               }
-                              return null;
+                              return val;
                             }
+                            return null;
+                          }
 
                           result['Nickname'] =
                               findMatch(
@@ -1267,8 +1344,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               ) ??
                               '*Unknown*';
                           result['Age'] =
-                              findMatch(r'Age\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
+                              findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
                           result['Nationality'] =
                               findMatch(
                                 r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
@@ -1771,7 +1847,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 if (_isSummarizing && _summaryProgress >= 0.0)
                   LinearProgressIndicator(
                     value: _summaryProgress,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       Theme.of(context).colorScheme.primary,
                     ),
@@ -1795,7 +1873,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           if (isSystem) {
                             return Center(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 child: Text(
                                   msg['content'],
                                   style: TextStyle(
@@ -1824,7 +1904,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 );
 
                           return GestureDetector(
-                            onLongPress: () => _showMessageOptions(index, content),
+                            onLongPress: () =>
+                                _showMessageOptions(index, content),
                             child: bubble,
                           );
                         },
@@ -1836,7 +1917,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           child: FloatingActionButton(
                             mini: true,
                             elevation: 4,
-                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             onPressed: _scrollToBottom,
                             child: Icon(
                               Icons.arrow_downward_rounded,
@@ -1854,7 +1937,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             heroTag: "bond_simulator",
                             backgroundColor: Colors.orange.shade700,
                             onPressed: _showBondSimulator,
-                            child: const Icon(Icons.bug_report, color: Colors.white),
+                            child: const Icon(
+                              Icons.bug_report,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                     ],
@@ -1866,8 +1952,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ],
             ),
           ),
-          if (_activeOverlay != null)
-            _buildDesktopOverlay(),
+          if (_activeOverlay != null) _buildDesktopOverlay(),
         ],
       ),
     );
@@ -1929,7 +2014,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-
   Color _parseColor(dynamic color) {
     if (color == null) return Colors.blueGrey;
     if (color is Color) return color;
@@ -1963,12 +2047,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Color _relationshipColor(String status) {
     return switch (status) {
-      'enemy'    => Colors.red.shade400,
-      'married'  => Colors.purple.shade400,
-      'lover'    => const Color(0xFFFB6F9D),
+      'enemy' => Colors.red.shade400,
+      'married' => Colors.purple.shade400,
+      'lover' => const Color(0xFFFB6F9D),
       'rejected' => Colors.grey.shade500,
-      'stuck'    => Colors.orange.shade400,
-      _          => Colors.blue.shade400,
+      'stuck' => Colors.orange.shade400,
+      _ => Colors.blue.shade400,
     };
   }
 
@@ -2508,6 +2592,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
     );
   }
+
   void _triggerBondExplosion() {
     _safeSetState(() {
       _showExplosion = true;
@@ -2526,7 +2611,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded, color: Colors.redAccent, size: 24),
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Colors.redAccent,
+            size: 24,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -2550,7 +2639,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ),
                 const SizedBox(height: 4),
                 GestureDetector(
-                  onTap: () => launchUrl(Uri.parse('https://findahelpline.com/')),
+                  onTap: () =>
+                      launchUrl(Uri.parse('https://findahelpline.com/')),
                   child: const Text(
                     "Find a helpline →",
                     style: TextStyle(
@@ -2677,24 +2767,38 @@ class _ParticlePainter extends CustomPainter {
     final height = size;
 
     path.moveTo(center.dx, center.dy + height * 0.35);
-    path.cubicTo(center.dx + width * 0.1, center.dy, center.dx + width * 0.5,
-        center.dy, center.dx + width * 0.5, center.dy + height * 0.35);
     path.cubicTo(
-        center.dx + width * 0.5,
-        center.dy + height * 0.6,
-        center.dx + width * 0.25,
-        center.dy + height * 0.85,
-        center.dx,
-        center.dy + height);
+      center.dx + width * 0.1,
+      center.dy,
+      center.dx + width * 0.5,
+      center.dy,
+      center.dx + width * 0.5,
+      center.dy + height * 0.35,
+    );
     path.cubicTo(
-        center.dx - width * 0.25,
-        center.dy + height * 0.85,
-        center.dx - width * 0.5,
-        center.dy + height * 0.6,
-        center.dx - width * 0.5,
-        center.dy + height * 0.35);
-    path.cubicTo(center.dx - width * 0.5, center.dy, center.dx - width * 0.1,
-        center.dy, center.dx, center.dy + height * 0.35);
+      center.dx + width * 0.5,
+      center.dy + height * 0.6,
+      center.dx + width * 0.25,
+      center.dy + height * 0.85,
+      center.dx,
+      center.dy + height,
+    );
+    path.cubicTo(
+      center.dx - width * 0.25,
+      center.dy + height * 0.85,
+      center.dx - width * 0.5,
+      center.dy + height * 0.6,
+      center.dx - width * 0.5,
+      center.dy + height * 0.35,
+    );
+    path.cubicTo(
+      center.dx - width * 0.5,
+      center.dy,
+      center.dx - width * 0.1,
+      center.dy,
+      center.dx,
+      center.dy + height * 0.35,
+    );
     path.close();
 
     canvas.drawPath(path, paint);
@@ -2703,7 +2807,6 @@ class _ParticlePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
-
 
 class _DotAnim extends StatefulWidget {
   final double delay;

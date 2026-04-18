@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,10 @@ class LocalChatService {
   static const String _webTimePrefix = 'chat_time_';
   static const String _webSummaryPrefix = 'chat_summary_';
   static const String _webPinsKey = 'chat_pinned_ids';
+
+  // Reactive Stream for UI updates
+  static final StreamController<String> _updateController = StreamController<String>.broadcast();
+  static Stream<String> get onChatUpdated => _updateController.stream;
 
   // Get the directory for Android storage
   Future<String> _getStoragePath() async {
@@ -44,6 +49,7 @@ class LocalChatService {
         '$_webTimePrefix$chatId',
         DateTime.now().toIso8601String(),
       );
+      _updateController.add(chatId);
       return;
     }
 
@@ -51,6 +57,7 @@ class LocalChatService {
       final path = await _getStoragePath();
       final file = File('$path/$chatId.json');
       await file.writeAsString(jsonContent);
+      _updateController.add(chatId);
     } catch (e) {
       print('DEBUG: Error saving chat: $e');
     }
@@ -229,6 +236,8 @@ class LocalChatService {
     } catch (e) {
       print('DEBUG: Error deleting chat: $e');
     }
+
+    _updateController.add(chatId);
 
     // Auto-remove from pins if deleted
     final pins = await getPinnedChats();

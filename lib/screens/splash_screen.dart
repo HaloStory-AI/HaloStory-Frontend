@@ -103,6 +103,24 @@ class _SplashScreenState extends State<SplashScreen>
 
     final bool configSuccess = await ConfigService.initConfig();
 
+    if (ConfigService.isConnectionTimeout) {
+      if (!mounted) return;
+      _showNoInternetBottomSheet();
+      return;
+    }
+
+    if (ConfigService.isMaintenance) {
+      if (!mounted) return;
+      _showMaintenanceDialog();
+      return;
+    }
+
+    if (ConfigService.isAutoDetectedMaintenance) {
+      if (!mounted) return;
+      _showMaintenanceDialog();
+      return;
+    }
+
     if (!configSuccess) {
       if (!mounted) return;
       _showNoInternetBottomSheet();
@@ -112,12 +130,6 @@ class _SplashScreenState extends State<SplashScreen>
     if (ConfigService.needsUpdate) {
       if (!mounted) return;
       _showUpdateDialog();
-      return;
-    }
-
-    if (ConfigService.isMaintenance) {
-      if (!mounted) return;
-      _showMaintenanceDialog();
       return;
     }
 

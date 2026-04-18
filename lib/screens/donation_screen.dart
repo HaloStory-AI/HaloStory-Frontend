@@ -35,20 +35,24 @@ class _DonationScreenState extends State<DonationScreen> {
 
   bool get _isVip {
     if (_userProfile == null) return false;
-    final role = _userProfile!['role'];
+    final role = _userProfile!['role']?.toString().toLowerCase();
     if (role == 'admin' || role == 'sensei') return true;
     if (role == 'vip') {
       final expiresAt = _userProfile!['vip_expires_at'];
       if (expiresAt == null) return false;
-      final expiryDate = DateTime.parse(expiresAt);
-      return expiryDate.isAfter(DateTime.now());
+      try {
+        final expiryDate = DateTime.parse(expiresAt);
+        return expiryDate.isAfter(DateTime.now());
+      } catch (e) {
+        return false;
+      }
     }
     return false;
   }
 
   String _getVipStatusText() {
     if (_userProfile == null) return tr('vip_status_inactive');
-    final role = _userProfile!['role'];
+    final role = _userProfile!['role']?.toString().toLowerCase();
     if (role == 'admin' || role == 'sensei') return tr('vip_status_admin');
     if (_isVip) return tr('vip_status_active');
     return tr('vip_status_inactive');
@@ -56,12 +60,16 @@ class _DonationScreenState extends State<DonationScreen> {
 
   String? _getExpiryDate() {
     if (_userProfile == null) return null;
-    final role = _userProfile!['role'];
+    final role = _userProfile!['role']?.toString().toLowerCase();
     if (role == 'admin' || role == 'sensei') return null;
     final expiresAt = _userProfile!['vip_expires_at'];
     if (expiresAt == null) return null;
-    final expiryDate = DateTime.parse(expiresAt);
-    return DateFormat.yMMMMd(tr('settings_language_code')).format(expiryDate);
+    try {
+      final expiryDate = DateTime.parse(expiresAt);
+      return DateFormat.yMMMMd(tr('settings_language_code')).format(expiryDate);
+    } catch (e) {
+      return null;
+    }
   }
 
   @override

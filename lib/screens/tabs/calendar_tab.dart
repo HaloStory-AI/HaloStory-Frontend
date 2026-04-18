@@ -10,7 +10,7 @@ class CalendarTab extends StatefulWidget {
   State<CalendarTab> createState() => _CalendarTabState();
 }
 
-class _CalendarTabState extends State<CalendarTab> {
+class _CalendarTabState extends State<CalendarTab> with AutomaticKeepAliveClientMixin {
   final BotService _botService = BotService();
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
@@ -48,7 +48,11 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 

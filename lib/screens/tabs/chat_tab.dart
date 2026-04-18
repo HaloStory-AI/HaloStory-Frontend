@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
@@ -24,7 +25,7 @@ class ChatTab extends StatefulWidget {
   State<ChatTab> createState() => ChatTabState();
 }
 
-class ChatTabState extends State<ChatTab> {
+class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   final LocalChatService _localChatService = LocalChatService();
   final BotService _botService = BotService();
   List<Map<String, dynamic>> _activeChats = [];
@@ -36,6 +37,7 @@ class ChatTabState extends State<ChatTab> {
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
   bool _showSyncNotice = true;
+  StreamSubscription<String>? _chatUpdateSubscription;
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
@@ -195,13 +197,28 @@ class ChatTabState extends State<ChatTab> {
   void initState() {
     super.initState();
     _loadSortPreferencesAndInit();
+
+    // Listen to real-time chat updates (new messages, deleted chats)
+    _chatUpdateSubscription = LocalChatService.onChatUpdated.listen((chatId) {
+      if (mounted) {
+        initData(silent: true);
+      }
+    });
   }
 
-  Future<void> initData({bool force = false}) async {
-    setState(() {
-      _isLoadingBots = true;
-      _isLoadingChats = true;
-    });
+  @override
+  void dispose() {
+    _chatUpdateSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> initData({bool force = false, bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoadingBots = true;
+        _isLoadingChats = true;
+      });
+    }
 
     await _loadAvailableBots(force: force);
 
@@ -923,7 +940,11 @@ class ChatTabState extends State<ChatTab> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -1610,7 +1631,6 @@ class ChatTabState extends State<ChatTab> {
               }
 
               widget.onChatSelected(chat);
-              _loadActiveChats();
             },
             onLongPress: () => _toggleChatSelection(chatId, forceSelect: true),
           ),
@@ -1934,7 +1954,7 @@ class ChatTabState extends State<ChatTab> {
         }
 
         return Container(
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black.withValues(alpha: 0.3),
           child: Center(
             child: Container(
               margin: const EdgeInsets.all(16),

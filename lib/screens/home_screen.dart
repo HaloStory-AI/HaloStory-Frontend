@@ -33,10 +33,16 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final AuthService _authService = AuthService();
   Map<String, dynamic>? _userProfile;
+  late final List<Widget> _tabs;
 
   @override
   void initState() {
     super.initState();
+    _tabs = [
+      ChatTab(onChatSelected: _onChatSelected),
+      const CreateTab(),
+      const CalendarTab(),
+    ];
     _pageController = PageController(initialPage: _currentIndex);
     _loadProfile();
     _checkDonation();
@@ -163,11 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<Widget> get _tabs => [
-    ChatTab(onChatSelected: _onChatSelected),
-    const CreateTab(),
-    const CalendarTab(),
-  ];
+
 
   void _onChatSelected(Map<String, dynamic> bot) {
     final prefs = SharedPreferences.getInstance();
@@ -180,9 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(
           builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
         ),
-      ).then((_) {
-        // Trigger a refresh if needed
-      });
+      );
     });
   }
 
@@ -271,19 +271,23 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     
-    if (index == 3) {
+    if (index == 4) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const SetupScreen()),
+        MaterialPageRoute(builder: (context) => const SettingsScreen()),
       );
       return;
     }
 
     if (index == _currentIndex) return;
 
+    // Map Nav index to PageView index
+    int pageIndex = index;
+    if (index == 3) pageIndex = 2; 
+
     setState(() => _currentIndex = index);
     _pageController.animateToPage(
-      index,
+      pageIndex,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
@@ -648,8 +652,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: PageView(
                 controller: _pageController,
                 onPageChanged: (index) {
-                  if (index == _currentIndex) return;
-                  setState(() => _currentIndex = index);
+                  int navIndex = index;
+                  if (index == 2) navIndex = 3; // Page 2 is Calendar (Nav Index 3)
+                  if (navIndex == _currentIndex) return;
+                  setState(() => _currentIndex = navIndex);
                 },
                 children: _tabs,
               ),

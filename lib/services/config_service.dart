@@ -6,9 +6,12 @@ import 'package:flutter/foundation.dart';
 class ConfigService {
   static const String _configUrl =
       'https://api-bluetalk.my-bini.my.id/api/app/status';
+  static const String _upUrl = 'https://api-bluetalk.my-bini.my.id/up';
 
   static String? _baseUrl;
   static bool _isMaintenance = false;
+  static bool isAutoDetectedMaintenance = false;
+  static bool isConnectionTimeout = false;
   static String _maintenanceMsg = "HaloStory is under maintenance.";
   static String _remoteVersion = "0.0.0";
   static bool _needsUpdate = false;
@@ -24,13 +27,40 @@ class ConfigService {
   /// Manually trigger maintenance mode (e.g. on 503 error)
   static void enterMaintenance([String? msg]) {
     if (kDebugMode) return;
-    _isMaintenance = true;
+    isAutoDetectedMaintenance = true;
     if (msg != null) _maintenanceMsg = msg;
     print("DEBUG: ConfigService - Entered Maintenance Mode via 503");
   }
 
+  /// Lightweight ping to check if server is up
+  static Future<void> checkServerUp() async {
+    try {
+      final response = await http
+          .get(Uri.parse(_upUrl))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 503) {
+        isAutoDetectedMaintenance = true;
+        _maintenanceMsg =
+            "Server on maintenance, No detail from Developer cause the auto detect, try again later.";
+      } else if (response.statusCode == 200) {
+        // If it was auto-detected before, reset it
+        if (isAutoDetectedMaintenance) {
+          isAutoDetectedMaintenance = false;
+          // Note: we don't reset _isMaintenance here because that depends on initConfig
+        }
+      }
+    } catch (e) {
+      // Background ping failures (timeout/socket) don't force maintenance unless it's 503
+      print('DEBUG: ConfigService Ping Error: $e');
+    }
+  }
+
   /// Fetch configuration from Laravel API
   static Future<bool> initConfig() async {
+    isAutoDetectedMaintenance = false;
+    isConnectionTimeout = false;
+
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       final localVer = packageInfo.version;
@@ -41,17 +71,26 @@ class ConfigService {
 
       final response = await http
           .get(Uri.parse(antiCacheUrl), headers: {'Cache-Control': 'no-cache'})
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         _applyConfig(data);
         await _checkVersion(data['version']);
         return true;
+      } else if (response.statusCode == 503) {
+        isAutoDetectedMaintenance = true;
+        _maintenanceMsg =
+            "Server on maintenance, No detail from Developer cause the auto detect, try again later.";
+        return true; // Return true because we handled it as a known state (Maintenance)
       }
       return false;
     } catch (e) {
       print('DEBUG: ConfigService Fetch Error: $e');
+      if (e.toString().contains('TimeoutException') ||
+          e.toString().contains('SocketException')) {
+        isConnectionTimeout = true;
+      }
       return false;
     }
   }

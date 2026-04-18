@@ -1,16 +1,31 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:bluetalk_frontend/screens/splash_screen.dart';
 import 'package:bluetalk_frontend/services/localization_service.dart';
 import 'package:bluetalk_frontend/services/theme_service.dart';
 import 'package:bluetalk_frontend/theme/app_theme.dart';
+import 'package:bluetalk_frontend/services/config_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalizationService().init();
   await ThemeService().init();
+
+  // Background server ping every 2 minutes
+  Timer.periodic(const Duration(minutes: 2), (timer) async {
+    await ConfigService.checkServerUp();
+    if (ConfigService.isAutoDetectedMaintenance) {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (route) => false,
+      );
+    }
+  });
 
   Connectivity().onConnectivityChanged.listen((
     List<ConnectivityResult> result,
@@ -50,6 +65,7 @@ class HaloStoryApp extends StatelessWidget {
       listenable: Listenable.merge([LocalizationService(), ThemeService()]),
       builder: (context, child) {
         return MaterialApp(
+          navigatorKey: navigatorKey,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           title: 'HaloStory',
           debugShowCheckedModeBanner: false,

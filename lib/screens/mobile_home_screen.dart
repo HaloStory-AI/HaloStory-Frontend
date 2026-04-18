@@ -30,10 +30,16 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
   final AuthService _authService = AuthService();
   final GlobalKey<ChatTabState> _chatTabKey = GlobalKey<ChatTabState>();
   Map<String, dynamic>? _userProfile;
+  late final List<Widget> _tabs;
 
   @override
   void initState() {
     super.initState();
+    _tabs = [
+      ChatTab(key: _chatTabKey, onChatSelected: _onChatSelected), // Index 0
+      const CreateTab(), // Index 1
+      const CalendarTab(), // Index 2
+    ];
     _loadProfile();
   }
 
@@ -44,11 +50,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
     }
   }
 
-  List<Widget> get _tabs => [
-    ChatTab(key: _chatTabKey, onChatSelected: _onChatSelected), // Index 0
-    const CreateTab(), // Index 1
-    const CalendarTab(), // Index 2
-  ];
+
 
   Future<void> _onChatSelected(Map<String, dynamic> bot) async {
     // Basic navigation for mobile
@@ -63,8 +65,6 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
         builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
       ),
     );
-    // Refresh list when returning from chat
-    _chatTabKey.currentState?.initData();
   }
 
   void _showLogoutDialog() {
@@ -389,7 +389,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
             if (index == 3) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const SetupScreen()),
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
               return;
             }
