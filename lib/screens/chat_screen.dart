@@ -16,6 +16,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:intl/intl.dart';
 import '../constants.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/rendering.dart';
 
 import '../services/localization_service.dart';
 
@@ -74,6 +75,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isDisposed = false;
   bool _showScrollButton = false;
 
+  // Debug overlay state
+  bool _showDebugOverlay = false;
+  OverlayEntry? _debugOverlayEntry;
+  final List<String> _debugLogs = [];
+  final ScrollController _debugScrollController = ScrollController();
+
   final TextEditingController _systemNoteController = TextEditingController();
   bool _isSystemNoteOpen = false;
   String? _activeOverlay; // 'bio' or 'bond'
@@ -88,23 +95,55 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _showExplosion = false;
   bool _showSafetyBar = false;
 
+  bool _isGroup = false;
+  List<Map<String, dynamic>> _groupMembers = [];
+  String? _selectedBotId;
+
   @override
   void initState() {
     super.initState();
+    _isGroup =
+        widget.bot['id'].toString().startsWith('group_') ||
+        (widget.bot['isGroup'] == true);
     _bondLevel = widget.bot['bond_hearts'] ?? 0;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
     _syncBondStats();
     _loadSystemNote();
+    _showBugNoticeIfNeeded();
+    _loadSelectedBot();
     if (widget.provider == 'System' && !_hasShownSystemAiWarning) {
       _showSystemAiWarning();
       _hasShownSystemAiWarning = true;
     }
   }
 
+  Future<void> _loadSelectedBot() async {
+    if (!_isGroup) return;
+    final prefs = await SharedPreferences.getInstance();
+    final savedBotId = prefs.getString('selected_bot_${widget.bot['id']}');
+    if (mounted) {
+      setState(() {
+        _selectedBotId = savedBotId;
+      });
+    }
+  }
+
+  Future<void> _saveSelectedBot(String botId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_bot_${widget.bot['id']}', botId);
+    if (mounted) {
+      setState(() {
+        _selectedBotId = botId;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
+    _debugOverlayEntry?.remove();
+    _debugScrollController.dispose();
     _scrollController.removeListener(_scrollListener);
     _messageController.dispose();
     _scrollController.dispose();
@@ -219,6 +258,223 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
   }
 
+  Future<void> _showBugNoticeIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenNotice = prefs.getBool('has_seen_chat_bug_notice') ?? false;
+
+    if (!hasSeenNotice) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isDisposed) return;
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _surfaceBackground(context),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/image/info.png',
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  tr('chat_bug_notice_title'),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  tr('chat_bug_notice_body'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _subtitleColor(context),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await prefs.setBool('has_seen_chat_bug_notice', true);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _surfaceAltBackground(context),
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(tr('system_notice_btn')),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      });
+    }
+  }
+
+  void _toggleDebugOverlay() {
+    if (!kDebugMode) return;
+
+    _safeSetState(() {
+      _showDebugOverlay = !_showDebugOverlay;
+    });
+
+    if (_showDebugOverlay) {
+      _debugOverlayEntry = OverlayEntry(
+        builder: (context) => Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Material(
+            color: Colors.black87,
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Debug Console',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          _safeSetState(() {
+                            _showDebugOverlay = false;
+                          });
+                          _debugOverlayEntry?.remove();
+                          _debugOverlayEntry = null;
+                        },
+                        child: Icon(Icons.close, color: Colors.red, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _debugScrollController,
+                      itemCount: _debugLogs.length,
+                      itemBuilder: (context, index) {
+                        final log = _debugLogs[index];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            log,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _safeSetState(() {
+                              _debugLogs.clear();
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Clear Logs'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _addDebugLog('Debug log test at ${DateTime.now()}');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Test Log'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      Overlay.of(context).insert(_debugOverlayEntry!);
+    } else {
+      _debugOverlayEntry?.remove();
+      _debugOverlayEntry = null;
+    }
+  }
+
+  void _addDebugLog(String message) {
+    if (!kDebugMode) return;
+    final timestamp = DateTime.now().toIso8601String();
+    _safeSetState(() {
+      _debugLogs.add('[$timestamp] $message');
+      if (_debugLogs.length > 1000) {
+        _debugLogs.removeRange(0, _debugLogs.length - 1000);
+      }
+    });
+
+    if (_debugScrollController.hasClients) {
+      _debugScrollController.animateTo(
+        _debugScrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   bool _isBirthday(dynamic birthdayStr) {
     if (birthdayStr == null || birthdayStr == '') return false;
     try {
@@ -236,6 +492,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       msg.remove('visible_parts');
       msg.remove('is_typing_next');
     }
+
+    if (_isGroup && history.isNotEmpty) {
+      final systemMsg = history.firstWhere(
+        (m) => m['role'] == 'system' && m['metadata'] != null,
+        orElse: () => <String, dynamic>{},
+      );
+      if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
+        final metadata = systemMsg['metadata'];
+        if (metadata['members'] != null) {
+          _safeSetState(() {
+            _groupMembers = List<Map<String, dynamic>>.from(
+              metadata['members'],
+            );
+            if (_selectedBotId == null && _groupMembers.isNotEmpty) {
+              _selectedBotId =
+                  _groupMembers.first['bot_id']?.toString() ??
+                  _groupMembers.first['id']?.toString();
+            }
+          });
+        }
+      }
+    }
+
     final summaries = await _localChatService.loadSummaries(widget.bot['id']);
     if (!mounted || _isDisposed) return;
     _safeSetState(() {
@@ -255,6 +534,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Future<void> _generateSummaries() async {
     if (_isSummarizing) return;
     if (!mounted || _isDisposed) return;
+
+    _addDebugLog('Starting summary generation for bot ${widget.bot['id']}');
 
     final int batchSize = 20;
 
@@ -291,6 +572,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           final result = await _aiService.summarizeChat(
             messages: batch,
             botId: widget.bot['id'],
+            provider: widget.provider,
           );
 
           if (result != null && result['summary'] != null) {
@@ -341,6 +623,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Future<void> _sendMessage() async {
     if (_isLoading || _isTypingEffectActive) return;
 
+    if (_isGroup && _selectedBotId == null) {
+      if (_groupMembers.isNotEmpty) {
+        _selectedBotId =
+            _groupMembers.first['bot_id']?.toString() ??
+            _groupMembers.first['id']?.toString();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pilih karakter terlebih dahulu!')),
+        );
+        return;
+      }
+    }
+
     final userMessage = _messageController.text.trim();
 
     if (userMessage.isEmpty) {
@@ -364,6 +659,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
     _scrollToBottom();
 
+    await _generateSummaries();
     await _getAIResponse();
   }
 
@@ -375,11 +671,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _safeSetState(() {
         _messages.removeLast();
       });
+      await _generateSummaries();
       await _getAIResponse();
     }
   }
 
   Future<void> _getAIResponse() async {
+    if (_isGroup && _selectedBotId == null) {
+      if (_groupMembers.isNotEmpty) {
+        _selectedBotId =
+            _groupMembers.first['bot_id']?.toString() ??
+            _groupMembers.first['id']?.toString();
+      } else {
+        _safeSetState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pilih karakter terlebih dahulu!')),
+        );
+        return;
+      }
+    }
+
     _safeSetState(() {
       _isLoading = true;
     });
@@ -431,7 +744,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final response = await _aiService.sendMessage(
         provider: widget.provider,
         messages: aiMessages,
-        botId: widget.bot['id'],
+        botId: _isGroup ? _selectedBotId : widget.bot['id'],
+        botIds: _isGroup
+            ? _groupMembers
+                  .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+                  .whereType<String>()
+                  .toList()
+            : null,
         language: language,
         summary: summaryPrompt,
       );
@@ -848,6 +1167,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _showBondStats() async {
+    if (_isGroup) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => _buildGroupBondStats(),
+      );
+      return;
+    }
     if (widget.isDesktopMode) {
       if (await Navigator.maybePop(context)) {
         // If there's a popup (like more menu), close it first
@@ -868,6 +1196,96 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildGroupBondStats() {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: _surfaceBackground(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Text(
+            'Group Bond Levels',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView.separated(
+              itemCount: _groupMembers.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                final member = _groupMembers[index];
+                final hearts = member['bond_hearts'] ?? 0;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: _parseColor(member['color']),
+                    backgroundImage: member['image_url'] != null
+                        ? NetworkImage(member['image_url'])
+                        : (member['avatar'] != null
+                              ? NetworkImage(member['avatar'])
+                              : null),
+                    child:
+                        (member['image_url'] == null &&
+                            member['avatar'] == null)
+                        ? Text(
+                            (member['name'] as String)[0].toUpperCase(),
+                            style: const TextStyle(color: Colors.white),
+                          )
+                        : null,
+                  ),
+                  title: Text(
+                    member['name'] ?? 'Unknown',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _titleColor(context),
+                    ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.favorite,
+                        color: Color(0xFFFBB6CE),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$hearts',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1653,307 +2071,365 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: _pageBackground(context),
-        elevation: 0,
-        automaticallyImplyLeading: !widget.isDesktopMode,
-        leadingWidth: widget.isDesktopMode ? 16 : 40,
-        title: GestureDetector(
-          onTap: _showStudentBio,
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: _parseColor(widget.bot['color']),
-                backgroundImage: widget.bot['image_url'] != null
-                    ? NetworkImage(widget.bot['image_url'])
-                    : null,
-                child: widget.bot['image_url'] == null
-                    ? Text(
-                        widget.bot['name'][0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+    return CallbackShortcuts(
+      bindings: {
+        LogicalKeySet(LogicalKeyboardKey.f12): () => _toggleDebugOverlay(),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: _pageBackground(context),
+            elevation: 0,
+            automaticallyImplyLeading: !widget.isDesktopMode,
+            leadingWidth: widget.isDesktopMode ? 16 : 40,
+            title: GestureDetector(
+              onTap: _showStudentBio,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: _parseColor(widget.bot['color']),
+                    backgroundImage: widget.bot['image_url'] != null
+                        ? NetworkImage(widget.bot['image_url'])
+                        : null,
+                    child: widget.bot['image_url'] == null
+                        ? Text(
+                            widget.bot['name'][0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.bot['name'],
-                          style: TextStyle(
-                            color: _titleColor(context),
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: _chatHeaderFont,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              widget.bot['name'],
+                              style: TextStyle(
+                                color: _titleColor(context),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: _chatHeaderFont,
+                              ),
+                            ),
+                            if (_isBirthday(widget.bot['birthday']))
+                              const Padding(
+                                padding: EdgeInsets.only(left: 4),
+                                child: Text(
+                                  '🎂',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                          ],
                         ),
-                        if (_isBirthday(widget.bot['birthday']))
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4),
-                            child: Text('🎂', style: TextStyle(fontSize: 14)),
-                          ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: GestureDetector(
+                      onTap: _showBondStats,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            color: Color(0xFFE88FAA),
+                            size: 40,
+                          ),
+                          const Icon(
+                            Icons.favorite,
+                            color: Color(0xFFF9C3D4),
+                            size: 36,
+                          ),
+                          if (!_isGroup)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                '$_bondLevel',
+                                style: _bondCountHeaderStyle(context),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: GestureDetector(
-                  onTap: _showBondStats,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const Icon(
-                        Icons.favorite,
-                        color: Color(0xFFE88FAA),
-                        size: 40,
-                      ),
-                      const Icon(
-                        Icons.favorite,
-                        color: Color(0xFFF9C3D4),
-                        size: 36,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          '$_bondLevel',
-                          style: _bondCountHeaderStyle(context),
+            ),
+            actions: [
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: _subtitleColor(context)),
+                onSelected: (value) async {
+                  if (value == 'export_txt') {
+                    await _exportChat('txt');
+                  } else if (value == 'export_json') {
+                    await _exportChat('json');
+                  } else if (value == 're_summary') {
+                    _safeSetState(() => _summaries.clear());
+                    await _localChatService.saveSummaries(
+                      widget.bot['id'],
+                      _summaries,
+                    );
+
+                    // Show persistent loading popup
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => Dialog(
+                        backgroundColor: _surfaceBackground(context),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(),
+                              const SizedBox(height: 16),
+                              Text(
+                                tr('chat_resummary_loading'),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    );
+
+                    await _generateSummaries();
+
+                    if (mounted) {
+                      Navigator.pop(context); // Close loading dialog
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Re-generating summaries...'),
+                        ),
+                      );
+                    }
+                  } else if (value == 'delete') {
+                    await _localChatService.deleteChat(widget.bot['id']);
+                    _safeSetState(() {
+                      _messages = [];
+                      _summaries.clear();
+                    });
+                  }
+                },
+                itemBuilder: (BuildContext context) {
+                  final scheme = Theme.of(context).colorScheme;
+                  return <PopupMenuEntry<String>>[
+                    PopupMenuItem<String>(
+                      value: 'export_txt',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.description_outlined,
+                            color: scheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('Export as TXT'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'export_json',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.data_object_outlined,
+                            color: scheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('Export as JSON'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 're_summary',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            color: scheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('Re-Summary'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            color: scheme.error,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            tr('chat_delete_confirm'),
+                            style: TextStyle(color: scheme.error),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
               ),
             ],
           ),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: _subtitleColor(context)),
-            onSelected: (value) async {
-              if (value == 'export_txt') {
-                await _exportChat('txt');
-              } else if (value == 'export_json') {
-                await _exportChat('json');
-              } else if (value == 're_summary') {
-                _safeSetState(() => _summaries.clear());
-                await _localChatService.saveSummaries(
-                  widget.bot['id'],
-                  _summaries,
-                );
-                _generateSummaries();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Re-generating summaries...')),
-                  );
-                }
-              } else if (value == 'delete') {
-                await _localChatService.deleteChat(widget.bot['id']);
-                _safeSetState(() {
-                  _messages = [];
-                  _summaries.clear();
-                });
-              }
-            },
-            itemBuilder: (BuildContext context) {
-              final scheme = Theme.of(context).colorScheme;
-              return <PopupMenuEntry<String>>[
-                PopupMenuItem<String>(
-                  value: 'export_txt',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.description_outlined,
-                        color: scheme.onSurfaceVariant,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Export as TXT'),
-                    ],
+          body: Stack(
+            children: [
+              if (_showExplosion)
+                Positioned.fill(
+                  child: _BondExplosionEffect(
+                    onFinished: () {
+                      _safeSetState(() => _showExplosion = false);
+                    },
                   ),
                 ),
-                PopupMenuItem<String>(
-                  value: 'export_json',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.data_object_outlined,
-                        color: scheme.onSurfaceVariant,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Export as JSON'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem<String>(
-                  value: 're_summary',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        color: scheme.onSurfaceVariant,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Re-Summary'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, color: scheme.error, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        tr('chat_delete_confirm'),
-                        style: TextStyle(color: scheme.error),
-                      ),
-                    ],
-                  ),
-                ),
-              ];
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          if (_showExplosion)
-            Positioned.fill(
-              child: _BondExplosionEffect(
-                onFinished: () {
-                  _safeSetState(() => _showExplosion = false);
-                },
-              ),
-            ),
-          Container(
-            color: _pageBackground(context),
-            child: Column(
-              children: [
-                if (_showSafetyBar) _buildSafetyBar(),
-                if (_isSummarizing && _summaryProgress >= 0.0)
-                  LinearProgressIndicator(
-                    value: _summaryProgress,
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainer,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).colorScheme.primary,
-                    ),
-                    minHeight: 2,
-                  ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+              Container(
+                color: _pageBackground(context),
+                child: Column(
+                  children: [
+                    if (_showSafetyBar) _buildSafetyBar(),
+                    if (_isSummarizing && _summaryProgress >= 0.0)
+                      LinearProgressIndicator(
+                        value: _summaryProgress,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainer,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.primary,
                         ),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = _messages[index];
-                          final isUser = msg['role'] == 'user';
-                          final isSystem = msg['role'] == 'system';
+                        minHeight: 2,
+                      ),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final msg = _messages[index];
+                              final isUser = msg['role'] == 'user';
+                              final isSystem = msg['role'] == 'system';
 
-                          if (isSystem) {
-                            return Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                child: Text(
-                                  msg['content'],
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontSize: 12,
+                              if (isSystem) {
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: Text(
+                                      msg['content'],
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ),
+                                );
+                              }
+
+                              final timestamp = msg['timestamp'] != null
+                                  ? DateTime.parse(msg['timestamp'])
+                                  : null;
+
+                              final content = msg['content']?.toString() ?? '';
+
+                              final bubble = isUser
+                                  ? _buildUserBubble(content, timestamp, index)
+                                  : _buildBotBubble(
+                                      content,
+                                      timestamp,
+                                      index,
+                                      visibleParts:
+                                          msg['visible_parts'] as int?,
+                                      isTypingNext:
+                                          msg['is_typing_next'] == true,
+                                    );
+
+                              return GestureDetector(
+                                onLongPress: () =>
+                                    _showMessageOptions(index, content),
+                                child: bubble,
+                              );
+                            },
+                          ),
+                          if (_showScrollButton)
+                            Positioned(
+                              bottom: 16,
+                              right: 16,
+                              child: FloatingActionButton(
+                                mini: true,
+                                elevation: 4,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                onPressed: _scrollToBottom,
+                                child: Icon(
+                                  Icons.arrow_downward_rounded,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                  size: 20,
                                 ),
                               ),
-                            );
-                          }
-
-                          final timestamp = msg['timestamp'] != null
-                              ? DateTime.parse(msg['timestamp'])
-                              : null;
-
-                          final content = msg['content']?.toString() ?? '';
-
-                          final bubble = isUser
-                              ? _buildUserBubble(content, timestamp, index)
-                              : _buildBotBubble(
-                                  content,
-                                  timestamp,
-                                  index,
-                                  visibleParts: msg['visible_parts'] as int?,
-                                  isTypingNext: msg['is_typing_next'] == true,
-                                );
-
-                          return GestureDetector(
-                            onLongPress: () =>
-                                _showMessageOptions(index, content),
-                            child: bubble,
-                          );
-                        },
+                            ),
+                          if (kDebugMode)
+                            Positioned(
+                              bottom: 72,
+                              right: 16,
+                              child: FloatingActionButton(
+                                mini: true,
+                                heroTag: "bond_simulator",
+                                backgroundColor: Colors.orange.shade700,
+                                onPressed: _showBondSimulator,
+                                child: const Icon(
+                                  Icons.bug_report,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      if (_showScrollButton)
-                        Positioned(
-                          bottom: 16,
-                          right: 16,
-                          child: FloatingActionButton(
-                            mini: true,
-                            elevation: 4,
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.primary,
-                            onPressed: _scrollToBottom,
-                            child: Icon(
-                              Icons.arrow_downward_rounded,
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      if (kDebugMode)
-                        Positioned(
-                          bottom: 72,
-                          right: 16,
-                          child: FloatingActionButton(
-                            mini: true,
-                            heroTag: "bond_simulator",
-                            backgroundColor: Colors.orange.shade700,
-                            onPressed: _showBondSimulator,
-                            child: const Icon(
-                              Icons.bug_report,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                    ),
+                    if (_isLoading) _buildTypingIndicator(),
+                    _buildSystemNoteArea(),
+                    _buildInputArea(),
+                  ],
                 ),
-                if (_isLoading) _buildTypingIndicator(),
-                _buildSystemNoteArea(),
-                _buildInputArea(),
-              ],
-            ),
+              ),
+              if (_activeOverlay != null) _buildDesktopOverlay(),
+            ],
           ),
-          if (_activeOverlay != null) _buildDesktopOverlay(),
-        ],
+        ),
       ),
     );
   }
@@ -2473,86 +2949,180 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildInputArea() {
+  Widget _buildCharacterSelector() {
+    if (!_isGroup || _groupMembers.isEmpty) return const SizedBox.shrink();
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      height: 70,
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: _surfaceBackground(context),
         border: Border(top: BorderSide(color: _fieldBorderColor(context))),
       ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () => _safeSetState(
-                    () => _isSystemNoteOpen = !_isSystemNoteOpen,
-                  ),
-                  child: Icon(
-                    _isSystemNoteOpen
-                        ? Icons.sticky_note_2
-                        : Icons.sticky_note_2_outlined,
-                    color: _isSystemNoteOpen
-                        ? Theme.of(context).colorScheme.primary
-                        : _subtitleColor(context),
-                    size: 24,
-                  ),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _groupMembers.length,
+        itemBuilder: (context, index) {
+          final member = _groupMembers[index];
+          final memberId =
+              member['bot_id']?.toString() ?? member['id']?.toString();
+          final isSelected = _selectedBotId == memberId;
+          final color = _parseColor(member['color']);
+
+          return GestureDetector(
+            onTap: () => _saveSelectedBot(memberId!),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? color : Colors.transparent,
+                  width: 2,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _surfaceBackground(context),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: _fieldBorderColor(context)),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: InputDecoration(
-                        hintText: '${tr('tab_chat')} ${widget.bot['name']}',
-                        hintStyle: TextStyle(
-                          color: _hintColor(context),
-                          fontSize: 14,
+              ),
+              child: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: color,
+                    backgroundImage: member['image_url'] != null
+                        ? NetworkImage(member['image_url'])
+                        : (member['avatar'] != null
+                              ? NetworkImage(member['avatar'])
+                              : null),
+                    child:
+                        (member['image_url'] == null &&
+                            member['avatar'] == null)
+                        ? Text(
+                            (member['name'] as String)[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (isSelected)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _surfaceBackground(context),
+                            width: 1.5,
+                          ),
                         ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
+                        child: const Icon(
+                          Icons.check,
+                          size: 10,
+                          color: Colors.white,
                         ),
                       ),
-                      onSubmitted: (_) {
-                        if (!_isTypingEffectActive) _sendMessage();
-                      },
                     ),
-                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInputArea() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildCharacterSelector(),
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          decoration: BoxDecoration(
+            color: _surfaceBackground(context),
+            border: Border(top: BorderSide(color: _fieldBorderColor(context))),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _safeSetState(
+                        () => _isSystemNoteOpen = !_isSystemNoteOpen,
+                      ),
+                      child: Icon(
+                        _isSystemNoteOpen
+                            ? Icons.sticky_note_2
+                            : Icons.sticky_note_2_outlined,
+                        color: _isSystemNoteOpen
+                            ? Theme.of(context).colorScheme.primary
+                            : _subtitleColor(context),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _surfaceBackground(context),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: _fieldBorderColor(context)),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: InputDecoration(
+                            hintText: _isGroup
+                                ? 'Chatting with ${_groupMembers.firstWhere((m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId, orElse: () => {'name': widget.bot['name']})['name']}'
+                                : '${tr('tab_chat')} ${widget.bot['name']}',
+                            hintStyle: TextStyle(
+                              color: _hintColor(context),
+                              fontSize: 14,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          onSubmitted: (_) {
+                            if (!_isTypingEffectActive) _sendMessage();
+                          },
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _isTypingEffectActive ? null : _sendMessage,
+                      child: Icon(
+                        Icons.send_rounded,
+                        color: _isTypingEffectActive
+                            ? _subtitleColor(context)
+                            : Theme.of(context).colorScheme.primary,
+                        size: 28,
+                      ),
+                    ),
+                  ],
                 ),
-                GestureDetector(
-                  onTap: _isTypingEffectActive ? null : _sendMessage,
-                  child: Icon(
-                    Icons.send_rounded,
-                    color: _isTypingEffectActive
-                        ? _subtitleColor(context)
-                        : Theme.of(context).colorScheme.primary,
-                    size: 28,
+                const SizedBox(height: 8),
+                Text(
+                  tr('chat_fictional_disclaimer'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: _subtitleColor(context),
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              tr('chat_fictional_disclaimer'),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10,
-                color: _subtitleColor(context),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 

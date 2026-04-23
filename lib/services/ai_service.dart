@@ -22,6 +22,7 @@ class AIService {
     required String provider, // 'System', 'BYOK', 'BYOM'
     required List<Map<String, String>> messages,
     String? botId,
+    List<String>? botIds,
     String? language,
     String? summary,
   }) async {
@@ -83,6 +84,7 @@ class AIService {
           token,
           messages,
           botId,
+          botIds,
           actualLanguage,
           advancedParams,
           summary,
@@ -97,6 +99,7 @@ class AIService {
           token,
           messages,
           botId,
+          botIds,
           actualLanguage,
           apiKey,
           model,
@@ -207,6 +210,7 @@ class AIService {
     String token,
     List<Map<String, String>> messages,
     String? botId,
+    List<String>? botIds,
     String? language,
     Map<String, dynamic> advancedParams,
     String? summary,
@@ -221,6 +225,7 @@ class AIService {
       body: jsonEncode({
         'messages': messages,
         'bot_id': botId,
+        'bot_ids': botIds,
         'language': language,
         'summary': summary,
         ...advancedParams,
@@ -248,6 +253,7 @@ class AIService {
     String token,
     List<Map<String, String>> messages,
     String? botId,
+    List<String>? botIds,
     String? language,
     String apiKey,
     String model,
@@ -269,6 +275,7 @@ class AIService {
       body: jsonEncode({
         'messages': messages,
         'bot_id': botId,
+        'bot_ids': botIds,
         'language': language,
         'api_key': apiKey,
         'model': model,
@@ -366,14 +373,49 @@ class AIService {
     required List<Map<String, String>> messages,
     String? botId,
     String? language,
+    String? provider,
   }) async {
     final token = await _authService.getToken();
     if (token == null) return null;
 
     final actualLanguage =
         language ?? LocalizationService().currentLanguageName;
+    final mode = normalizeProvider(provider);
+
+    // BYOM: skip summarization, model lokal handle large context secara native
+    if (mode == 'BYOM') return null;
 
     try {
+      if (mode == 'BYOK') {
+        final prefs = await SharedPreferences.getInstance();
+        final apiKey = prefs.getString('byok_api_key') ?? '';
+        final model = prefs.getString('byok_model') ?? '';
+        final byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
+        final baseUrl = prefs.getString('byok_base_url') ?? '';
+        final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
+
+        final response = await http.post(
+          Uri.parse(endpoint),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'messages': messages,
+            'bot_id': botId,
+            'language': actualLanguage,
+            'api_key': apiKey,
+            'model': model,
+            'base_url': baseUrl,
+            'is_summarize': true,
+          }),
+        );
+        if (response.statusCode == 200) return jsonDecode(response.body);
+        return null;
+      }
+
+      // Default: System
       final response = await http.post(
         Uri.parse(AppConstants.chatSummarizeUrl),
         headers: {

@@ -307,5 +307,8 @@
   "vip_benefit_priority": "Prioritas Gemini AI",
   "vip_benefit_fallback": "Multi-key Fallback",
   "vip_benefit_badge": "Badge Eksklusif",
-  "donation_confirm_discord": "Konfirmasi via Discord"
+  "donation_confirm_discord": "Konfirmasi via Discord",
+  "chat_bug_notice_title": "Pemberitahuan Penting Perbaikan Bug",
+  "chat_bug_notice_body": "Update sebelumnya ada bug dimana AI mudah lupa, untuk memperbaikinya, tekan titik tiga lalu klik 'Re-Summary'.",
+  "chat_resummary_loading": "Meringkas ulang riwayat chat..."
 }

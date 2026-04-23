@@ -15,11 +15,7 @@ class ChatTab extends StatefulWidget {
   final Function(Map<String, dynamic>) onChatSelected;
   final Function(Widget)? onShowSort;
 
-  const ChatTab({
-    super.key,
-    required this.onChatSelected,
-    this.onShowSort,
-  });
+  const ChatTab({super.key, required this.onChatSelected, this.onShowSort});
 
   @override
   State<ChatTab> createState() => ChatTabState();
@@ -37,6 +33,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
   bool _showSyncNotice = true;
+  bool _isFabExpanded = false;
   StreamSubscription<String>? _chatUpdateSubscription;
 
   static const String _chatSortByKey = 'chat_sort_by';
@@ -256,25 +253,42 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
       final history = await _localChatService.loadChat(id);
 
       Map<String, dynamic>? bot;
-      try {
-        bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
-      } catch (_) {
-        bot = await _botService.getBotById(id);
+      bool isGroup = id.startsWith('group_');
+
+      if (isGroup && history.isNotEmpty) {
+        // Try to get group name from system message metadata
+        final systemMsg = history.firstWhere(
+          (m) => m['role'] == 'system' && m['metadata'] != null,
+          orElse: () => <String, dynamic>{},
+        );
+        if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
+          final metadata = systemMsg['metadata'];
+          bot = {
+            'id': id,
+            'name': metadata['name'] ?? 'New Group',
+            'avatar': null,
+            'color': '0xFF607D8B',
+            'isGroup': true,
+          };
+        }
       }
 
-      bot ??= {
-        'id': id,
-        'name': id,
-        'avatar': null,
-        'color': '0xFF607D8B',
-      };
+      if (bot == null) {
+        try {
+          bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
+        } catch (_) {
+          bot = await _botService.getBotById(id);
+        }
+      }
+
+      bot ??= {'id': id, 'name': id, 'avatar': null, 'color': '0xFF607D8B'};
 
       if (history.isNotEmpty) {
         loadedChats.add({
           ...bot,
           'lastMessage': history.last['content'] ?? '...',
           'time': _formatDateTime(meta['lastModified']),
-          'provider': 'Global Config',
+          'provider': isGroup ? 'Group' : 'Global Config',
           'lastModified': meta['lastModified'],
           'isPinned': _pinnedChatIds.contains(id),
         });
@@ -475,6 +489,385 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     ).whenComplete(() {
       isSheetClosed = true;
     });
+  }
+
+  void _showCreateGroupSheet() {
+    _loadAvailableBots(force: true);
+    bool isSheetClosed = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        String searchQuery = '';
+        List<Map<String, dynamic>> eventCategories = [];
+        String? selectedCategoryId;
+        List<Map<String, dynamic>> eventBots = [];
+        bool isLoadingEventBots = false;
+        bool isLoadingEventCategories = false;
+        Set<String> selectedBotIds = {};
+        final TextEditingController groupNameController = TextEditingController(
+          text: 'New Group',
+        );
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            void safeModalSetState(VoidCallback fn) {
+              if (isSheetClosed) return;
+              final route = ModalRoute.of(context);
+              if (route != null && !route.isCurrent) return;
+              setModalState(fn);
+            }
+
+            return DefaultTabController(
+              length: 2,
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.85,
+                decoration: BoxDecoration(
+                  color: _surfaceColor(context),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).dividerColor,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Create Group Chat (${selectedBotIds.length}/10)',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed:
+                                selectedBotIds.isEmpty ||
+                                    groupNameController.text.trim().isEmpty
+                                ? null
+                                : () async {
+                                    final groupId =
+                                        'group_${DateTime.now().millisecondsSinceEpoch}';
+                                    final List<Map<String, dynamic>> members =
+                                        [];
+
+                                    for (final id in selectedBotIds) {
+                                      final bot =
+                                          [
+                                            ..._availableBots,
+                                            ...eventBots,
+                                          ].firstWhere(
+                                            (b) => b['id'].toString() == id,
+                                            orElse: () => {
+                                              'id': id,
+                                              'name': id,
+                                              'avatar': null,
+                                              'color': '0xFF607D8B',
+                                            },
+                                          );
+                                      members.add(bot);
+                                    }
+
+                                    final metadata = {
+                                      'id': groupId,
+                                      'name':
+                                          groupNameController.text
+                                              .trim()
+                                              .isEmpty
+                                          ? 'New Group'
+                                          : groupNameController.text.trim(),
+                                      'isGroup': true,
+                                      'members': members,
+                                      'createdAt': DateTime.now()
+                                          .toIso8601String(),
+                                    };
+
+                                    await _localChatService.saveChat(groupId, [
+                                      {
+                                        'role': 'system',
+                                        'content':
+                                            'Group created with ${members.length} members.',
+                                        'metadata': metadata,
+                                      },
+                                    ]);
+
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      initData();
+                                    }
+                                  },
+                            child: const Text('Create'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                      child: TextField(
+                        controller: groupNameController,
+                        onChanged: (value) {
+                          safeModalSetState(() {});
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Enter group name...',
+                          prefixIcon: Icon(
+                            Icons.edit_note_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          filled: true,
+                          fillColor: _surfaceAltColor(context),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    TabBar(
+                      labelColor: Theme.of(context).colorScheme.primary,
+                      unselectedLabelColor: _secondaryTextColor(context),
+                      indicatorColor: Theme.of(context).colorScheme.primary,
+                      tabs: [
+                        const Tab(text: 'Main'),
+                        const Tab(text: 'Event'),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          Column(
+                            children: [
+                              _buildSearchHeader(context, (value) {
+                                safeModalSetState(() => searchQuery = value);
+                              }),
+                              Expanded(
+                                child: _buildBotListForGroup(
+                                  _availableBots.where((bot) {
+                                    final name = (bot['name'] ?? '')
+                                        .toString()
+                                        .toLowerCase();
+                                    final id = (bot['id'] ?? '')
+                                        .toString()
+                                        .toLowerCase();
+                                    final query = searchQuery.toLowerCase();
+                                    return name.contains(query) ||
+                                        id.contains(query);
+                                  }).toList(),
+                                  selectedBotIds,
+                                  (id) {
+                                    safeModalSetState(() {
+                                      if (selectedBotIds.contains(id)) {
+                                        selectedBotIds.remove(id);
+                                      } else if (selectedBotIds.length < 10) {
+                                        selectedBotIds.add(id);
+                                      }
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              _buildEventHeader(
+                                context,
+                                eventCategories,
+                                selectedCategoryId,
+                                (catId) async {
+                                  safeModalSetState(() {
+                                    selectedCategoryId = catId;
+                                    isLoadingEventBots = catId != null;
+                                    if (catId == null) {
+                                      eventBots = [];
+                                    }
+                                  });
+                                  if (catId == null) return;
+                                  final bots = await _botService.getBots(
+                                    type: 'Event',
+                                    category: catId,
+                                  );
+                                  safeModalSetState(() {
+                                    eventBots = bots;
+                                    isLoadingEventBots = false;
+                                  });
+                                },
+                                () async {
+                                  if (eventCategories.isEmpty &&
+                                      !isLoadingEventCategories) {
+                                    isLoadingEventCategories = true;
+                                    _botService.getEventCategories().then((
+                                      cats,
+                                    ) {
+                                      safeModalSetState(() {
+                                        eventCategories = cats;
+                                        isLoadingEventCategories = false;
+                                      });
+                                    });
+                                  }
+                                },
+                              ),
+                              Expanded(
+                                child: isLoadingEventBots
+                                    ? const ChatListSkeleton()
+                                    : _buildBotListForGroup(
+                                        eventBots,
+                                        selectedBotIds,
+                                        (id) {
+                                          safeModalSetState(() {
+                                            if (selectedBotIds.contains(id)) {
+                                              selectedBotIds.remove(id);
+                                            } else if (selectedBotIds.length <
+                                                10) {
+                                              selectedBotIds.add(id);
+                                            }
+                                          });
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      isSheetClosed = true;
+    });
+  }
+
+  Widget _buildBotListForGroup(
+    List<Map<String, dynamic>> bots,
+    Set<String> selectedBotIds,
+    Function(String) onToggle,
+  ) {
+    if (_isLoadingBots) return const ChatListSkeleton();
+    if (bots.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.person_search_rounded,
+              size: 64,
+              color: Theme.of(context).dividerColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tr('no_bots_found'),
+              style: TextStyle(color: _secondaryTextColor(context)),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: bots.length,
+      separatorBuilder: (context, index) =>
+          Divider(height: 1, color: Theme.of(context).dividerColor),
+      itemBuilder: (context, index) {
+        final bot = bots[index];
+        final id = bot['id'].toString();
+        final isSelected = selectedBotIds.contains(id);
+
+        return ListTile(
+          onTap: () => onToggle(id),
+          leading: Stack(
+            children: [
+              CircleAvatar(
+                backgroundColor: _parseColor(bot['color']),
+                backgroundImage: bot['image_url'] != null
+                    ? NetworkImage(bot['image_url'])
+                    : null,
+                child: bot['image_url'] == null
+                    ? Text(
+                        (bot['name'] as String).isNotEmpty
+                            ? (bot['name'] as String)[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              if (isSelected)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          title: Row(
+            children: [
+              Text(
+                bot['name'] ?? 'Unknown',
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : _primaryTextColor(context),
+                ),
+              ),
+              if (_isBirthday(bot['birthday']))
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Text('🎂', style: TextStyle(fontSize: 14)),
+                ),
+            ],
+          ),
+          subtitle: Text(
+            bot['description'] ?? 'No description',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _secondaryTextColor(context)),
+          ),
+          trailing: Checkbox(
+            value: isSelected,
+            onChanged: (_) => onToggle(id),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showSortSheet() {
@@ -930,7 +1323,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
           onTap: () async {
             Navigator.pop(context);
             _botService.recruitBot(bot['id']);
-            
+
             widget.onChatSelected(bot);
             _loadActiveChats();
           },
@@ -951,55 +1344,168 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         top: false,
         child: RefreshIndicator(onRefresh: _handleRefresh, child: _buildBody()),
       ),
-      floatingActionButton: _buildParallelogramNewChatButton(),
+      floatingActionButton: _buildExpandableFab(),
     );
   }
 
-  Widget _buildParallelogramNewChatButton() {
-    final isDark = _isDark(context);
+  Widget _buildExpandableFab() {
+    final colorScheme = Theme.of(context).colorScheme;
     const slant = 0.174533;
 
-    return SizedBox(
-      width: 50,
-      height: 46,
-      child: Transform(
-        transform: Matrix4.skewX(-slant),
-        alignment: Alignment.center,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [
-                BoxShadow(
-                  color: isDark
-                      ? Colors.black.withValues(alpha: 0.6)
-                      : Colors.black.withValues(alpha: 0.24),
-                  blurRadius: 0,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 3),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (_isFabExpanded) ...[
+          _buildFabOption(
+            icon: Icons.person_add_rounded,
+            label: 'Single Chat',
+            onTap: () {
+              setState(() => _isFabExpanded = false);
+              _showAddChatSheet();
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildFabOption(
+            icon: Icons.group_add_rounded,
+            label: 'Group Chat',
+            onTap: () {
+              setState(() => _isFabExpanded = false);
+              _showCreateGroupSheet();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        SizedBox(
+          width: 50,
+          height: 46,
+          child: Transform(
+            transform: Matrix4.skewX(-slant),
+            alignment: Alignment.center,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _isFabExpanded
+                      ? colorScheme.error
+                      : colorScheme.primary,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _isDark(context)
+                          ? Colors.black.withValues(alpha: 0.6)
+                          : Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 0,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: _showAddChatSheet,
-              child: Transform(
-                transform: Matrix4.skewX(slant),
-                alignment: Alignment.center,
-                child: Center(
-                  child: Icon(
-                    Icons.add_comment_rounded,
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    size: 26,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _isFabExpanded = !_isFabExpanded;
+                    });
+                  },
+                  child: Transform(
+                    transform: Matrix4.skewX(slant),
+                    alignment: Alignment.center,
+                    child: Center(
+                      child: Icon(
+                        _isFabExpanded
+                            ? Icons.close_rounded
+                            : Icons.add_rounded,
+                        color: _isFabExpanded
+                            ? colorScheme.onError
+                            : colorScheme.onPrimary,
+                        size: 28,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildFabOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const slant = 0.174533;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _surfaceColor(context),
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: _primaryTextColor(context),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 44,
+          height: 40,
+          child: Transform(
+            transform: Matrix4.skewX(-slant),
+            alignment: Alignment.center,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 0,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap,
+                  child: Transform(
+                    transform: Matrix4.skewX(slant),
+                    alignment: Alignment.center,
+                    child: Center(
+                      child: Icon(
+                        icon,
+                        color: colorScheme.onSecondaryContainer,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1420,15 +1926,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 tr('tab_chat_empty_subtitle'),
                 style: TextStyle(color: _secondaryTextColor(context)),
               ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: _showAddChatSheet,
-                icon: const Icon(Icons.add),
-                label: Text(tr('tab_chat_new_chat')),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(200, 50),
-                ),
-              ),
             ],
           ),
         ),
@@ -1455,6 +1952,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         final selectedChatBgColor = colorScheme.surfaceContainerHighest
             .withValues(alpha: _isDark(context) ? 0.52 : 0.95);
         final bondLevel = (chat['bond_hearts'] ?? 0).toString();
+
+        final bool isGroupChat = chatId.startsWith('group_');
 
         return AnimatedContainer(
           duration: const Duration(milliseconds: 220),
@@ -1600,30 +2099,35 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 ),
               ),
             ),
-            trailing: Container(
-              width: 45,
-              height: 45,
-              margin: const EdgeInsets.only(left: 8),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(
-                    Icons.favorite,
-                    color: Color(0xFFE462B5),
-                    size: 43,
+            trailing: isGroupChat
+                ? const SizedBox(width: 45)
+                : Container(
+                    width: 45,
+                    height: 45,
+                    margin: const EdgeInsets.only(left: 8),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const Icon(
+                          Icons.favorite,
+                          color: Color(0xFFE462B5),
+                          size: 43,
+                        ),
+                        const Icon(
+                          Icons.favorite,
+                          color: Color(0xFFF3B7D1),
+                          size: 39,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            bondLevel,
+                            style: _bondCountStyle(context),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Icon(
-                    Icons.favorite,
-                    color: Color(0xFFF3B7D1),
-                    size: 39,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(bondLevel, style: _bondCountStyle(context)),
-                  ),
-                ],
-              ),
-            ),
             onTap: () async {
               if (_selectedChatIds.isNotEmpty) {
                 _toggleChatSelection(chatId);
@@ -1935,7 +2439,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: isSelected ? colorScheme.onPrimary : _secondaryTextColor(context),
+                  color: isSelected
+                      ? colorScheme.onPrimary
+                      : _secondaryTextColor(context),
                 ),
               ),
             ),
@@ -1966,22 +2472,29 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
                         Text(
                           _trOr('sort_title', 'Sort'),
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: titleTextColor),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: titleTextColor,
+                          ),
                         ),
                         const Spacer(),
                         IconButton(
                           onPressed: () {
-                             if (widget.onShowSort != null) {
-                               widget.onShowSort!(const SizedBox.shrink());
-                             }
-                             if (Navigator.of(context).canPop()) {
-                               Navigator.pop(context);
-                             }
+                            if (widget.onShowSort != null) {
+                              widget.onShowSort!(const SizedBox.shrink());
+                            }
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.pop(context);
+                            }
                           },
                           icon: const Icon(Icons.close_rounded),
                         ),
@@ -2010,14 +2523,16 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                         await _saveSortPreferences();
                         await _loadActiveChats();
                         if (widget.onShowSort != null) {
-                           widget.onShowSort!(const SizedBox.shrink());
+                          widget.onShowSort!(const SizedBox.shrink());
                         }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         foregroundColor: colorScheme.onPrimary,
                         minimumSize: const Size(double.infinity, 40),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       child: Text(_trOr('sort_confirm', 'Confirm')),
                     ),

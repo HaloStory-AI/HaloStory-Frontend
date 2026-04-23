@@ -12,7 +12,8 @@ class LocalChatService {
   static const String _webPinsKey = 'chat_pinned_ids';
 
   // Reactive Stream for UI updates
-  static final StreamController<String> _updateController = StreamController<String>.broadcast();
+  static final StreamController<String> _updateController =
+      StreamController<String>.broadcast();
   static Stream<String> get onChatUpdated => _updateController.stream;
 
   // Get the directory for Android storage
@@ -24,6 +25,17 @@ class LocalChatService {
       // For now, using ApplicationDocumentsDirectory which is standard.
       final directory = await getApplicationDocumentsDirectory();
       final path = '${directory.path}/BlueTalkData';
+      final dir = Directory(path);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      return path;
+    }
+
+    if (Platform.isWindows) {
+      // For Windows, create HaloStoryData folder in Documents
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/HaloStoryData';
       final dir = Directory(path);
       if (!await dir.exists()) {
         await dir.create(recursive: true);

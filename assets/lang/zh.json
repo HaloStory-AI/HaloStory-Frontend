@@ -301,5 +301,8 @@
   "vip_benefit_priority": "优先 Gemini AI",
   "vip_benefit_fallback": "多重密钥回退",
   "vip_benefit_badge": "专属徽章",
-  "donation_confirm_discord": "通过 Discord 确认"
+  "donation_confirm_discord": "通过 Discord 确认",
+  "chat_bug_notice_title": "重要错误修复通知",
+  "chat_bug_notice_body": "之前的更新存在 AI 容易遗忘的错误。要修复此问题，请点击三个点并选择\"重新摘要 (Re-Summary)\"。",
+  "chat_resummary_loading": "重新摘要聊天记录中..."
 }

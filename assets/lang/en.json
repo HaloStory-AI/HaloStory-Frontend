@@ -306,5 +306,8 @@
   "vip_benefit_priority": "Priority Gemini AI",
   "vip_benefit_fallback": "Multi-key Fallback",
   "vip_benefit_badge": "Exclusive Badge",
-  "donation_confirm_discord": "Confirm via Discord"
+  "donation_confirm_discord": "Confirm via Discord",
+  "chat_bug_notice_title": "Important Bug Fix Notice",
+  "chat_bug_notice_body": "Previous update had a bug where AI forgot easily. To fix it, tap the three dots and click 'Re-Summary'.",
+  "chat_resummary_loading": "Re-summarizing chat history..."
 }

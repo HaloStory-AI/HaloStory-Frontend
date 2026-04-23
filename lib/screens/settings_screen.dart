@@ -50,7 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   };
 
   String _selectedProvider = 'System';
-  String _byokProvider = 'openrouter';
+  String _byokProvider = 'gemini';
   String _currentLanguage = 'id';
   bool _isLanguageChanged = false;
   bool _aiReasoningEnabled = false;
@@ -170,13 +170,16 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     final Map<String, dynamic> chatData = {};
     final Map<String, dynamic> summaryData = {};
+
     final chatService = LocalChatService();
     final metadata = await chatService.getAllChatMetadata();
+    final pinnedChats = await chatService.getPinnedChats();
+
     for (var meta in metadata) {
       final id = meta['id'].toString();
       final messages = await chatService.loadChat(id);
       final summaries = await chatService.loadSummaries(id);
-      
+
       chatData[id] = messages;
       summaryData[id] = summaries.map((k, v) => MapEntry(k.toString(), v));
     }
@@ -185,6 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       'settings': settingsData,
       'chats': chatData,
       'summaries': summaryData,
+      'pinned_chats': pinnedChats,
       'exported_at': DateTime.now().toIso8601String(),
     };
   }
@@ -304,6 +308,12 @@ class _SettingsScreenState extends State<SettingsScreen>
         await chatService.saveSummaries(chatId, sumMapInt);
       }
     }
+
+    // Restore Pinned Chats
+    if (fullPayload.containsKey('pinned_chats')) {
+      final List<dynamic> pins = fullPayload['pinned_chats'];
+      await chatService.savePinnedChats(List<String>.from(pins));
+    }
   }
 
   Future<void> _applyRestore(String encryptedJson) async {
@@ -327,7 +337,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Decode/Apply Error: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Decode/Apply Error: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -956,18 +969,24 @@ class _SettingsScreenState extends State<SettingsScreen>
             padding: const EdgeInsets.all(20.0),
             child: Column(
               children: [
-                if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) ...[
+                if (!kIsWeb &&
+                    (Platform.isWindows ||
+                        Platform.isMacOS ||
+                        Platform.isLinux)) ...[
                   // =================== DESKTOP BUTTONS ===================
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                         Navigator.push(context, MaterialPageRoute(
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
                             builder: (_) => QrHostScreen(
-                               mode: 'download',
-                               getDownloadPayload: _getBackupPayload,
-                            )
-                         ));
+                              mode: 'download',
+                              getDownloadPayload: _getBackupPayload,
+                            ),
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.qr_code_2),
                       label: Text(tr('settings_p2p_btn_copy_to_mobile')),
@@ -975,7 +994,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -984,20 +1005,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                         Navigator.push(context, MaterialPageRoute(
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
                             builder: (_) => QrHostScreen(
-                               mode: 'upload',
-                               onUploadReceived: (payload) async {
-                                  await _processRestorePayload(payload);
-                                  if (mounted) {
-                                     Navigator.of(context).pushAndRemoveUntil(
-                                        MaterialPageRoute(builder: (_) => const SplashScreen()),
-                                        (route) => false,
-                                     );
-                                  }
-                               },
-                            )
-                         ));
+                              mode: 'upload',
+                              onUploadReceived: (payload) async {
+                                await _processRestorePayload(payload);
+                                if (mounted) {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const SplashScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.qr_code_scanner),
                       label: Text(tr('settings_p2p_btn_receive_from_mobile')),
@@ -1005,7 +1031,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                         side: const BorderSide(color: Colors.orange),
                         foregroundColor: Colors.orange,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -1015,20 +1043,28 @@ class _SettingsScreenState extends State<SettingsScreen>
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                         final payload = await _getBackupPayload();
-                         if (mounted) {
-                            Navigator.push(context, MaterialPageRoute(
-                               builder: (_) => QrScannerScreen(
-                                  mode: 'upload',
-                                  payloadToUpload: payload,
-                                  onComplete: (_) {
-                                     ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(tr('settings_p2p_success_mobile')), backgroundColor: Colors.green)
-                                     );
-                                  }
-                               )
-                            ));
-                         }
+                        final payload = await _getBackupPayload();
+                        if (mounted) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => QrScannerScreen(
+                                mode: 'upload',
+                                payloadToUpload: payload,
+                                onComplete: (_) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        tr('settings_p2p_success_mobile'),
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.upload_file),
                       label: Text(tr('settings_p2p_btn_copy_to_desktop')),
@@ -1036,7 +1072,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -1045,22 +1083,27 @@ class _SettingsScreenState extends State<SettingsScreen>
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                         Navigator.push(context, MaterialPageRoute(
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
                             builder: (_) => QrScannerScreen(
-                               mode: 'download',
-                               onComplete: (payload) async {
-                                  if (payload != null) {
-                                     await _processRestorePayload(payload);
-                                     if (mounted) {
-                                        Navigator.of(context).pushAndRemoveUntil(
-                                           MaterialPageRoute(builder: (_) => const SplashScreen()),
-                                           (route) => false,
-                                        );
-                                     }
+                              mode: 'download',
+                              onComplete: (payload) async {
+                                if (payload != null) {
+                                  await _processRestorePayload(payload);
+                                  if (mounted) {
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => const SplashScreen(),
+                                      ),
+                                      (route) => false,
+                                    );
                                   }
-                               }
-                            )
-                         ));
+                                }
+                              },
+                            ),
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.download),
                       label: Text(tr('settings_p2p_btn_receive_from_desktop')),
@@ -1068,11 +1111,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                         side: const BorderSide(color: Colors.orange),
                         foregroundColor: Colors.orange,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
-                ]
+                ],
               ],
             ),
           ),
@@ -1288,10 +1333,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   icon: const Icon(Icons.cloud_download, size: 18),
                   label: const Text('Fetch'),
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(
-                      100,
-                      52,
-                    ),
+                    minimumSize: const Size(100, 52),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1554,8 +1596,9 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Widget _buildHelpLink() {
     final colorScheme = Theme.of(context).colorScheme;
-    String helpUrl = 'https://docs.my-bini.my.id/books/bluetalk/page/model-configuration';
-    
+    String helpUrl =
+        'https://docs.my-bini.my.id/books/bluetalk/page/model-configuration';
+
     if (_selectedProvider == 'BYOK') {
       helpUrl = 'https://s.my-bini.my.id/byok';
     } else if (_selectedProvider == 'BYOM') {
@@ -1565,10 +1608,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
-        onPressed: () => launchUrl(
-          Uri.parse(helpUrl),
-          mode: LaunchMode.externalApplication,
-        ),
+        onPressed: () =>
+            launchUrl(Uri.parse(helpUrl), mode: LaunchMode.externalApplication),
         icon: const Icon(Icons.help_outline, size: 18),
         label: Text(
           tr('settings_help_docs'),

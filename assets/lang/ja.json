@@ -301,5 +301,8 @@
   "vip_benefit_priority": "優先的なGemini AI",
   "vip_benefit_fallback": "マルチキーフォールバック",
   "vip_benefit_badge": "専用バッジ",
-  "donation_confirm_discord": "Discordで確認"
+  "donation_confirm_discord": "Discordで確認",
+  "chat_bug_notice_title": "重要なバグ修正のお知らせ",
+  "chat_bug_notice_body": "以前のアップデートでAIが忘れやすくなるバグがありました。修正するには、三点リーダーをタップして「再要約（Re-Summary）」をクリックしてください。",
+  "chat_resummary_loading": "チャット履歴を再要約中..."
 }
