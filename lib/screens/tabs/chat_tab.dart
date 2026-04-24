@@ -266,6 +266,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
           bot = {
             'id': id,
             'name': metadata['name'] ?? 'New Group',
+            'description': metadata['bio'] ?? metadata['description'] ?? '',
             'avatar': null,
             'color': '0xFF607D8B',
             'isGroup': true,
@@ -592,6 +593,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                                               .isEmpty
                                           ? 'New Group'
                                           : groupNameController.text.trim(),
+                                      'bio': '',
+                                      'description': '',
                                       'isGroup': true,
                                       'members': members,
                                       'createdAt': DateTime.now()

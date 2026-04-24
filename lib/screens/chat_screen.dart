@@ -99,6 +99,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isGroup = false;
   List<Map<String, dynamic>> _groupMembers = [];
   String? _selectedBotId;
+  String _groupName = '';
+  String _groupBio = '';
 
   @override
   void initState() {
@@ -106,6 +108,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _isGroup =
         widget.bot['id'].toString().startsWith('group_') ||
         (widget.bot['isGroup'] == true);
+    _groupName = (widget.bot['name'] ?? '').toString();
+    _groupBio = (widget.bot['description'] ?? widget.bot['bio'] ?? '')
+        .toString();
     _bondLevel = widget.bot['bond_hearts'] ?? 0;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
@@ -501,8 +506,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       );
       if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
         final metadata = systemMsg['metadata'];
-        if (metadata['members'] != null) {
-          _safeSetState(() {
+        _safeSetState(() {
+          final resolvedName = (metadata['name'] ?? '').toString().trim();
+          final resolvedBio = (metadata['bio'] ?? metadata['description'] ?? '')
+              .toString()
+              .trim();
+
+          if (resolvedName.isNotEmpty) {
+            _groupName = resolvedName;
+            widget.bot['name'] = resolvedName;
+          }
+
+          _groupBio = resolvedBio;
+          widget.bot['description'] = resolvedBio;
+
+          if (metadata['members'] != null) {
             _groupMembers = List<Map<String, dynamic>>.from(
               metadata['members'],
             );
@@ -511,8 +529,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   _groupMembers.first['bot_id']?.toString() ??
                   _groupMembers.first['id']?.toString();
             }
-          });
-        }
+          }
+        });
       }
     }
 
@@ -2194,6 +2212,91 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  Future<void> _showEditGroupInfoDialog() async {
+    if (!_isGroup) return;
+
+    final nameController = TextEditingController(
+      text: _groupName.isNotEmpty ? _groupName : widget.bot['name'] ?? '',
+    );
+    final bioController = TextEditingController(text: _groupBio);
+
+    final bool? shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit Group Info'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Group name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: bioController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Group bio',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSave != true) return;
+
+    final newName = nameController.text.trim();
+    final newBio = bioController.text.trim();
+
+    if (newName.isEmpty) {
+      if (!mounted || _isDisposed) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Group name cannot be empty.')),
+      );
+      return;
+    }
+
+    await _localChatService.updateGroupMetadata(
+      widget.bot['id'].toString(),
+      name: newName,
+      bio: newBio,
+    );
+
+    if (!mounted || _isDisposed) return;
+
+    _safeSetState(() {
+      _groupName = newName;
+      _groupBio = newBio;
+      widget.bot['name'] = newName;
+      widget.bot['description'] = newBio;
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Group info updated.')));
+  }
+
   Future<Directory> _getDownloadDir() async {
     Directory? baseDir;
     if (Platform.isAndroid) {
@@ -2255,7 +2358,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         Row(
                           children: [
                             Text(
-                              widget.bot['name'],
+                              _isGroup
+                                  ? (_groupName.isNotEmpty
+                                        ? _groupName
+                                        : widget.bot['name'])
+                                  : widget.bot['name'],
                               style: TextStyle(
                                 color: _titleColor(context),
                                 fontSize: 16,
@@ -2313,7 +2420,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: _subtitleColor(context)),
                 onSelected: (value) async {
-                  if (value == 'export_txt') {
+                  if (value == 'edit_group_info') {
+                    await _showEditGroupInfoDialog();
+                  } else if (value == 'export_txt') {
                     await _exportChat('txt');
                   } else if (value == 'export_json') {
                     await _exportChat('json');
@@ -2376,6 +2485,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 itemBuilder: (BuildContext context) {
                   final scheme = Theme.of(context).colorScheme;
                   return <PopupMenuEntry<String>>[
+                    if (_isGroup)
+                      PopupMenuItem<String>(
+                        value: 'edit_group_info',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit_note_rounded,
+                              color: scheme.onSurfaceVariant,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Edit Group Info'),
+                          ],
+                        ),
+                      ),
                     PopupMenuItem<String>(
                       value: 'export_txt',
                       child: Row(
@@ -2758,7 +2882,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     for (var i = _messages.length - 1; i >= 0; i--) {
       final m = _messages[i];
       if (m['role'] == 'assistant' && m['is_typing_next'] == true) {
-        typingMsg = m as Map<String, dynamic>;
+        typingMsg = m;
         break;
       }
     }
@@ -3162,11 +3286,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Widget _buildCharacterSelector() {
     if (!_isGroup || _groupMembers.isEmpty) return const SizedBox.shrink();
-
-    final selectedMember = _groupMembers.firstWhere(
-      (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId,
-      orElse: () => _groupMembers.first,
-    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

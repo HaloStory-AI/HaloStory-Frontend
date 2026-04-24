@@ -75,6 +75,50 @@ class LocalChatService {
     }
   }
 
+  Future<bool> updateGroupMetadata(
+    String chatId, {
+    String? name,
+    String? bio,
+  }) async {
+    final messages = await loadChat(chatId);
+    final metadata = <String, dynamic>{'id': chatId, 'isGroup': true};
+
+    int systemIndex = -1;
+    for (int i = 0; i < messages.length; i++) {
+      final message = messages[i];
+      if (message['role'] == 'system' && message['metadata'] != null) {
+        systemIndex = i;
+        final existingMetadata = message['metadata'];
+        if (existingMetadata is Map) {
+          metadata.addAll(Map<String, dynamic>.from(existingMetadata));
+        }
+        break;
+      }
+    }
+
+    if (name != null) {
+      metadata['name'] = name;
+    }
+
+    if (bio != null) {
+      metadata['bio'] = bio;
+      metadata['description'] = bio;
+    }
+
+    if (systemIndex >= 0) {
+      messages[systemIndex] = {...messages[systemIndex], 'metadata': metadata};
+    } else {
+      messages.insert(0, {
+        'role': 'system',
+        'content': 'Group metadata updated.',
+        'metadata': metadata,
+      });
+    }
+
+    await saveChat(chatId, messages);
+    return true;
+  }
+
   // Load a chat session
   Future<List<Map<String, dynamic>>> loadChat(String chatId) async {
     if (kIsWeb) {
