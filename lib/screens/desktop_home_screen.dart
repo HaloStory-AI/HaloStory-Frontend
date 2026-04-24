@@ -8,7 +8,6 @@ import '../services/localization_service.dart';
 import '../theme/app_theme.dart';
 import 'desktop/desktop_sidebar.dart';
 import 'tabs/chat_tab.dart';
-import 'tabs/create_tab.dart'; // this is actually the group tab? Group Tab has label "Group Chat" but uses CreateTab?
 import 'tabs/calendar_tab.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
@@ -409,7 +408,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                     onChatSelected: _onChatSelected,
                     onShowSort: _showSortOverlay,
                   ),
-                  const CreateTab(),
                   const CalendarTab(),
                 ],
               ),
@@ -437,11 +435,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                 _middlePanelOverlay = null; // Clear overlay on tab switch
                 _currentIndex = index;
                 _middlePanelState = MiddlePanelState.tabs;
-                // Calendar (2) leaves chat open.
-                // Group (1) is different and closes the chat screen.
-                if (index == 1) {
-                  _selectedBot = null;
-                }
               });
             },
             onSettingsPressed: _openSettings,

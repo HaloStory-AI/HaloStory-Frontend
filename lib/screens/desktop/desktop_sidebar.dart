@@ -28,15 +28,18 @@ class DesktopSidebar extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     final railBg = isDark ? cs.surface : AppTheme.momoRailBackground;
-    final selectedBg =
-        isDark ? cs.surfaceContainerHighest : AppTheme.momoRailSelected;
+    final selectedBg = isDark
+        ? cs.surfaceContainerHighest
+        : AppTheme.momoRailSelected;
     final iconSelected = isDark ? cs.onSurface : Colors.white;
-    final iconUnselected =
-        isDark ? cs.onSurfaceVariant : Colors.white.withValues(alpha: 0.7);
+    final iconUnselected = isDark
+        ? cs.onSurfaceVariant
+        : Colors.white.withValues(alpha: 0.7);
     final labelSelected = iconSelected;
     final labelUnselected = iconUnselected;
-    final menuIconColor =
-        isDark ? cs.onSurfaceVariant : Colors.white.withValues(alpha: 0.85);
+    final menuIconColor = isDark
+        ? cs.onSurfaceVariant
+        : Colors.white.withValues(alpha: 0.85);
 
     return Container(
       width: 80,
@@ -55,10 +58,11 @@ class DesktopSidebar extends StatelessWidget {
             labelUnselected: labelUnselected,
             onTap: () => onTabSelected(0),
           ),
+
           const SizedBox(height: 16),
           _buildSvgNavItem(
-            iconAsset: 'assets/icon/sidebar_groups.svg',
-            label: tr('tab_group_chat'),
+            iconAsset: 'assets/icon/sidebar_calendar.svg',
+            label: tr('tab_calendar'),
             isSelected: currentIndex == 1 && !isSettingsSelected,
             selectedBg: selectedBg,
             iconSelected: iconSelected,
@@ -67,21 +71,13 @@ class DesktopSidebar extends StatelessWidget {
             labelUnselected: labelUnselected,
             onTap: () => onTabSelected(1),
           ),
-          const SizedBox(height: 16),
-          _buildSvgNavItem(
-            iconAsset: 'assets/icon/sidebar_calendar.svg',
-            label: tr('tab_calendar'),
-            isSelected: currentIndex == 2 && !isSettingsSelected,
-            selectedBg: selectedBg,
-            iconSelected: iconSelected,
-            iconUnselected: iconUnselected,
-            labelSelected: labelSelected,
-            labelUnselected: labelUnselected,
-            onTap: () => onTabSelected(2),
-          ),
           const Spacer(),
           PopupMenuButton<String>(
-            icon: Icon(Icons.more_horiz_rounded, color: menuIconColor, size: 28),
+            icon: Icon(
+              Icons.more_horiz_rounded,
+              color: menuIconColor,
+              size: 28,
+            ),
             offset: const Offset(60, -120),
             color: cs.surfaceContainer,
             shape: RoundedRectangleBorder(
@@ -91,26 +87,15 @@ class DesktopSidebar extends StatelessWidget {
             onSelected: onMoreOptionSelected,
             itemBuilder: (context) => [
               PopupMenuItem(
-                value: 'admin',
-                child: Row(
-                  children: [
-                    const Icon(Icons.admin_panel_settings,
-                        color: Colors.amber, size: 20),
-                    const SizedBox(width: 8),
-                    Text(tr('sidebar_admin_panel'),
-                        style: const TextStyle(
-                            color: Colors.amber, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
                 value: 'suggest',
                 child: Row(
                   children: [
                     Icon(Icons.add_task_rounded, color: cs.primary, size: 20),
                     const SizedBox(width: 8),
-                    Text(tr('sidebar_suggest_student'),
-                        style: TextStyle(color: cs.onSurface)),
+                    Text(
+                      tr('sidebar_suggest_student'),
+                      style: TextStyle(color: cs.onSurface),
+                    ),
                   ],
                 ),
               ),
@@ -118,11 +103,16 @@ class DesktopSidebar extends StatelessWidget {
                 value: 'donation',
                 child: Row(
                   children: [
-                    const Icon(Icons.favorite_rounded,
-                        color: Colors.pinkAccent, size: 20),
+                    const Icon(
+                      Icons.favorite_rounded,
+                      color: Colors.pinkAccent,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
-                    Text(tr('sidebar_donation'),
-                        style: TextStyle(color: cs.onSurface)),
+                    Text(
+                      tr('sidebar_donation'),
+                      style: TextStyle(color: cs.onSurface),
+                    ),
                   ],
                 ),
               ),
@@ -130,11 +120,16 @@ class DesktopSidebar extends StatelessWidget {
                 value: 'contributor',
                 child: Row(
                   children: [
-                    Icon(Icons.people_outline_rounded,
-                        color: cs.primary, size: 20),
+                    Icon(
+                      Icons.people_outline_rounded,
+                      color: cs.primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
-                    Text(tr('sidebar_contributor'),
-                        style: TextStyle(color: cs.onSurface)),
+                    Text(
+                      tr('sidebar_contributor'),
+                      style: TextStyle(color: cs.onSurface),
+                    ),
                   ],
                 ),
               ),
@@ -144,8 +139,10 @@ class DesktopSidebar extends StatelessWidget {
                   children: [
                     Icon(Icons.help_outline, color: cs.primary, size: 20),
                     const SizedBox(width: 8),
-                    Text(tr('sidebar_help'),
-                        style: TextStyle(color: cs.onSurface)),
+                    Text(
+                      tr('sidebar_help'),
+                      style: TextStyle(color: cs.onSurface),
+                    ),
                   ],
                 ),
               ),
@@ -155,8 +152,10 @@ class DesktopSidebar extends StatelessWidget {
                   children: [
                     Icon(Icons.info_outline, color: cs.primary, size: 20),
                     const SizedBox(width: 8),
-                    Text(tr('sidebar_info'),
-                        style: TextStyle(color: cs.onSurface)),
+                    Text(
+                      tr('sidebar_info'),
+                      style: TextStyle(color: cs.onSurface),
+                    ),
                   ],
                 ),
               ),

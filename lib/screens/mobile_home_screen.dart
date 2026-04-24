@@ -4,7 +4,6 @@ import 'splash_screen.dart';
 import 'admin_screen.dart';
 import 'app_info_screen.dart';
 import 'tabs/chat_tab.dart';
-import 'tabs/create_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
@@ -37,8 +36,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
     super.initState();
     _tabs = [
       ChatTab(key: _chatTabKey, onChatSelected: _onChatSelected), // Index 0
-      const CreateTab(), // Index 1
-      const CalendarTab(), // Index 2
+      const CalendarTab(), // Index 1
     ];
     _loadProfile();
   }
@@ -386,7 +384,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
-            if (index == 3) {
+            if (index == 2) {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
@@ -407,10 +405,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               icon: const Icon(Icons.chat_bubble_rounded),
               label: tr('tab_chat'),
             ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.groups_rounded),
-              label: tr('tab_group_chat'),
-            ),
+
             BottomNavigationBarItem(
               icon: const Icon(Icons.calendar_month_rounded),
               label: tr('tab_calendar'),

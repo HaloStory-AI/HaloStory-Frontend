@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/rendering.dart';
 
 import '../services/localization_service.dart';
+import '../widgets/skeleton_loader.dart';
 
 @Preview(name: 'Chat Detail Screen', size: Size(390, 844))
 Widget chatDetailScreenPreview() {
@@ -668,15 +669,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     if (_messages.last['role'] == 'assistant' ||
         _messages.last['role'] == 'system') {
+      // capture original bot_id from the message if present
+      final originalBotId = _messages.last['bot_id'] as String?;
       _safeSetState(() {
         _messages.removeLast();
       });
       await _generateSummaries();
-      await _getAIResponse();
+      await _getAIResponse(overrideBotId: originalBotId);
     }
   }
 
-  Future<void> _getAIResponse() async {
+  Future<void> _getAIResponse({String? overrideBotId}) async {
     if (_isGroup && _selectedBotId == null) {
       if (_groupMembers.isNotEmpty) {
         _selectedBotId =
@@ -741,10 +744,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     String language = prefs.getString('app_language') ?? 'Indonesian';
 
     try {
+      final botIdForRequest =
+          overrideBotId ?? (_isGroup ? _selectedBotId : widget.bot['id']);
+
       final response = await _aiService.sendMessage(
         provider: widget.provider,
         messages: aiMessages,
-        botId: _isGroup ? _selectedBotId : widget.bot['id'],
+        botId: botIdForRequest,
         botIds: _isGroup
             ? _groupMembers
                   .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
@@ -779,10 +785,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 .split('\n\n')
                 .where((s) => s.trim().isNotEmpty)
                 .toList();
+            // attach message-level author metadata so group messages
+            // can be rendered with correct avatar/name and regenerate logic
             _messages.add({
               'role': 'assistant',
               'content': aiContent,
               'timestamp': aiTimestamp,
+              'bot_id': botIdForRequest,
+              'bot_name': _resolveBotName(botIdForRequest),
+              'bot_avatar': _resolveBotAvatar(botIdForRequest),
               if (parts.length > 1) 'visible_parts': 1,
               if (parts.length > 1) 'is_typing_next': true,
             });
@@ -1166,13 +1177,145 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return null;
   }
 
+  Future<Map<String, dynamic>?> _fetchBondStatsFor(String botId) async {
+    final authService = AuthService();
+    final token = await authService.getToken();
+    if (token == null || !mounted || _isDisposed) {
+      return null;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/bots/bond/$botId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>?> _fetchAllGroupBondStats() async {
+    if (_groupMembers.isEmpty) return [];
+    final List<Map<String, dynamic>> updated = [];
+    try {
+      for (final member in _groupMembers) {
+        final memberId =
+            member['bot_id']?.toString() ?? member['id']?.toString();
+        if (memberId == null) {
+          updated.add(member);
+          continue;
+        }
+        final data = await _fetchBondStatsFor(memberId);
+        if (data != null) {
+          updated.add({
+            ...member,
+            'bond_hearts': data['bond_hearts'] ?? member['bond_hearts'],
+            'xp': data['xp'] ?? member['xp'],
+            'xp_into_level': data['xp_into_level'] ?? member['xp_into_level'],
+            'progress_percent':
+                data['progress_percent'] ?? member['progress_percent'],
+          });
+        } else {
+          updated.add(member);
+        }
+      }
+
+      if (mounted && !_isDisposed) {
+        _safeSetState(() {
+          _groupMembers = List<Map<String, dynamic>>.from(updated);
+        });
+      }
+      return updated;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _groupBondSkeleton() {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: _surfaceBackground(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SkeletonWidget(width: 160, height: 20),
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView.separated(
+              itemCount: 4,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      const SkeletonWidget(
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            SkeletonWidget(width: 120, height: 14),
+                            SizedBox(height: 8),
+                            SkeletonWidget(width: 80, height: 12),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const SkeletonWidget(width: 40, height: 20),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showBondStats() async {
     if (_isGroup) {
       showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
-        builder: (_) => _buildGroupBondStats(),
+        builder: (_) {
+          return FutureBuilder<List<Map<String, dynamic>>?>(
+            future: _fetchAllGroupBondStats(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return _groupBondSkeleton();
+              }
+              return _buildGroupBondStats();
+            },
+          );
+        },
       );
       return;
     }
@@ -2366,7 +2509,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               final bubble = isUser
                                   ? _buildUserBubble(content, timestamp, index)
                                   : _buildBotBubble(
-                                      content,
+                                      msg,
                                       timestamp,
                                       index,
                                       visibleParts:
@@ -2568,7 +2711,76 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return '${DateFormat('MMMM d').format(dt)} at ${DateFormat('h:mm a').format(dt)}';
   }
 
+  String? _resolveBotName(String? botId) {
+    if (botId == null) return null;
+    try {
+      final member = _groupMembers.firstWhere(
+        (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == botId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (member.isNotEmpty && member['name'] != null)
+        return member['name'] as String;
+    } catch (_) {}
+    // fallback to widget.bot name for single chats or unknown ids
+    return widget.bot['name'] as String?;
+  }
+
+  String? _resolveBotAvatar(String? botId) {
+    if (botId == null) return null;
+    try {
+      final member = _groupMembers.firstWhere(
+        (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == botId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (member.isNotEmpty) {
+        return member['image_url'] ?? member['avatar'];
+      }
+    } catch (_) {}
+    return widget.bot['image_url'] as String?;
+  }
+
+  Color _resolveBotColor(String? botId) {
+    if (botId == null) return _parseColor(widget.bot['color']);
+    try {
+      final member = _groupMembers.firstWhere(
+        (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == botId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (member.isNotEmpty && member['color'] != null)
+        return _parseColor(member['color']);
+    } catch (_) {}
+    return _parseColor(widget.bot['color']);
+  }
+
   Widget _buildTypingIndicator() {
+    // Prefer to show the author of the message that's currently typing
+    Map<String, dynamic>? typingMsg;
+    for (var i = _messages.length - 1; i >= 0; i--) {
+      final m = _messages[i];
+      if (m['role'] == 'assistant' && m['is_typing_next'] == true) {
+        typingMsg = m as Map<String, dynamic>;
+        break;
+      }
+    }
+
+    final displayName = typingMsg != null
+        ? (_resolveBotName(typingMsg['bot_id']) ?? widget.bot['name'])
+        : (_isGroup && _selectedBotId != null
+              ? (_resolveBotName(_selectedBotId) ?? widget.bot['name'])
+              : widget.bot['name']);
+
+    final avatarUrl = typingMsg != null
+        ? _resolveBotAvatar(typingMsg['bot_id'])
+        : (_isGroup && _selectedBotId != null
+              ? _resolveBotAvatar(_selectedBotId)
+              : widget.bot['image_url'] as String?);
+
+    final bgColor = typingMsg != null
+        ? _resolveBotColor(typingMsg['bot_id'])
+        : (_isGroup && _selectedBotId != null
+              ? _resolveBotColor(_selectedBotId)
+              : _parseColor(widget.bot['color']));
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -2576,13 +2788,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: _parseColor(widget.bot['color']),
-            backgroundImage: widget.bot['image_url'] != null
-                ? NetworkImage(widget.bot['image_url'])
-                : null,
-            child: widget.bot['image_url'] == null
+            backgroundColor: bgColor,
+            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+            child: avatarUrl == null
                 ? Text(
-                    widget.bot['name'][0].toUpperCase(),
+                    displayName[0].toUpperCase(),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   )
                 : null,
@@ -2592,7 +2802,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.bot['name'],
+                displayName,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -2708,14 +2918,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildBotBubble(
-    String content,
+    Map<String, dynamic> msg,
     DateTime? timestamp,
     int index, {
     int? visibleParts,
     bool isTypingNext = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-
+    final content = msg['content']?.toString() ?? '';
     final parts = content
         .split('\n\n')
         .where((s) => s.trim().isNotEmpty)
@@ -2733,13 +2943,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: _parseColor(widget.bot['color']),
-            backgroundImage: widget.bot['image_url'] != null
-                ? NetworkImage(widget.bot['image_url'])
+            backgroundColor: _resolveBotColor(msg['bot_id']),
+            backgroundImage: _resolveBotAvatar(msg['bot_id']) != null
+                ? NetworkImage(_resolveBotAvatar(msg['bot_id'])!)
                 : null,
-            child: widget.bot['image_url'] == null
+            child: _resolveBotAvatar(msg['bot_id']) == null
                 ? Text(
-                    widget.bot['name'][0].toUpperCase(),
+                    (_resolveBotName(msg['bot_id']) ?? widget.bot['name'])[0]
+                        .toUpperCase(),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   )
                 : null,
@@ -2752,7 +2963,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 Row(
                   children: [
                     Text(
-                      widget.bot['name'],
+                      _resolveBotName(msg['bot_id']) ?? widget.bot['name'],
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -2952,85 +3163,109 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget _buildCharacterSelector() {
     if (!_isGroup || _groupMembers.isEmpty) return const SizedBox.shrink();
 
+    final selectedMember = _groupMembers.firstWhere(
+      (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId,
+      orElse: () => _groupMembers.first,
+    );
+
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: _surfaceBackground(context),
         border: Border(top: BorderSide(color: _fieldBorderColor(context))),
       ),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _groupMembers.length,
-        itemBuilder: (context, index) {
-          final member = _groupMembers[index];
-          final memberId =
-              member['bot_id']?.toString() ?? member['id']?.toString();
-          final isSelected = _selectedBotId == memberId;
-          final color = _parseColor(member['color']);
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ── Avatar semua member ───────────────────────────────
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _groupMembers.map((member) {
+                final memberId =
+                    member['bot_id']?.toString() ?? member['id']?.toString();
+                final isSelected = _selectedBotId == memberId;
+                final color = _parseColor(member['color']);
 
-          return GestureDetector(
-            onTap: () => _saveSelectedBot(memberId!),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? color : Colors.transparent,
-                  width: 2,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: color,
-                    backgroundImage: member['image_url'] != null
-                        ? NetworkImage(member['image_url'])
-                        : (member['avatar'] != null
-                              ? NetworkImage(member['avatar'])
-                              : null),
-                    child:
-                        (member['image_url'] == null &&
-                            member['avatar'] == null)
-                        ? Text(
-                            (member['name'] as String)[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ),
-                          )
-                        : null,
-                  ),
-                  if (isSelected)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _surfaceBackground(context),
-                            width: 1.5,
+                return GestureDetector(
+                  onTap: () => _saveSelectedBot(memberId!),
+                  child: Tooltip(
+                    message: member['name'] ?? '',
+                    preferBelow: false,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? color : Colors.transparent,
+                          width: 2.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.35),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: color,
+                            backgroundImage: member['image_url'] != null
+                                ? NetworkImage(member['image_url'])
+                                : (member['avatar'] != null
+                                      ? NetworkImage(member['avatar'])
+                                      : null),
+                            child:
+                                (member['image_url'] == null &&
+                                    member['avatar'] == null)
+                                ? Text(
+                                    (member['name'] as String)[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          size: 10,
-                          color: Colors.white,
-                        ),
+                          if (isSelected)
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(1.5),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: _surfaceBackground(context),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  size: 9,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                ],
-              ),
+                  ),
+                );
+              }).toList(),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -3051,6 +3286,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
+                  // the if error is on top the of the input area, the disclaimer note just there
                   children: [
                     GestureDetector(
                       onTap: () => _safeSetState(
