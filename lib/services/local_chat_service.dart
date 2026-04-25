@@ -135,10 +135,16 @@ class LocalChatService {
       final file = File('$path/$chatId.json');
       if (await file.exists()) {
         final content = await file.readAsString();
-        return List<Map<String, dynamic>>.from(jsonDecode(content));
+        final decoded = jsonDecode(content);
+        if (decoded is List) {
+          return List<Map<String, dynamic>>.from(decoded);
+        } else if (decoded is Map && decoded['messages'] is List) {
+          return List<Map<String, dynamic>>.from(decoded['messages']);
+        }
+        return [];
       }
     } catch (e) {
-      print('DEBUG: Error loading chat: $e');
+      print('DEBUG: Error loading chat ($chatId): $e');
     }
     return [];
   }

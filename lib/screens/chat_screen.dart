@@ -84,6 +84,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   final TextEditingController _systemNoteController = TextEditingController();
   bool _isSystemNoteOpen = false;
+  bool _isCharacterMenuOpen = false;
   String? _activeOverlay; // 'bio' or 'bond'
 
   // Bond state
@@ -101,6 +102,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   String? _selectedBotId;
   String _groupName = '';
   String _groupBio = '';
+  String? _activeBotId;
+  bool _hideItalics = false;
 
   @override
   void initState() {
@@ -118,6 +121,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _loadSystemNote();
     _showBugNoticeIfNeeded();
     _loadSelectedBot();
+    _loadItalicsSetting();
     if (widget.provider == 'System' && !_hasShownSystemAiWarning) {
       _showSystemAiWarning();
       _hasShownSystemAiWarning = true;
@@ -143,6 +147,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _selectedBotId = botId;
       });
     }
+  }
+
+  Future<void> _loadItalicsSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hide = prefs.getBool('hide_italics_${widget.bot['id']}') ?? false;
+    _safeSetState(() {
+      _hideItalics = hide;
+    });
+  }
+
+  Future<void> _saveItalicsSetting(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hide_italics_${widget.bot['id']}', value);
+    _safeSetState(() {
+      _hideItalics = value;
+    });
+  }
+
+  String _filterItalics(String text) {
+    if (!_hideItalics) return text;
+    // Remove text wrapped in single asterisks or underscores.
+    // Uses non-greedy matches to avoid over-matching.
+    String filtered = text
+        .replaceAll(RegExp(r'\*(?!\*)[^*]+\*'), '')
+        .replaceAll(RegExp(r'_(?!_)[^_]+_'), '');
+
+    // Clean up empty lines or double spaces left behind
+    return filtered.trim();
   }
 
   @override
@@ -678,7 +710,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
     _scrollToBottom();
 
-    await _generateSummaries();
+    _generateSummaries();
     await _getAIResponse();
   }
 
@@ -714,8 +746,54 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
 
+    String? botIdForRequest =
+        overrideBotId ?? (_isGroup ? _selectedBotId : widget.bot['id']);
+
+    if (_isGroup && botIdForRequest == 'random' && _groupMembers.isNotEmpty) {
+      final lastUserMessage = _messages.lastWhere(
+        (m) => m['role'] == 'user',
+        orElse: () => <String, dynamic>{},
+      );
+
+      if (lastUserMessage.isNotEmpty) {
+        final content = (lastUserMessage['content'] as String).toLowerCase();
+        String? mentionedId;
+
+        for (final member in _groupMembers) {
+          final fullName = (member['name'] as String).toLowerCase();
+          final nameParts = fullName.split(' ');
+
+          // Check for full name or any part of the name (minimum 3 chars)
+          bool isMentioned = content.contains(fullName);
+          if (!isMentioned) {
+            for (final part in nameParts) {
+              if (part.length >= 3 && content.contains(part)) {
+                isMentioned = true;
+                break;
+              }
+            }
+          }
+
+          if (isMentioned) {
+            mentionedId =
+                member['bot_id']?.toString() ?? member['id']?.toString();
+            break;
+          }
+        }
+
+        if (mentionedId != null) {
+          botIdForRequest = mentionedId;
+        } else {
+          final rIndex = math.Random().nextInt(_groupMembers.length);
+          botIdForRequest = _groupMembers[rIndex]['bot_id']?.toString() ??
+              _groupMembers[rIndex]['id']?.toString();
+        }
+      }
+    }
+
     _safeSetState(() {
       _isLoading = true;
+      _activeBotId = botIdForRequest;
     });
     _scrollToBottom();
 
@@ -761,10 +839,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (!mounted || _isDisposed) return;
     String language = prefs.getString('app_language') ?? 'Indonesian';
 
-    try {
-      final botIdForRequest =
-          overrideBotId ?? (_isGroup ? _selectedBotId : widget.bot['id']);
+    // DEBUG LOGGING
+    print('DEBUG: --- SENDING TO AI ---');
+    print('DEBUG: Bot ID: $botIdForRequest');
+    print('DEBUG: Language: $language');
+    if (summaryPrompt != null) {
+      print('DEBUG: Summary Prompt: $summaryPrompt');
+    }
+    print('DEBUG: Messages Payload: ${jsonEncode(aiMessages)}');
+    print('DEBUG: ---------------------');
 
+    try {
       final response = await _aiService.sendMessage(
         provider: widget.provider,
         messages: aiMessages,
@@ -786,6 +871,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
       _safeSetState(() {
         _isLoading = false;
+        _activeBotId = null;
         final aiTimestamp = DateTime.now().toIso8601String();
 
         if (response != null &&
@@ -803,8 +889,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 .split('\n\n')
                 .where((s) => s.trim().isNotEmpty)
                 .toList();
-            // attach message-level author metadata so group messages
-            // can be rendered with correct avatar/name and regenerate logic
+
             _messages.add({
               'role': 'assistant',
               'content': aiContent,
@@ -856,6 +941,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (!mounted || _isDisposed) return;
       _safeSetState(() {
         _isLoading = false;
+        _activeBotId = null;
         _addSystemError(DateTime.now().toIso8601String());
       });
     }
@@ -2426,6 +2512,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     await _exportChat('txt');
                   } else if (value == 'export_json') {
                     await _exportChat('json');
+                  } else if (value == 'toggle_italics') {
+                    await _saveItalicsSetting(!_hideItalics);
                   } else if (value == 're_summary') {
                     _safeSetState(() => _summaries.clear());
                     await _localChatService.saveSummaries(
@@ -2525,6 +2613,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text('Export as JSON'),
+                        ],
+                      ),
+                    ),
+                    CheckedPopupMenuItem<String>(
+                      value: 'toggle_italics',
+                      checked: _hideItalics,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.format_italic,
+                            color: scheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Hide Italics (Actions)'),
                         ],
                       ),
                     ),
@@ -2684,6 +2787,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 ),
                               ),
                             ),
+                          if (_isCharacterMenuOpen)
+                            Positioned.fill(
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: _isCharacterMenuOpen ? 1.0 : 0.0,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => setState(() => _isCharacterMenuOpen = false),
+                                  child: Container(color: Colors.transparent),
+                                ),
+                              ),
+                            ),
+                          AnimatedPositioned(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutBack,
+                            left: 12,
+                            bottom: _isCharacterMenuOpen ? 8 : -300,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 200),
+                              opacity: _isCharacterMenuOpen ? 1.0 : 0.0,
+                              child: _buildCompactCharacterMenu(),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -2887,23 +3013,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
 
-    final displayName = typingMsg != null
-        ? (_resolveBotName(typingMsg['bot_id']) ?? widget.bot['name'])
-        : (_isGroup && _selectedBotId != null
-              ? (_resolveBotName(_selectedBotId) ?? widget.bot['name'])
-              : widget.bot['name']);
+    final effectiveBotId = typingMsg != null
+        ? typingMsg['bot_id']?.toString()
+        : (_isLoading ? _activeBotId : _selectedBotId);
 
-    final avatarUrl = typingMsg != null
-        ? _resolveBotAvatar(typingMsg['bot_id'])
-        : (_isGroup && _selectedBotId != null
-              ? _resolveBotAvatar(_selectedBotId)
-              : widget.bot['image_url'] as String?);
-
-    final bgColor = typingMsg != null
-        ? _resolveBotColor(typingMsg['bot_id'])
-        : (_isGroup && _selectedBotId != null
-              ? _resolveBotColor(_selectedBotId)
-              : _parseColor(widget.bot['color']));
+    final displayName = _resolveBotName(effectiveBotId) ?? widget.bot['name'];
+    final avatarUrl = _resolveBotAvatar(effectiveBotId);
+    final bgColor = _resolveBotColor(effectiveBotId);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2917,7 +3033,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: avatarUrl == null
                 ? Text(
                     displayName[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
                   )
                 : null,
           ),
@@ -2928,7 +3044,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               Text(
                 displayName,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: _titleColor(context),
                 ),
@@ -2936,12 +3052,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 14,
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
                   color: _botBubbleBackground(context),
-                  borderRadius: BorderRadius.only(
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(2),
                     topRight: Radius.circular(12),
                     bottomLeft: Radius.circular(12),
@@ -2980,7 +3096,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               child: Text(
                 _formatMessageTime(timestamp),
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -3006,7 +3122,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     MarkdownBody(
-                      data: content,
+                      data: _filterItalics(content),
                       selectable: false,
                       extensionSet: md.ExtensionSet(
                         md.ExtensionSet.gitHubFlavored.blockSyntaxes,
@@ -3018,7 +3134,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       styleSheet: MarkdownStyleSheet(
                         p: TextStyle(
                           color: colorScheme.onPrimary,
-                          fontSize: 12,
+                          fontSize: 14,
                         ),
                         strong: TextStyle(
                           color: colorScheme.onPrimary,
@@ -3075,7 +3191,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ? Text(
                     (_resolveBotName(msg['bot_id']) ?? widget.bot['name'])[0]
                         .toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
                   )
                 : null,
           ),
@@ -3099,7 +3215,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       Text(
                         _formatMessageTime(timestamp),
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -3138,7 +3254,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           MarkdownBody(
-                            data: part,
+                            data: _filterItalics(part),
                             selectable: false,
                             extensionSet: md.ExtensionSet(
                               md.ExtensionSet.gitHubFlavored.blockSyntaxes,
@@ -3153,8 +3269,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             styleSheet: MarkdownStyleSheet(
                               p: TextStyle(
                                 color: colorScheme.onSurface,
-                                fontSize: 12,
-                                height: 1.3,
+                                fontSize: 14,
+                                height: 1.4,
                               ),
                               strong: TextStyle(
                                 color: colorScheme.onSurface,
@@ -3169,7 +3285,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               code: TextStyle(
                                 color: colorScheme.primary,
                                 backgroundColor: colorScheme.surfaceContainer,
-                                fontSize: 13,
+                                fontSize: 14,
                               ),
                               codeblockDecoration: BoxDecoration(
                                 color: colorScheme.surfaceContainer,
@@ -3284,104 +3400,125 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildCharacterSelector() {
-    if (!_isGroup || _groupMembers.isEmpty) return const SizedBox.shrink();
+  Widget _buildLeftInputIcon() {
+    if (_isGroup && _selectedBotId == 'random') {
+      return CircleAvatar(
+        radius: 19,
+        backgroundColor: Colors.transparent,
+        child: Icon(Icons.shuffle, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 28),
+      );
+    }
 
+    String? avatarUrl;
+    String initial = '?';
+    Color bgColor = Colors.blueGrey;
+
+    if (_isGroup && _selectedBotId != null) {
+      final member = _groupMembers.firstWhere(
+        (m) =>
+            (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (member.isNotEmpty) {
+        avatarUrl = member['image_url'] ?? member['avatar'];
+        initial = (member['name'] ?? '?')[0].toUpperCase();
+        bgColor = _parseColor(member['color']);
+      }
+    } else {
+      avatarUrl = widget.bot['image_url'];
+      initial = (widget.bot['name'] ?? '?')[0].toUpperCase();
+      bgColor = _parseColor(widget.bot['color']);
+    }
+
+    return CircleAvatar(
+      radius: 17,
+      backgroundColor: bgColor,
+      backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+      child: avatarUrl == null
+          ? Text(
+              initial,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildCompactCharacterMenu() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: BoxDecoration(
         color: _surfaceBackground(context),
-        border: Border(top: BorderSide(color: _fieldBorderColor(context))),
+        borderRadius: BorderRadius.circular(28),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Avatar semua member ───────────────────────────────
-          Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _groupMembers.map((member) {
-                final memberId =
-                    member['bot_id']?.toString() ?? member['id']?.toString();
-                final isSelected = _selectedBotId == memberId;
-                final color = _parseColor(member['color']);
+          ..._groupMembers.map((member) {
+            final memberId =
+                member['bot_id']?.toString() ?? member['id']?.toString();
+            final isSelected = _selectedBotId == memberId;
+            final color = _parseColor(member['color']);
 
-                return GestureDetector(
-                  onTap: () => _saveSelectedBot(memberId!),
-                  child: Tooltip(
-                    message: member['name'] ?? '',
-                    preferBelow: false,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? color : Colors.transparent,
-                          width: 2.5,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: color.withValues(alpha: 0.35),
-                                  blurRadius: 6,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: color,
-                            backgroundImage: member['image_url'] != null
-                                ? NetworkImage(member['image_url'])
-                                : (member['avatar'] != null
-                                      ? NetworkImage(member['avatar'])
-                                      : null),
-                            child:
-                                (member['image_url'] == null &&
-                                    member['avatar'] == null)
-                                ? Text(
-                                    (member['name'] as String)[0].toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          if (isSelected)
-                            Positioned(
-                              right: -2,
-                              bottom: -2,
-                              child: Container(
-                                padding: const EdgeInsets.all(1.5),
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: _surfaceBackground(context),
-                                    width: 1.2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  size: 9,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+            return GestureDetector(
+              onTap: () {
+                _saveSelectedBot(memberId!);
+                _safeSetState(() => _isCharacterMenuOpen = false);
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? color : Colors.transparent,
+                    width: 2.5,
                   ),
-                );
-              }).toList(),
+                ),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: color,
+                  backgroundImage: member['image_url'] != null
+                      ? NetworkImage(member['image_url'])
+                      : (member['avatar'] != null
+                          ? NetworkImage(member['avatar'])
+                          : null),
+                  child: (member['image_url'] == null && member['avatar'] == null)
+                      ? Text(
+                          (member['name'] as String)[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            );
+          }),
+          GestureDetector(
+            onTap: () {
+              _saveSelectedBot('random');
+              _safeSetState(() => _isCharacterMenuOpen = false);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _selectedBotId == 'random' ? Colors.orange : Colors.transparent,
+                  width: 2.5,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: _selectedBotId == 'random' ? Colors.orange.withValues(alpha: 0.1) : Colors.transparent,
+                child: Icon(Icons.shuffle, size: 22, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
             ),
           ),
         ],
@@ -3389,76 +3526,124 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
+  Widget _buildSystemNoteIconButton() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton(
+      onPressed: () => _safeSetState(
+        () => _isSystemNoteOpen = !_isSystemNoteOpen,
+      ),
+      icon: Icon(
+        _isSystemNoteOpen
+            ? Icons.sticky_note_2
+            : Icons.sticky_note_2_outlined,
+        color: _isSystemNoteOpen
+            ? colorScheme.primary
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+      ),
+      iconSize: 22,
+      constraints: const BoxConstraints(
+        minWidth: 34,
+        minHeight: 34,
+      ),
+      padding: const EdgeInsets.all(4),
+    );
+  }
+
   Widget _buildInputArea() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildCharacterSelector(),
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          decoration: BoxDecoration(
-            color: _surfaceBackground(context),
-            border: Border(top: BorderSide(color: _fieldBorderColor(context))),
-          ),
+          padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+          decoration: BoxDecoration(color: colorScheme.surfaceContainer),
           child: SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
-                  // the if error is on top the of the input area, the disclaimer note just there
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    GestureDetector(
-                      onTap: () => _safeSetState(
-                        () => _isSystemNoteOpen = !_isSystemNoteOpen,
-                      ),
-                      child: Icon(
-                        _isSystemNoteOpen
-                            ? Icons.sticky_note_2
-                            : Icons.sticky_note_2_outlined,
-                        color: _isSystemNoteOpen
-                            ? Theme.of(context).colorScheme.primary
-                            : _subtitleColor(context),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _surfaceBackground(context),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: _fieldBorderColor(context)),
-                        ),
-                        child: TextField(
-                          controller: _messageController,
-                          decoration: InputDecoration(
-                            hintText: _isGroup
-                                ? 'Chatting with ${_groupMembers.firstWhere((m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId, orElse: () => {'name': widget.bot['name']})['name']}'
-                                : '${tr('tab_chat')} ${widget.bot['name']}',
-                            hintStyle: TextStyle(
-                              color: _hintColor(context),
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                          ),
-                          onSubmitted: (_) {
-                            if (!_isTypingEffectActive) _sendMessage();
+                    if (_isGroup) ...[
+                      Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        decoration: const BoxDecoration(shape: BoxShape.circle),
+                        child: IconButton(
+                          onPressed: () {
+                            _safeSetState(() {
+                              _isCharacterMenuOpen = !_isCharacterMenuOpen;
+                            });
                           },
+                          icon: _buildLeftInputIcon(),
+                          iconSize: 34,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 34,
+                            minHeight: 34,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 4),
+                    ] else ...[
+                      _buildSystemNoteIconButton(),
+                      const SizedBox(width: 4),
+                    ],
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: colorScheme.surfaceContainerHighest,
+                          hintText: _isGroup
+                              ? 'Chatting with ${_selectedBotId == 'random' ? 'someone' : _groupMembers.firstWhere((m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId, orElse: () => {'name': widget.bot['name']})['name']}'
+                              : '${tr('tab_chat')} ${widget.bot['name']}',
+                          hintStyle: TextStyle(
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            fontSize: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(50),
+                            borderSide: const BorderSide(color: Colors.transparent),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(50),
+                            borderSide: const BorderSide(color: Colors.transparent),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(50),
+                            borderSide: const BorderSide(color: Colors.transparent),
+                          ),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                        ),
+                        onSubmitted: (_) {
+                          if (!_isTypingEffectActive) _sendMessage();
+                        },
+                      ),
                     ),
+                    const SizedBox(width: 4),
+                    if (_isGroup) ...[
+                      _buildSystemNoteIconButton(),
+                    ],
                     GestureDetector(
                       onTap: _isTypingEffectActive ? null : _sendMessage,
-                      child: Icon(
-                        Icons.send_rounded,
-                        color: _isTypingEffectActive
-                            ? _subtitleColor(context)
-                            : Theme.of(context).colorScheme.primary,
-                        size: 28,
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(
+                          Icons.send,
+                          color: _isTypingEffectActive
+                              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
+                              : colorScheme.primary,
+                          size: 24,
+                        ),
                       ),
                     ),
                   ],
