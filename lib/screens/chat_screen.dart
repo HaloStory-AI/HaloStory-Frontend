@@ -3449,12 +3449,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Widget _buildCompactCharacterMenu() {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.5,
+      ),
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: BoxDecoration(
         color: _surfaceBackground(context),
         borderRadius: BorderRadius.circular(28),
       ),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ..._groupMembers.map((member) {
@@ -3522,6 +3526,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

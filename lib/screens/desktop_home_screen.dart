@@ -11,6 +11,7 @@ import 'tabs/chat_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
+import 'select_contact_screen.dart';
 import 'profile_screen.dart';
 import 'admin_screen.dart';
 import 'student_request_screen.dart';
@@ -33,6 +34,7 @@ enum MiddlePanelState {
   info,
   chat,
   donation,
+  selectContact,
 }
 
 class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
@@ -395,6 +397,20 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         return const Center(child: Text("Chat View"));
       case MiddlePanelState.donation:
         return const DonationScreen(isDesktopMiddlePanel: true);
+      case MiddlePanelState.selectContact:
+        return SelectContactScreen(
+          onContactSelected: (chatData) {
+            setState(() {
+              _middlePanelState = MiddlePanelState.tabs;
+            });
+            _onChatSelected(chatData);
+          },
+          onCancel: () {
+            setState(() {
+              _middlePanelState = MiddlePanelState.tabs;
+            });
+          },
+        );
       case MiddlePanelState.tabs:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -407,6 +423,11 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                   ChatTab(
                     onChatSelected: _onChatSelected,
                     onShowSort: _showSortOverlay,
+                    onAddContact: () {
+                      setState(() {
+                        _middlePanelState = MiddlePanelState.selectContact;
+                      });
+                    },
                   ),
                   const CalendarTab(),
                 ],

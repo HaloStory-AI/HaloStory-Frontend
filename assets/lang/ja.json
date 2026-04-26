@@ -304,5 +304,9 @@
   "donation_confirm_discord": "Discordで確認",
   "chat_bug_notice_title": "重要なバグ修正のお知らせ",
   "chat_bug_notice_body": "以前のアップデートでAIが忘れやすくなるバグがありました。修正するには、三点リーダーをタップして「再要約（Re-Summary）」をクリックしてください。",
-  "chat_resummary_loading": "チャット履歴を再要約中..."
+  "chat_resummary_loading": "チャット履歴を再要約中...",
+  "tutorial_chat_title": "チャットの始め方",
+  "tutorial_single_chat": "個人チャット: リストから生徒を1人選んで個人チャットを始めます。",
+  "tutorial_group_chat": "グループチャット: 2人以上の生徒を選びます。その後、右下の矢印ボタンをタップして新しいグループを作成します。",
+  "tutorial_got_it": "わかりました！"
 }
