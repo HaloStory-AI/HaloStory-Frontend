@@ -593,8 +593,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     final int batchSize = 20;
 
+    final List<Map<String, dynamic>> realMessages = _messages
+        .where((m) => m['content'] != null && m['role'] != 'system' && m['isTempSummary'] != true)
+        .toList();
+
     int totalBatchesToSummarize = 0;
-    for (int i = 0; i <= _messages.length - batchSize; i += batchSize) {
+    for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
         totalBatchesToSummarize++;
       }
@@ -605,15 +609,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _safeSetState(() {
       _isSummarizing = true;
       _summaryProgress = 0.0;
+      _messages.add({
+        'role': 'assistant',
+        'content': 'Sedang memadatkan memori percakapan, tunggu sebentar ya Sensei... ⏳',
+        'status': 'processing',
+        'isTempSummary': true,
+      });
     });
+    _scrollToBottom();
 
     bool updated = false;
     int processedBatches = 0;
 
-    for (int i = 0; i <= _messages.length - batchSize; i += batchSize) {
+    for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
         try {
-          final List<Map<String, String>> batch = _messages
+          final List<Map<String, String>> batch = realMessages
               .sublist(i, i + batchSize)
               .map(
                 (m) => {
@@ -629,7 +640,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             provider: widget.provider,
           );
 
-          if (result != null && result['summary'] != null) {
+          if (result != null && result['status'] == 'queued' && result['uuid'] != null) {
+            String uuid = result['uuid'];
+            bool summaryCompleted = false;
+            int timeoutChecks = 60; // Max 2 minutes
+            
+            while (mounted && !_isDisposed && !summaryCompleted && timeoutChecks > 0) {
+              await Future.delayed(const Duration(seconds: 2));
+              final statusCheck = await _aiService.checkChatStatus(uuid);
+              if (statusCheck != null) {
+                if (statusCheck['status'] == 'queued' || statusCheck['status'] == 'processing') {
+                  // Masih diproses, teruskan polling
+                } else if (statusCheck['status'] == 'not_found' || statusCheck['status'] == 'failed' || statusCheck['error'] != null) {
+                  // Gagal atau tidak ditemukan
+                  summaryCompleted = true; 
+                } else {
+                  // Berhasil! Backend menghapus kunci Redis dan langsung mengembalikan payload response
+                  // Karena ProcessAiChatJob mengembalikan ['summary' => 'teks...']
+                  final summaryText = statusCheck['summary'] ?? statusCheck['response']?['summary'];
+                  if (summaryText != null) {
+                    _summaries[i] = summaryText;
+                    updated = true;
+                  }
+                  summaryCompleted = true;
+                }
+              }
+              timeoutChecks--;
+            }
+          } else if (result != null && result['summary'] != null) {
             _summaries[i] = result['summary'];
             updated = true;
           }
@@ -649,6 +687,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
 
     _safeSetState(() {
+      _messages.removeWhere((m) => m['isTempSummary'] == true);
       _isSummarizing = false;
       _summaryProgress = 0.0;
     });
@@ -675,7 +714,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_isLoading || _isTypingEffectActive) return;
+    if (_isLoading || _isTypingEffectActive || _isSummarizing) return;
 
     if (_isGroup && _selectedBotId == null) {
       if (_groupMembers.isNotEmpty) {
@@ -715,7 +754,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
     _scrollToBottom();
 
-    _generateSummaries();
+    await _generateSummaries();
     await _getAIResponse();
   }
 
@@ -823,9 +862,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         )
         .toList();
 
+    int summarizedCount = _summaries.length * 20;
     List<Map<String, String>> aiMessages;
-    if (summaryPrompt != null && fullHistory.length > 4) {
-      aiMessages = fullHistory.sublist(fullHistory.length - 4);
+
+    if (summarizedCount > 0 && summarizedCount < fullHistory.length) {
+      aiMessages = fullHistory.sublist(summarizedCount);
+    } else if (summarizedCount >= fullHistory.length) {
+      aiMessages = fullHistory.isNotEmpty ? [fullHistory.last] : [];
     } else {
       aiMessages = fullHistory;
     }
@@ -3749,20 +3792,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           ),
                         ),
                         onSubmitted: (_) {
-                          if (!_isTypingEffectActive) _sendMessage();
+                          if (!_isTypingEffectActive && !_isSummarizing) _sendMessage();
                         },
                       ),
                     ),
                     const SizedBox(width: 4),
                     if (_isGroup) ...[_buildSystemNoteIconButton()],
                     GestureDetector(
-                      onTap: _isTypingEffectActive ? null : _sendMessage,
+                      onTap: (_isTypingEffectActive || _isSummarizing) ? null : _sendMessage,
                       child: Container(
                         margin: const EdgeInsets.only(right: 4),
                         padding: const EdgeInsets.all(6),
                         child: Icon(
                           Icons.send,
-                          color: _isTypingEffectActive
+                          color: (_isTypingEffectActive || _isSummarizing)
                               ? colorScheme.onSurfaceVariant.withValues(
                                   alpha: 0.5,
                                 )
