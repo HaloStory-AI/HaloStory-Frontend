@@ -310,5 +310,10 @@
   "donation_confirm_discord": "Konfirmasi via Discord",
   "chat_bug_notice_title": "Pemberitahuan Penting Perbaikan Bug",
   "chat_bug_notice_body": "Update sebelumnya ada bug dimana AI mudah lupa, untuk memperbaikinya, tekan titik tiga lalu klik 'Re-Summary'.",
-  "chat_resummary_loading": "Meringkas ulang riwayat chat..."
+  "chat_resummary_loading": "Meringkas ulang riwayat chat...",
+  "tutorial_chat_title": "Cara Memulai Chat",
+  "tutorial_single_chat": "Personal Chat: Pilih 1 murid dari daftar untuk langsung ngobrol berdua.",
+  "tutorial_group_chat": "Group Chat: Pilih 2 murid atau lebih. Setelah itu, tekan tombol panah di kanan bawah untuk menamai dan membuat grup baru.",
+  "tutorial_got_it": "Mengerti!",
+  "chat_compressing_memory": "Sedang memadatkan memori percakapan, tunggu sebentar ya Sensei... ⏳"
 }

@@ -304,5 +304,10 @@
   "donation_confirm_discord": "通过 Discord 确认",
   "chat_bug_notice_title": "重要错误修复通知",
   "chat_bug_notice_body": "之前的更新存在 AI 容易遗忘的错误。要修复此问题，请点击三个点并选择\"重新摘要 (Re-Summary)\"。",
-  "chat_resummary_loading": "重新摘要聊天记录中..."
+  "chat_resummary_loading": "重新摘要聊天记录中...",
+  "tutorial_chat_title": "如何开始聊天",
+  "tutorial_single_chat": "个人聊天：从列表中选择 1 名学生开始私人聊天。",
+  "tutorial_group_chat": "群聊：选择 2 名或更多学生。然后，点击右下角的箭头按钮创建一个新群组。",
+  "tutorial_got_it": "知道了！",
+  "chat_compressing_memory": "正在压缩对话记忆，请稍候老师... ⏳"
 }

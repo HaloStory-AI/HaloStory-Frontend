@@ -11,7 +11,7 @@ import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
-import 'setup_screen.dart';
+
 import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
 import 'donation_screen.dart';
@@ -172,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onChatSelected(Map<String, dynamic> bot) {
     final prefs = SharedPreferences.getInstance();
     prefs.then((p) {
+      if (!mounted) return;
       final provider = AIService.normalizeProvider(
         p.getString('default_provider'),
       );
@@ -618,14 +619,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Icon(
                           Icons.logout,
-                          color: Colors.redAccent.withOpacity(0.8),
+                          color: Colors.redAccent.withValues(alpha: 0.8),
                           size: 24,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           tr('sidebar_logout'),
                           style: TextStyle(
-                            color: Colors.redAccent.withOpacity(0.8),
+                            color: Colors.redAccent.withValues(alpha: 0.8),
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                           ),

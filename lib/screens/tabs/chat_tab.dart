@@ -3,19 +3,25 @@ import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
 import '../../services/localization_service.dart';
-import '../student_request_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-
 import '../../widgets/skeleton_loader.dart';
+import '../select_contact_screen.dart';
+import '../chat_screen.dart';
 
 enum ChatSortType { newest, name, bond }
 
 class ChatTab extends StatefulWidget {
   final Function(Map<String, dynamic>) onChatSelected;
   final Function(Widget)? onShowSort;
+  final VoidCallback? onAddContact;
 
-  const ChatTab({super.key, required this.onChatSelected, this.onShowSort});
+  const ChatTab({
+    super.key,
+    required this.onChatSelected,
+    this.onShowSort,
+    this.onAddContact,
+  });
 
   @override
   State<ChatTab> createState() => ChatTabState();
@@ -28,12 +34,15 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _availableBots = [];
   List<String> _pinnedChatIds = [];
   final Set<String> _selectedChatIds = <String>{};
+  //Jangan ilangin _isLoadingBots
+  // entah kenapa saat diremove, langsung dibilang dibutuhkan
+  // padahal disini katanya isn't used
+  // but it's used here.
   bool _isLoadingBots = true;
   bool _isLoadingChats = true;
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
   bool _showSyncNotice = true;
-  bool _isFabExpanded = false;
   StreamSubscription<String>? _chatUpdateSubscription;
 
   static const String _chatSortByKey = 'chat_sort_by';
@@ -343,536 +352,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     }
   }
 
-  void _showAddChatSheet() {
-    _loadAvailableBots(force: true);
-
-    bool isSheetClosed = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        String searchQuery = '';
-        List<Map<String, dynamic>> eventCategories = [];
-        String? selectedCategoryId;
-        List<Map<String, dynamic>> eventBots = [];
-        bool isLoadingEventBots = false;
-        bool isLoadingEventCategories = false;
-
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            void safeModalSetState(VoidCallback fn) {
-              if (isSheetClosed) return;
-              final route = ModalRoute.of(context);
-              if (route != null && !route.isCurrent) return;
-              setModalState(fn);
-            }
-
-            return DefaultTabController(
-              length: 2,
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.85,
-                decoration: BoxDecoration(
-                  color: _surfaceColor(context),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).dividerColor,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TabBar(
-                      labelColor: Theme.of(context).colorScheme.primary,
-                      unselectedLabelColor: _secondaryTextColor(context),
-                      indicatorColor: Theme.of(context).colorScheme.primary,
-                      tabs: [
-                        const Tab(text: 'Main'),
-                        const Tab(text: 'Event'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          Column(
-                            children: [
-                              _buildSearchHeader(context, (value) {
-                                safeModalSetState(() => searchQuery = value);
-                              }),
-                              Expanded(
-                                child: _buildBotList(
-                                  _availableBots.where((bot) {
-                                    final name = (bot['name'] ?? '')
-                                        .toString()
-                                        .toLowerCase();
-                                    final id = (bot['id'] ?? '')
-                                        .toString()
-                                        .toLowerCase();
-                                    final query = searchQuery.toLowerCase();
-                                    return name.contains(query) ||
-                                        id.contains(query);
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            children: [
-                              _buildEventHeader(
-                                context,
-                                eventCategories,
-                                selectedCategoryId,
-                                (catId) async {
-                                  safeModalSetState(() {
-                                    selectedCategoryId = catId;
-                                    isLoadingEventBots = catId != null;
-                                    if (catId == null) {
-                                      eventBots = [];
-                                    }
-                                  });
-
-                                  if (catId == null) return;
-
-                                  final bots = await _botService.getBots(
-                                    type: 'Event',
-                                    category: catId,
-                                  );
-
-                                  safeModalSetState(() {
-                                    eventBots = bots;
-                                    isLoadingEventBots = false;
-                                  });
-                                },
-                                () async {
-                                  if (eventCategories.isEmpty &&
-                                      !isLoadingEventCategories) {
-                                    safeModalSetState(() {
-                                      isLoadingEventCategories = true;
-                                    });
-
-                                    final cats = await _botService
-                                        .getEventCategories();
-
-                                    safeModalSetState(() {
-                                      eventCategories = cats;
-                                      isLoadingEventCategories = false;
-                                    });
-                                  }
-                                },
-                              ),
-                              Expanded(
-                                child: isLoadingEventBots
-                                    ? const ChatListSkeleton()
-                                    : _buildBotList(eventBots),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() {
-      isSheetClosed = true;
-    });
-  }
-
-  void _showCreateGroupSheet() {
-    _loadAvailableBots(force: true);
-    bool isSheetClosed = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        String searchQuery = '';
-        List<Map<String, dynamic>> eventCategories = [];
-        String? selectedCategoryId;
-        List<Map<String, dynamic>> eventBots = [];
-        bool isLoadingEventBots = false;
-        bool isLoadingEventCategories = false;
-        Set<String> selectedBotIds = {};
-        final TextEditingController groupNameController = TextEditingController(
-          text: 'New Group',
-        );
-
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            void safeModalSetState(VoidCallback fn) {
-              if (isSheetClosed) return;
-              final route = ModalRoute.of(context);
-              if (route != null && !route.isCurrent) return;
-              setModalState(fn);
-            }
-
-            return DefaultTabController(
-              length: 2,
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.85,
-                decoration: BoxDecoration(
-                  color: _surfaceColor(context),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).dividerColor,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Create Group Chat (${selectedBotIds.length}/10)',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed:
-                                selectedBotIds.isEmpty ||
-                                    groupNameController.text.trim().isEmpty
-                                ? null
-                                : () async {
-                                    final groupId =
-                                        'group_${DateTime.now().millisecondsSinceEpoch}';
-                                    final List<Map<String, dynamic>> members =
-                                        [];
-
-                                    for (final id in selectedBotIds) {
-                                      final bot =
-                                          [
-                                            ..._availableBots,
-                                            ...eventBots,
-                                          ].firstWhere(
-                                            (b) => b['id'].toString() == id,
-                                            orElse: () => {
-                                              'id': id,
-                                              'name': id,
-                                              'avatar': null,
-                                              'color': '0xFF607D8B',
-                                            },
-                                          );
-                                      members.add(bot);
-                                    }
-
-                                    final metadata = {
-                                      'id': groupId,
-                                      'name':
-                                          groupNameController.text
-                                              .trim()
-                                              .isEmpty
-                                          ? 'New Group'
-                                          : groupNameController.text.trim(),
-                                      'bio': '',
-                                      'description': '',
-                                      'isGroup': true,
-                                      'members': members,
-                                      'createdAt': DateTime.now()
-                                          .toIso8601String(),
-                                    };
-
-                                    await _localChatService.saveChat(groupId, [
-                                      {
-                                        'role': 'system',
-                                        'content':
-                                            'Group created with ${members.length} members.',
-                                        'metadata': metadata,
-                                      },
-                                    ]);
-
-                                    if (context.mounted) {
-                                      Navigator.pop(context);
-                                      initData();
-                                    }
-                                  },
-                            child: const Text('Create'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                      child: TextField(
-                        controller: groupNameController,
-                        onChanged: (value) {
-                          safeModalSetState(() {});
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Enter group name...',
-                          prefixIcon: Icon(
-                            Icons.edit_note_rounded,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          filled: true,
-                          fillColor: _surfaceAltColor(context),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 0,
-                          ),
-                        ),
-                      ),
-                    ),
-                    TabBar(
-                      labelColor: Theme.of(context).colorScheme.primary,
-                      unselectedLabelColor: _secondaryTextColor(context),
-                      indicatorColor: Theme.of(context).colorScheme.primary,
-                      tabs: [
-                        const Tab(text: 'Main'),
-                        const Tab(text: 'Event'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          Column(
-                            children: [
-                              _buildSearchHeader(context, (value) {
-                                safeModalSetState(() => searchQuery = value);
-                              }),
-                              Expanded(
-                                child: _buildBotListForGroup(
-                                  _availableBots.where((bot) {
-                                    final name = (bot['name'] ?? '')
-                                        .toString()
-                                        .toLowerCase();
-                                    final id = (bot['id'] ?? '')
-                                        .toString()
-                                        .toLowerCase();
-                                    final query = searchQuery.toLowerCase();
-                                    return name.contains(query) ||
-                                        id.contains(query);
-                                  }).toList(),
-                                  selectedBotIds,
-                                  (id) {
-                                    safeModalSetState(() {
-                                      if (selectedBotIds.contains(id)) {
-                                        selectedBotIds.remove(id);
-                                      } else if (selectedBotIds.length < 10) {
-                                        selectedBotIds.add(id);
-                                      }
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            children: [
-                              _buildEventHeader(
-                                context,
-                                eventCategories,
-                                selectedCategoryId,
-                                (catId) async {
-                                  safeModalSetState(() {
-                                    selectedCategoryId = catId;
-                                    isLoadingEventBots = catId != null;
-                                    if (catId == null) {
-                                      eventBots = [];
-                                    }
-                                  });
-                                  if (catId == null) return;
-                                  final bots = await _botService.getBots(
-                                    type: 'Event',
-                                    category: catId,
-                                  );
-                                  safeModalSetState(() {
-                                    eventBots = bots;
-                                    isLoadingEventBots = false;
-                                  });
-                                },
-                                () async {
-                                  if (eventCategories.isEmpty &&
-                                      !isLoadingEventCategories) {
-                                    isLoadingEventCategories = true;
-                                    _botService.getEventCategories().then((
-                                      cats,
-                                    ) {
-                                      safeModalSetState(() {
-                                        eventCategories = cats;
-                                        isLoadingEventCategories = false;
-                                      });
-                                    });
-                                  }
-                                },
-                              ),
-                              Expanded(
-                                child: isLoadingEventBots
-                                    ? const ChatListSkeleton()
-                                    : _buildBotListForGroup(
-                                        eventBots,
-                                        selectedBotIds,
-                                        (id) {
-                                          safeModalSetState(() {
-                                            if (selectedBotIds.contains(id)) {
-                                              selectedBotIds.remove(id);
-                                            } else if (selectedBotIds.length <
-                                                10) {
-                                              selectedBotIds.add(id);
-                                            }
-                                          });
-                                        },
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() {
-      isSheetClosed = true;
-    });
-  }
-
-  Widget _buildBotListForGroup(
-    List<Map<String, dynamic>> bots,
-    Set<String> selectedBotIds,
-    Function(String) onToggle,
-  ) {
-    if (_isLoadingBots) return const ChatListSkeleton();
-    if (bots.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.person_search_rounded,
-              size: 64,
-              color: Theme.of(context).dividerColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('no_bots_found'),
-              style: TextStyle(color: _secondaryTextColor(context)),
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.separated(
-      itemCount: bots.length,
-      separatorBuilder: (context, index) =>
-          Divider(height: 1, color: Theme.of(context).dividerColor),
-      itemBuilder: (context, index) {
-        final bot = bots[index];
-        final id = bot['id'].toString();
-        final isSelected = selectedBotIds.contains(id);
-
-        return ListTile(
-          onTap: () => onToggle(id),
-          leading: Stack(
-            children: [
-              CircleAvatar(
-                backgroundColor: _parseColor(bot['color']),
-                backgroundImage: bot['image_url'] != null
-                    ? NetworkImage(bot['image_url'])
-                    : null,
-                child: bot['image_url'] == null
-                    ? Text(
-                        (bot['name'] as String).isNotEmpty
-                            ? (bot['name'] as String)[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              if (isSelected)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check,
-                      size: 12,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          title: Row(
-            children: [
-              Text(
-                bot['name'] ?? 'Unknown',
-                style: TextStyle(
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : _primaryTextColor(context),
-                ),
-              ),
-              if (_isBirthday(bot['birthday']))
-                const Padding(
-                  padding: EdgeInsets.only(left: 4),
-                  child: Text('🎂', style: TextStyle(fontSize: 14)),
-                ),
-            ],
-          ),
-          subtitle: Text(
-            bot['description'] ?? 'No description',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: _secondaryTextColor(context)),
-          ),
-          trailing: Checkbox(
-            value: isSelected,
-            onChanged: (_) => onToggle(id),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _showSortSheet() {
     ChatSortType draftSort = _sortBy;
 
@@ -1122,219 +601,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     );
   }
 
-  Widget _buildSearchHeader(BuildContext context, Function(String) onSearch) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            tr('new_dialog_title'),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            onChanged: onSearch,
-            decoration: InputDecoration(
-              hintText: tr('search_hint'),
-              prefixIcon: Icon(Icons.search, color: colorScheme.primary),
-              filled: true,
-              fillColor: _surfaceAltColor(context),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 0),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildSuggestStudentRow(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEventHeader(
-    BuildContext context,
-    List<Map<String, dynamic>> categories,
-    String? selectedCategoryId,
-    Function(String?) onCategoryChanged,
-    Future<void> Function() onInit,
-  ) {
-    onInit();
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Event Characters',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: _surfaceAltColor(context),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                hint: const Text('Pilih Kategori'),
-                value: selectedCategoryId,
-                items: categories.map((cat) {
-                  return DropdownMenuItem<String>(
-                    value: cat['name'],
-                    child: Text(cat['name']),
-                  );
-                }).toList(),
-                onChanged: onCategoryChanged,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildSuggestStudentRow(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuggestStudentRow(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            tr('suggest_student_desc'),
-            style: TextStyle(fontSize: 12, color: _secondaryTextColor(context)),
-          ),
-        ),
-        const SizedBox(width: 8),
-        TextButton.icon(
-          onPressed: () {
-            Navigator.pop(context);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const StudentRequestScreen(),
-              ),
-            );
-          },
-          icon: const Icon(Icons.add_task_rounded, size: 16),
-          label: Text(
-            tr('suggest_student'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.primary,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBotList(List<Map<String, dynamic>> bots) {
-    if (_isLoadingBots) return const ChatListSkeleton();
-    if (bots.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.person_search_rounded,
-              size: 64,
-              color: Theme.of(context).dividerColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('no_bots_found'),
-              style: TextStyle(color: _secondaryTextColor(context)),
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.separated(
-      itemCount: bots.length,
-      separatorBuilder: (context, index) =>
-          Divider(height: 1, color: Theme.of(context).dividerColor),
-      itemBuilder: (context, index) {
-        final bot = bots[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: _parseColor(bot['color']),
-            backgroundImage: bot['image_url'] != null
-                ? NetworkImage(bot['image_url'])
-                : null,
-            child: bot['image_url'] == null
-                ? Text(
-                    (bot['name'] as String).isNotEmpty
-                        ? (bot['name'] as String)[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
-          ),
-          title: Row(
-            children: [
-              Text(
-                bot['name'],
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: _primaryTextColor(context),
-                ),
-              ),
-              if (_isBirthday(bot['birthday']))
-                const Padding(
-                  padding: EdgeInsets.only(left: 4),
-                  child: Text('🎂', style: TextStyle(fontSize: 14)),
-                ),
-            ],
-          ),
-          subtitle: Text(
-            bot['description'],
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: _secondaryTextColor(context)),
-          ),
-          trailing: Icon(
-            Icons.add_circle_outline,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          onTap: () async {
-            Navigator.pop(context);
-            _botService.recruitBot(bot['id']);
-
-            widget.onChatSelected(bot);
-            _loadActiveChats();
-          },
-        );
-      },
-    );
-  }
-
   @override
   bool get wantKeepAlive => true;
 
@@ -1355,160 +621,73 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     final colorScheme = Theme.of(context).colorScheme;
     const slant = 0.174533;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (_isFabExpanded) ...[
-          _buildFabOption(
-            icon: Icons.person_add_rounded,
-            label: 'Single Chat',
-            onTap: () {
-              setState(() => _isFabExpanded = false);
-              _showAddChatSheet();
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildFabOption(
-            icon: Icons.group_add_rounded,
-            label: 'Group Chat',
-            onTap: () {
-              setState(() => _isFabExpanded = false);
-              _showCreateGroupSheet();
-            },
-          ),
-          const SizedBox(height: 12),
-        ],
-        SizedBox(
-          width: 50,
-          height: 46,
-          child: Transform(
-            transform: Matrix4.skewX(-slant),
-            alignment: Alignment.center,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _isFabExpanded
-                      ? colorScheme.error
-                      : colorScheme.primary,
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _isDark(context)
-                          ? Colors.black.withValues(alpha: 0.6)
-                          : Colors.black.withValues(alpha: 0.24),
-                      blurRadius: 0,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+    return SizedBox(
+      width: 50,
+      height: 46,
+      child: Transform(
+        transform: Matrix4.skewX(-slant),
+        alignment: Alignment.center,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: _isDark(context)
+                      ? Colors.black.withValues(alpha: 0.6)
+                      : Colors.black.withValues(alpha: 0.24),
+                  blurRadius: 0,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 3),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _isFabExpanded = !_isFabExpanded;
-                    });
-                  },
-                  child: Transform(
-                    transform: Matrix4.skewX(slant),
-                    alignment: Alignment.center,
-                    child: Center(
-                      child: Icon(
-                        _isFabExpanded
-                            ? Icons.close_rounded
-                            : Icons.add_rounded,
-                        color: _isFabExpanded
-                            ? colorScheme.onError
-                            : colorScheme.onPrimary,
-                        size: 28,
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                if (widget.onAddContact != null) {
+                  widget.onAddContact!();
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SelectContactScreen(
+                        onContactSelected: (chatData) {
+                          widget.onChatSelected(chatData);
+                          initData(); // Refresh list
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChatDetailScreen(
+                                bot: chatData,
+                                provider: 'gemini',
+                              ),
+                            ),
+                          );
+                        },
+                        onCancel: () => Navigator.pop(context),
                       ),
                     ),
+                  );
+                }
+              },
+              child: Transform(
+                transform: Matrix4.skewX(slant),
+                alignment: Alignment.center,
+                child: Center(
+                  child: Icon(
+                    Icons.add_rounded,
+                    color: colorScheme.onPrimary,
+                    size: 28,
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildFabOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    const slant = 0.174533;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: _surfaceColor(context),
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: _primaryTextColor(context),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 44,
-          height: 40,
-          child: Transform(
-            transform: Matrix4.skewX(-slant),
-            alignment: Alignment.center,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 0,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: onTap,
-                  child: Transform(
-                    transform: Matrix4.skewX(slant),
-                    alignment: Alignment.center,
-                    child: Center(
-                      child: Icon(
-                        icon,
-                        color: colorScheme.onSecondaryContainer,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
