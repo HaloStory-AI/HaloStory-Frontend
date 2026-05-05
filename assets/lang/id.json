@@ -314,5 +314,6 @@
   "tutorial_chat_title": "Cara Memulai Chat",
   "tutorial_single_chat": "Personal Chat: Pilih 1 murid dari daftar untuk langsung ngobrol berdua.",
   "tutorial_group_chat": "Group Chat: Pilih 2 murid atau lebih. Setelah itu, tekan tombol panah di kanan bawah untuk menamai dan membuat grup baru.",
-  "tutorial_got_it": "Mengerti!"
+  "tutorial_got_it": "Mengerti!",
+  "chat_compressing_memory": "Sedang memadatkan memori percakapan, tunggu sebentar ya Sensei... ⏳"
 }

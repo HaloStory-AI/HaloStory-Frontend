@@ -594,7 +594,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final int batchSize = 20;
 
     final List<Map<String, dynamic>> realMessages = _messages
-        .where((m) => m['content'] != null && m['role'] != 'system' && m['isTempSummary'] != true)
+        .where(
+          (m) =>
+              m['content'] != null &&
+              m['role'] != 'system' &&
+              m['isTempSummary'] != true,
+        )
         .toList();
 
     int totalBatchesToSummarize = 0;
@@ -611,7 +616,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _summaryProgress = 0.0;
       _messages.add({
         'role': 'assistant',
-        'content': 'Sedang memadatkan memori percakapan, tunggu sebentar ya Sensei... ⏳',
+        'content': tr('chat_compressing_memory'),
         'status': 'processing',
         'isTempSummary': true,
       });
@@ -640,24 +645,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             provider: widget.provider,
           );
 
-          if (result != null && result['status'] == 'queued' && result['uuid'] != null) {
+          if (result != null &&
+              result['status'] == 'queued' &&
+              result['uuid'] != null) {
             String uuid = result['uuid'];
             bool summaryCompleted = false;
             int timeoutChecks = 60; // Max 2 minutes
-            
-            while (mounted && !_isDisposed && !summaryCompleted && timeoutChecks > 0) {
+
+            while (mounted &&
+                !_isDisposed &&
+                !summaryCompleted &&
+                timeoutChecks > 0) {
               await Future.delayed(const Duration(seconds: 2));
               final statusCheck = await _aiService.checkChatStatus(uuid);
               if (statusCheck != null) {
-                if (statusCheck['status'] == 'queued' || statusCheck['status'] == 'processing') {
+                if (statusCheck['status'] == 'queued' ||
+                    statusCheck['status'] == 'processing') {
                   // Masih diproses, teruskan polling
-                } else if (statusCheck['status'] == 'not_found' || statusCheck['status'] == 'failed' || statusCheck['error'] != null) {
+                } else if (statusCheck['status'] == 'not_found' ||
+                    statusCheck['status'] == 'failed' ||
+                    statusCheck['error'] != null) {
                   // Gagal atau tidak ditemukan
-                  summaryCompleted = true; 
+                  summaryCompleted = true;
                 } else {
                   // Berhasil! Backend menghapus kunci Redis dan langsung mengembalikan payload response
                   // Karena ProcessAiChatJob mengembalikan ['summary' => 'teks...']
-                  final summaryText = statusCheck['summary'] ?? statusCheck['response']?['summary'];
+                  final summaryText =
+                      statusCheck['summary'] ??
+                      statusCheck['response']?['summary'];
                   if (summaryText != null) {
                     _summaries[i] = summaryText;
                     updated = true;
@@ -865,10 +880,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     int summarizedCount = _summaries.length * 20;
     List<Map<String, String>> aiMessages;
 
-    if (summarizedCount > 0 && summarizedCount < fullHistory.length) {
-      aiMessages = fullHistory.sublist(summarizedCount);
-    } else if (summarizedCount >= fullHistory.length) {
-      aiMessages = fullHistory.isNotEmpty ? [fullHistory.last] : [];
+    if (summarizedCount > 0) {
+      int sliceIndex = (summarizedCount >= 4) ? summarizedCount - 4 : 0;
+      if (sliceIndex < fullHistory.length) {
+        aiMessages = fullHistory.sublist(sliceIndex);
+      } else {
+        aiMessages = fullHistory.isNotEmpty ? [fullHistory.last] : [];
+      }
     } else {
       aiMessages = fullHistory;
     }
@@ -1840,7 +1858,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _addSystemError(String timestamp, {int? statusCode, dynamic rawError}) {
-    String errorMsg = 'Error: Failed to get response from ${widget.provider}.';
+    String errorMsg =
+        'Error: Failed to get response from ${widget.provider}. please check your API Key, Your Provider, or your BYOM';
 
     if (statusCode == 503) {
       errorMsg = 'Server is under maintenance, try again later';
@@ -3792,14 +3811,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           ),
                         ),
                         onSubmitted: (_) {
-                          if (!_isTypingEffectActive && !_isSummarizing) _sendMessage();
+                          if (!_isTypingEffectActive && !_isSummarizing)
+                            _sendMessage();
                         },
                       ),
                     ),
                     const SizedBox(width: 4),
                     if (_isGroup) ...[_buildSystemNoteIconButton()],
                     GestureDetector(
-                      onTap: (_isTypingEffectActive || _isSummarizing) ? null : _sendMessage,
+                      onTap: (_isTypingEffectActive || _isSummarizing)
+                          ? null
+                          : _sendMessage,
                       child: Container(
                         margin: const EdgeInsets.only(right: 4),
                         padding: const EdgeInsets.all(6),

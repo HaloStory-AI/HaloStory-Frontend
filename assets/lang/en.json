@@ -313,5 +313,6 @@
   "tutorial_chat_title": "How to Start a Chat",
   "tutorial_single_chat": "Single Chat: Select 1 student from the list to start a private chat.",
   "tutorial_group_chat": "Group Chat: Select 2 or more students. Then, tap the arrow button at the bottom right to create a new group.",
-  "tutorial_got_it": "Got it!"
+  "tutorial_got_it": "Got it!",
+  "chat_compressing_memory": "Compressing conversation memory, please wait a moment Sensei... ⏳"
 }
