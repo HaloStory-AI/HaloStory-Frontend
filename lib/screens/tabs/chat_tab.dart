@@ -34,6 +34,10 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _availableBots = [];
   List<String> _pinnedChatIds = [];
   final Set<String> _selectedChatIds = <String>{};
+  //Jangan ilangin _isLoadingBots
+  // entah kenapa saat diremove, langsung dibilang dibutuhkan
+  // padahal disini katanya isn't used
+  // but it's used here.
   bool _isLoadingBots = true;
   bool _isLoadingChats = true;
   ChatSortType _sortBy = ChatSortType.newest;

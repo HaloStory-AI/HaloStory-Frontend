@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -75,6 +76,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isTypingEffectActive = false;
   bool _isDisposed = false;
   bool _showScrollButton = false;
+  Timer? _pollingTimer;
 
   // Debug overlay state
   bool _showDebugOverlay = false;
@@ -180,6 +182,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void dispose() {
     _isDisposed = true;
+    _pollingTimer?.cancel();
     _debugOverlayEntry?.remove();
     _debugScrollController.dispose();
     _scrollController.removeListener(_scrollListener);
@@ -706,6 +709,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'role': 'user',
         'content': userMessage,
         'timestamp': timestamp,
+        'status': 'sending',
+        'uuid': null,
       });
     });
     _scrollToBottom();
@@ -785,7 +790,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           botIdForRequest = mentionedId;
         } else {
           final rIndex = math.Random().nextInt(_groupMembers.length);
-          botIdForRequest = _groupMembers[rIndex]['bot_id']?.toString() ??
+          botIdForRequest =
+              _groupMembers[rIndex]['bot_id']?.toString() ??
               _groupMembers[rIndex]['id']?.toString();
         }
       }
@@ -870,73 +876,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       int partsLength = 0;
 
       _safeSetState(() {
-        _isLoading = false;
-        _activeBotId = null;
         final aiTimestamp = DateTime.now().toIso8601String();
 
-        if (response != null &&
-            response['error'] != true &&
-            response['choices'] != null) {
-          String aiContent = response['choices'][0]['message']['content'] ?? '';
-
-          if (aiContent.contains('[Need Help]')) {
-            _showSafetyBar = true;
-            aiContent = aiContent.replaceAll('[Need Help]', '').trim();
+        if (response != null && response['status'] == 'queued') {
+          if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+            _messages.last['status'] = 'sent';
+            _messages.last['uuid'] = response['uuid'];
           }
-
-          if (aiContent.isNotEmpty) {
-            final parts = aiContent
-                .split('\n\n')
-                .where((s) => s.trim().isNotEmpty)
-                .toList();
-
-            _messages.add({
-              'role': 'assistant',
-              'content': aiContent,
-              'timestamp': aiTimestamp,
-              'bot_id': botIdForRequest,
-              'bot_name': _resolveBotName(botIdForRequest),
-              'bot_avatar': _resolveBotAvatar(botIdForRequest),
-              if (parts.length > 1) 'visible_parts': 1,
-              if (parts.length > 1) 'is_typing_next': true,
-            });
-
-            if (parts.length > 1) {
-              shouldStartTyping = true;
-              partsLength = parts.length;
-            }
-          } else {
-            _addSystemError(aiTimestamp);
-          }
-        } else {
-          final int? statusCode = response != null
-              ? response['status_code'] as int?
-              : null;
-          final dynamic rawError = response != null
-              ? response['raw_error']
-              : null;
-          _addSystemError(
-            aiTimestamp,
-            statusCode: statusCode,
-            rawError: rawError,
-          );
+          _startPolling(response['uuid'], botIdForRequest, aiTimestamp);
+          return;
         }
+
+        _handleAIResponseData(response, botIdForRequest, aiTimestamp);
       });
-
-      // Update bond state from response
-      if (response != null) {
-        _safeSetState(() {
-          _bondStatus = response['bond_status'] ?? _bondStatus;
-          _bondRelationship =
-              response['relationship_label'] ?? _bondRelationship;
-          _bondLevel = (response['bond_level'] as int?) ?? _bondLevel;
-          _pendingBondEvent = response['bond_event'] as String?;
-        });
-      }
-
-      if (shouldStartTyping) {
-        _startTypingEffect(partsLength);
-      }
     } catch (e) {
       if (!mounted || _isDisposed) return;
       _safeSetState(() {
@@ -945,14 +897,130 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _addSystemError(DateTime.now().toIso8601String());
       });
     }
+  }
+
+  void _startPolling(String uuid, String? botIdForRequest, String aiTimestamp) {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (!mounted || _isDisposed) {
+        timer.cancel();
+        return;
+      }
+      final response = await _aiService.checkChatStatus(uuid);
+      if (response == null || response['status'] == 'not_found') {
+        timer.cancel();
+        _safeSetState(() {
+          _isLoading = false;
+          _activeBotId = null;
+          _addSystemError(aiTimestamp);
+        });
+        return;
+      }
+
+      if (response['status'] == 'processing') {
+        _safeSetState(() {
+          if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+            _messages.last['status'] = 'processing';
+          }
+        });
+        return;
+      }
+
+      if (response['status'] == 'completed' ||
+          response['choices'] != null ||
+          response['error'] != null) {
+        timer.cancel();
+        _safeSetState(() {
+          if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+            _messages.last['status'] =
+                'completed'; // Atau biarkan saja, centang 2 sudah tercapai di processing
+          }
+        });
+        _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+      }
+    });
+  }
+
+  void _handleAIResponseData(
+    Map<String, dynamic>? response,
+    String? botIdForRequest,
+    String aiTimestamp,
+  ) {
+    bool shouldStartTyping = false;
+    int partsLength = 0;
+
+    _safeSetState(() {
+      _isLoading = false;
+      _activeBotId = null;
+
+      if (response != null &&
+          response['error'] != true &&
+          response['choices'] != null) {
+        String aiContent = response['choices'][0]['message']['content'] ?? '';
+
+        if (aiContent.contains('[Need Help]')) {
+          _showSafetyBar = true;
+          aiContent = aiContent.replaceAll('[Need Help]', '').trim();
+        }
+
+        if (aiContent.isNotEmpty) {
+          final parts = aiContent
+              .split('\n\n')
+              .where((s) => s.trim().isNotEmpty)
+              .toList();
+
+          _messages.add({
+            'role': 'assistant',
+            'content': aiContent,
+            'timestamp': aiTimestamp,
+            'bot_id': botIdForRequest,
+            'bot_name': _resolveBotName(botIdForRequest),
+            'bot_avatar': _resolveBotAvatar(botIdForRequest),
+            if (parts.length > 1) 'visible_parts': 1,
+            if (parts.length > 1) 'is_typing_next': true,
+          });
+
+          if (parts.length > 1) {
+            shouldStartTyping = true;
+            partsLength = parts.length;
+          }
+        } else {
+          _addSystemError(aiTimestamp);
+        }
+      } else {
+        final int? statusCode = response != null
+            ? response['status_code'] as int?
+            : null;
+        final dynamic rawError = response != null
+            ? response['raw_error']
+            : null;
+        _addSystemError(
+          aiTimestamp,
+          statusCode: statusCode,
+          rawError: rawError,
+        );
+      }
+
+      // Update bond state from response
+      if (response != null) {
+        _bondStatus = response['bond_status'] ?? _bondStatus;
+        _bondRelationship = response['relationship_label'] ?? _bondRelationship;
+        _bondLevel = (response['bond_level'] as int?) ?? _bondLevel;
+        _pendingBondEvent = response['bond_event'] as String?;
+      }
+    });
+
+    if (shouldStartTyping) {
+      _startTypingEffect(partsLength);
+    }
 
     if (!_isTypingEffectActive) {
-      await _localChatService.saveChat(widget.bot['id'], _messages);
-      _generateSummaries();
+      _localChatService.saveChat(widget.bot['id'], _messages).then((_) {
+        _generateSummaries();
+      });
     }
     _scrollToBottom();
 
-    // Handle bond event from AI response (after UI has settled)
     if (_pendingBondEvent != null) {
       final evt = _pendingBondEvent!;
       _pendingBondEvent = null;
@@ -2734,7 +2802,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               final content = msg['content']?.toString() ?? '';
 
                               final bubble = isUser
-                                  ? _buildUserBubble(content, timestamp, index)
+                                  ? _buildUserBubble(
+                                      content,
+                                      timestamp,
+                                      index,
+                                      status: msg['status']?.toString(),
+                                    )
                                   : _buildBotBubble(
                                       msg,
                                       timestamp,
@@ -2794,7 +2867,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 opacity: _isCharacterMenuOpen ? 1.0 : 0.0,
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: () => setState(() => _isCharacterMenuOpen = false),
+                                  onTap: () => setState(
+                                    () => _isCharacterMenuOpen = false,
+                                  ),
                                   child: Container(color: Colors.transparent),
                                 ),
                               ),
@@ -3082,8 +3157,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildUserBubble(String content, DateTime? timestamp, int index) {
+  Widget _buildUserBubble(
+    String content,
+    DateTime? timestamp,
+    int index, {
+    String? status,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    Widget buildStatusIcon() {
+      if (status == 'sending') {
+        return Icon(
+          Icons.access_time,
+          size: 12,
+          color: colorScheme.onSurfaceVariant,
+        );
+      } else if (status == 'sent') {
+        return Icon(Icons.check, size: 14, color: colorScheme.onSurfaceVariant);
+      } else if (status == 'processing' || status == 'completed') {
+        return Icon(Icons.done_all, size: 14, color: colorScheme.primary);
+      }
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -3093,12 +3188,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           if (timestamp != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 4, right: 4),
-              child: Text(
-                _formatMessageTime(timestamp),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatMessageTime(timestamp),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (status != null) ...[
+                    const SizedBox(width: 4),
+                    buildStatusIcon(),
+                  ],
+                ],
               ),
             ),
           Align(
@@ -3405,7 +3509,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       return CircleAvatar(
         radius: 19,
         backgroundColor: Colors.transparent,
-        child: Icon(Icons.shuffle, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 28),
+        child: Icon(
+          Icons.shuffle,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          size: 28,
+        ),
       );
     }
 
@@ -3459,74 +3567,84 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
       child: SingleChildScrollView(
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ..._groupMembers.map((member) {
-            final memberId =
-                member['bot_id']?.toString() ?? member['id']?.toString();
-            final isSelected = _selectedBotId == memberId;
-            final color = _parseColor(member['color']);
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ..._groupMembers.map((member) {
+              final memberId =
+                  member['bot_id']?.toString() ?? member['id']?.toString();
+              final isSelected = _selectedBotId == memberId;
+              final color = _parseColor(member['color']);
 
-            return GestureDetector(
+              return GestureDetector(
+                onTap: () {
+                  _saveSelectedBot(memberId!);
+                  _safeSetState(() => _isCharacterMenuOpen = false);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? color : Colors.transparent,
+                      width: 2.5,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: color,
+                    backgroundImage: member['image_url'] != null
+                        ? NetworkImage(member['image_url'])
+                        : (member['avatar'] != null
+                              ? NetworkImage(member['avatar'])
+                              : null),
+                    child:
+                        (member['image_url'] == null &&
+                            member['avatar'] == null)
+                        ? Text(
+                            (member['name'] as String)[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              );
+            }),
+            GestureDetector(
               onTap: () {
-                _saveSelectedBot(memberId!);
+                _saveSelectedBot('random');
                 _safeSetState(() => _isCharacterMenuOpen = false);
               },
               child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isSelected ? color : Colors.transparent,
+                    color: _selectedBotId == 'random'
+                        ? Colors.orange
+                        : Colors.transparent,
                     width: 2.5,
                   ),
                 ),
                 child: CircleAvatar(
                   radius: 20,
-                  backgroundColor: color,
-                  backgroundImage: member['image_url'] != null
-                      ? NetworkImage(member['image_url'])
-                      : (member['avatar'] != null
-                          ? NetworkImage(member['avatar'])
-                          : null),
-                  child: (member['image_url'] == null && member['avatar'] == null)
-                      ? Text(
-                          (member['name'] as String)[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                  backgroundColor: _selectedBotId == 'random'
+                      ? Colors.orange.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  child: Icon(
+                    Icons.shuffle,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-            );
-          }),
-          GestureDetector(
-            onTap: () {
-              _saveSelectedBot('random');
-              _safeSetState(() => _isCharacterMenuOpen = false);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: _selectedBotId == 'random' ? Colors.orange : Colors.transparent,
-                  width: 2.5,
-                ),
-              ),
-              child: CircleAvatar(
-                radius: 20,
-                backgroundColor: _selectedBotId == 'random' ? Colors.orange.withValues(alpha: 0.1) : Colors.transparent,
-                child: Icon(Icons.shuffle, size: 22, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -3534,22 +3652,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget _buildSystemNoteIconButton() {
     final colorScheme = Theme.of(context).colorScheme;
     return IconButton(
-      onPressed: () => _safeSetState(
-        () => _isSystemNoteOpen = !_isSystemNoteOpen,
-      ),
+      onPressed: () =>
+          _safeSetState(() => _isSystemNoteOpen = !_isSystemNoteOpen),
       icon: Icon(
-        _isSystemNoteOpen
-            ? Icons.sticky_note_2
-            : Icons.sticky_note_2_outlined,
+        _isSystemNoteOpen ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined,
         color: _isSystemNoteOpen
             ? colorScheme.primary
             : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
       ),
       iconSize: 22,
-      constraints: const BoxConstraints(
-        minWidth: 34,
-        minHeight: 34,
-      ),
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
       padding: const EdgeInsets.all(4),
     );
   }
@@ -3607,20 +3719,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               ? 'Chatting with ${_selectedBotId == 'random' ? 'someone' : _groupMembers.firstWhere((m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId, orElse: () => {'name': widget.bot['name']})['name']}'
                               : '${tr('tab_chat')} ${widget.bot['name']}',
                           hintStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.7,
+                            ),
                             fontSize: 14,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(color: Colors.transparent),
+                            borderSide: const BorderSide(
+                              color: Colors.transparent,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(color: Colors.transparent),
+                            borderSide: const BorderSide(
+                              color: Colors.transparent,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(color: Colors.transparent),
+                            borderSide: const BorderSide(
+                              color: Colors.transparent,
+                            ),
                           ),
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
@@ -3634,9 +3754,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    if (_isGroup) ...[
-                      _buildSystemNoteIconButton(),
-                    ],
+                    if (_isGroup) ...[_buildSystemNoteIconButton()],
                     GestureDetector(
                       onTap: _isTypingEffectActive ? null : _sendMessage,
                       child: Container(
@@ -3645,7 +3763,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         child: Icon(
                           Icons.send,
                           color: _isTypingEffectActive
-                              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
+                              ? colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.5,
+                                )
                               : colorScheme.primary,
                           size: 24,
                         ),

@@ -436,4 +436,24 @@ class AIService {
     }
     return null;
   }
+
+  Future<Map<String, dynamic>?> checkChatStatus(String uuid) async {
+    final token = await _authService.getToken();
+    if (token == null) return null;
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.apiUrl}/chat/status/$uuid'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      if (response.statusCode == 404) return {'status': 'not_found'};
+    } catch (e) {
+      print('DEBUG: AIService checkChatStatus Error: $e');
+    }
+    return null;
+  }
 }
