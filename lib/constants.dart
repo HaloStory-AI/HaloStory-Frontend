@@ -3,7 +3,7 @@ import 'services/config_service.dart';
 
 class AppConstants {
   // Hardcoded string for development
-  static const String _devBaseUrl = 'http://localhost:8000/api';
+  static const String _devBaseUrl = 'https://api-stagging.my-bini.my.id/api';
 
   // Use hardcoded for dev, and ConfigService (GitHub dynamic) for prod
   static String get baseUrl => kDebugMode ? _devBaseUrl : ConfigService.baseUrl;
@@ -15,5 +15,5 @@ class AppConstants {
   static String get byomPromptUrl => '$baseUrl/ai/system-prompt';
 
   // This should match the API_STATIC_TOKEN in backend .env
-  static const String staticToken = 'bluetalk_secret_token_123';
+  static const String staticToken = 'BlueTalkImportantAccessToAllEndpoint';
 }
