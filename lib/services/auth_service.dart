@@ -4,6 +4,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import 'config_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
@@ -85,6 +89,74 @@ class AuthService {
     } catch (e) {
       print('DEBUG: Login error (timeout or network): $e');
       return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> signInWithGoogle() async {
+    try {
+      UserCredential userCredential;
+
+      if (kIsWeb) {
+        GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        userCredential = await FirebaseAuth.instance.signInWithPopup(googleProvider);
+      } else if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+        final googleSignIn = GoogleSignIn(
+          serverClientId: AppConstants.googleWebClientId,
+        );
+
+        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        if (googleUser == null) {
+          return {'success': false, 'message': 'Login Google dibatalkan.'};
+        }
+
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      } else {
+        return {'success': false, 'message': 'Platform ini belum didukung Firebase Google Sign-In.'};
+      }
+
+      // Dapatkan Firebase ID Token (Bukan Google OAuth Token)
+      final idToken = await userCredential.user?.getIdToken();
+
+      if (idToken == null) {
+         return {'success': false, 'message': 'Gagal mendapatkan token dari Firebase.'};
+      }
+
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/auth/google'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer ${AppConstants.staticToken}',
+            },
+            body: jsonEncode({'idToken': idToken}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        await _saveToken(data['access_token']);
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
+        return {'success': true, 'message': data['message'] ?? 'Berhasil masuk dengan Google.'};
+      }
+      
+      if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
+      }
+      // Jika gagal di backend, kita sign out dari firebase agar tidak nyangkut
+      await FirebaseAuth.instance.signOut();
+      print('DEBUG: Google Login failed with status: ${response.statusCode}, body: ${response.body}');
+      return {'success': false, 'message': data['message'] ?? 'Gagal masuk menggunakan Google.'};
+    } catch (e) {
+      print('DEBUG: Google Login error: $e');
+      return {'success': false, 'message': 'Terjadi kesalahan sistem atau layanan Firebase.'};
     }
   }
 

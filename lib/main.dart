@@ -6,6 +6,9 @@ import 'package:bluetalk_frontend/services/theme_service.dart';
 import 'package:bluetalk_frontend/theme/app_theme.dart';
 import 'package:bluetalk_frontend/services/config_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_core/firebase_core.dart';
+// Note: You must run 'flutterfire configure' locally to generate firebase_options.dart
+import 'firebase_options.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -13,6 +16,13 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
   await LocalizationService().init();
   await ThemeService().init();
 

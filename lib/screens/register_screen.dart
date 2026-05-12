@@ -7,6 +7,8 @@ import 'setup_screen.dart';
 import 'verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/localization_service.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -23,6 +25,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _authService = AuthService();
   bool _isLoading = false;
   bool _isAgreed = false;
+  bool _isGoogleLoading = false;
+
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _isGoogleLoading = true);
+
+    final result = await _authService.signInWithGoogle();
+
+    setState(() => _isGoogleLoading = false);
+
+    bool isSuccess = result['success'] == true;
+    if (isSuccess && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final bool isSetupCompleted =
+          prefs.getBool('is_setup_completed') ?? false;
+
+      if (!mounted) return;
+
+      if (!_authService.isEmailVerified) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) =>
+              isSetupCompleted ? const HomeScreen() : const SetupScreen(),
+        ),
+        (route) => false,
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Login Google gagal.')));
+    }
+  }
 
   Future<void> _launchURL(String url) async {
     final uri = Uri.parse(url);
@@ -202,8 +242,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ? const CircularProgressIndicator()
                     : ElevatedButton(
                         onPressed: _handleRegister,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
                         child: Text(tr('btn_register')),
                       ),
+                const SizedBox(height: 16),
+                if (kIsWeb || (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS))) ...[
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text('- Atau -', style: TextStyle(color: Colors.grey)),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _isGoogleLoading
+                      ? const CircularProgressIndicator()
+                      : OutlinedButton.icon(
+                          onPressed: _handleGoogleLogin,
+                          icon: const Icon(Icons.g_mobiledata, size: 28),
+                          label: const Text('Lanjutkan dengan Google'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            foregroundColor: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87,
+                          ),
+                        ),
+                  const SizedBox(height: 16),
+                ],
               ],
             ),
           ),
