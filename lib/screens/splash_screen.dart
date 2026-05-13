@@ -303,7 +303,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _requestPermissions() async {
     if (kIsWeb) return;
-
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) return;
     if (Platform.isAndroid) {
       await [
         Permission.storage,

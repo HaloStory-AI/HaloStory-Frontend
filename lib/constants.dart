@@ -15,5 +15,5 @@ class AppConstants {
   static String get byomPromptUrl => '$baseUrl/ai/system-prompt';
 
   // This should match the API_STATIC_TOKEN in backend .env
-  static const String staticToken = '';
+  static const String staticToken = 'BlueTalkImportantAccessToAllEndpoint';
 }

@@ -53,7 +53,7 @@ class _SetupScreenState extends State<SetupScreen> {
   ];
 
   Future<void> _completeSetup() async {
-    if (!kIsWeb) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       await [
         Permission.photos,
         Permission.storage,
