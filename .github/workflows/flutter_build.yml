@@ -22,13 +22,14 @@ jobs:
         run: flutter pub get
       
       - name: Build Web
-        run: flutter build web --release --no-wasm-dry-run -O=4
+        run: flutter build web --release --optimization-level=4 --no-source-maps --pwa-strategy=none --no-wasm-dry-run
 
       - name: Upload Web Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Web-Release
           path: build/web/
+          retention-days: 2
 
   build-linux:
     name: Build Linux Release
@@ -60,6 +61,7 @@ jobs:
         with:
           name: Linux-Release
           path: build/linux/x64/release/bundle/
+          retention-days: 2
 
   build-windows:
     name: Build Windows Release
@@ -86,3 +88,4 @@ jobs:
         with:
           name: Windows-Release
           path: build/windows/x64/runner/Release/
+          retention-days: 2
