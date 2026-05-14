@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../select_contact_screen.dart';
-import '../chat_screen.dart';
 
 enum ChatSortType { newest, name, bond }
 
@@ -46,6 +45,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
+  static const String _chatSyncNoticeDismissedKey = 'chat_sync_notice_dismissed';
   static const String _chatHeaderPopupFont = 'Roboto';
   static const List<ChatSortType> _sortOptions = [
     ChatSortType.newest,
@@ -183,10 +183,13 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     final savedSort = _sortTypeFromKey(prefs.getString(_chatSortByKey));
     final savedAscending = prefs.getBool(_chatSortAscKey) ?? false;
 
+    final dismissed = prefs.getBool(_chatSyncNoticeDismissedKey) ?? false;
+
     if (!mounted) return;
     setState(() {
       _sortBy = savedSort;
       _sortAscending = savedAscending;
+      _showSyncNotice = !dismissed;
     });
 
     await initData();
@@ -347,6 +350,45 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         _isLoadingChats = false;
       });
     }
+  }
+
+  void _sortActiveChats() {
+    var sorted = List<Map<String, dynamic>>.from(_activeChats);
+
+    switch (_sortBy) {
+      case ChatSortType.newest:
+        sorted.sort(
+          (a, b) => (a['lastModified'] as DateTime).compareTo(
+            b['lastModified'] as DateTime),
+        );
+        break;
+      case ChatSortType.name:
+        sorted.sort(
+          (a, b) => (a['name'] as String).toLowerCase().compareTo(
+            (b['name'] as String).toLowerCase()),
+        );
+        break;
+      case ChatSortType.bond:
+        sorted.sort(
+          (a, b) => (a['bond_hearts'] as int? ?? 0).compareTo(
+            b['bond_hearts'] as int? ?? 0),
+        );
+        break;
+    }
+
+    if (!_sortAscending) {
+      sorted = sorted.reversed.toList();
+    }
+
+    sorted.sort((a, b) {
+      if (a['isPinned'] && !b['isPinned']) return -1;
+      if (!a['isPinned'] && b['isPinned']) return 1;
+      return 0;
+    });
+
+    setState(() {
+      _activeChats = sorted;
+    });
   }
 
   void _showSortSheet() {
@@ -547,7 +589,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                                         _sortBy = draftSort;
                                       });
                                       await _saveSortPreferences();
-                                      await _loadActiveChats();
+                                      _sortActiveChats();
                                       if (!mounted) return;
                                       Navigator.of(context).pop();
                                     },
@@ -654,15 +696,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                         onContactSelected: (chatData) {
                           widget.onChatSelected(chatData);
                           initData(); // Refresh list
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatDetailScreen(
-                                bot: chatData,
-                                provider: 'gemini',
-                              ),
-                            ),
-                          );
                         },
                         onCancel: () => Navigator.pop(context),
                       ),
@@ -828,7 +861,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {
+                  onTap: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool(_chatSyncNoticeDismissedKey, true);
                     setState(() {
                       _showSyncNotice = false;
                     });
@@ -1012,7 +1047,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                               _sortAscending = !_sortAscending;
                             });
                             await _saveSortPreferences();
-                            await _loadActiveChats();
+                            _sortActiveChats();
                           },
                           width: 58,
                           height: 34,
@@ -1700,7 +1735,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                           _sortBy = draftSort;
                         });
                         await _saveSortPreferences();
-                        await _loadActiveChats();
+                        _sortActiveChats();
                         if (widget.onShowSort != null) {
                           widget.onShowSort!(const SizedBox.shrink());
                         }

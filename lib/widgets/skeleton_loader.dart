@@ -84,12 +84,14 @@ class ChatListSkeleton extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        SkeletonWidget(
-                          width: MediaQuery.of(context).size.width * 0.3,
-                          height: 16,
+                        Expanded(
+                          child: SkeletonWidget(
+                            width: double.infinity,
+                            height: 16,
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         const SkeletonWidget(width: 40, height: 12),
                       ],
                     ),
