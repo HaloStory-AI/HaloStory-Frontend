@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
@@ -43,13 +44,17 @@ class AuthService {
       if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
       }
-      print('DEBUG: Register failed with status: ${response.statusCode}');
+      if (kDebugMode) {
+        print('DEBUG: Register failed with status: ${response.statusCode}');
+      }
       return {
         'success': false,
         'message': data['message'] ?? 'Gagal mendaftar.',
       };
     } catch (e) {
-      print('DEBUG: Register error (timeout or network): $e');
+      if (kDebugMode) {
+        print('DEBUG: Register error (timeout or network): $e');
+      }
       return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
     }
   }
@@ -78,12 +83,16 @@ class AuthService {
       if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
       }
-      print(
+      if (kDebugMode) {
+        print(
         'DEBUG: Login failed with status: ${response.statusCode}, body: ${response.body}',
       );
+      }
       return {'success': false, 'message': data['message'] ?? 'Gagal masuk.'};
     } catch (e) {
-      print('DEBUG: Login error (timeout or network): $e');
+      if (kDebugMode) {
+        print('DEBUG: Login error (timeout or network): $e');
+      }
       return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
     }
   }
@@ -211,7 +220,9 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_loginDateKey, DateTime.now().toIso8601String());
-    print("DEBUG: Token saved to SharedPrefs: $token");
+    if (kDebugMode) {
+      print("DEBUG: Token saved to SharedPrefs: $token");
+    }
   }
 
   Future<String?> getToken() async {
@@ -260,7 +271,9 @@ class AuthService {
         return true;
       } else if (response.statusCode == 401) {
         // Token is invalid/expired on server side - clear it
-        print('DEBUG: Token rejected by server (401), clearing local token.');
+        if (kDebugMode) {
+          print('DEBUG: Token rejected by server (401), clearing local token.');
+        }
         await logout();
         return false;
       } else if (response.statusCode == 503) {
@@ -271,9 +284,11 @@ class AuthService {
     } catch (e) {
       // Network error: don't clear token (server might be temporarily down)
       // Return true so the user can still access cached content
-      print(
+      if (kDebugMode) {
+        print(
         'DEBUG: Token validation network error: $e. Allowing offline access.',
       );
+      }
       return true;
     }
   }
@@ -302,7 +317,9 @@ class AuthService {
         now.difference(_lastProfileFetch!).inHours >= 3;
 
     if (!forceRefresh && !isCacheExpired && _userProfileCache != null) {
-      print("DEBUG: Returning cached user profile");
+      if (kDebugMode) {
+        print("DEBUG: Returning cached user profile");
+      }
       return _userProfileCache;
     }
 
@@ -324,16 +341,24 @@ class AuthService {
       if (response.statusCode == 200) {
         _userProfileCache = jsonDecode(response.body);
         _lastProfileFetch = DateTime.now();
-        print("DEBUG: Fetched user profile from API");
+        if (kDebugMode) {
+          print("DEBUG: Fetched user profile from API");
+        }
         return _userProfileCache;
       } else if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
-        print("DEBUG: Failed to fetch profile: 503 (Maintenance)");
+        if (kDebugMode) {
+          print("DEBUG: Failed to fetch profile: 503 (Maintenance)");
+        }
       } else {
-        print("DEBUG: Failed to fetch profile: ${response.statusCode}");
+        if (kDebugMode) {
+          print("DEBUG: Failed to fetch profile: ${response.statusCode}");
+        }
       }
     } catch (e) {
-      print("DEBUG: Error fetching profile: $e");
+      if (kDebugMode) {
+        print("DEBUG: Error fetching profile: $e");
+      }
       // Return local cache if available during network issues
       return _userProfileCache;
     }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import 'auth_service.dart';
@@ -25,7 +26,9 @@ class StudentRequestService {
         return List<Map<String, dynamic>>.from(data);
       }
     } catch (e) {
-      print('Error fetching student requests: $e');
+      if (kDebugMode) {
+        print('Error fetching student requests: $e');
+      }
     }
     return [];
   }
@@ -47,7 +50,9 @@ class StudentRequestService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print('Error submitting student request: $e');
+      if (kDebugMode) {
+        print('Error submitting student request: $e');
+      }
       return false;
     }
   }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
 import 'auth_service.dart';
@@ -24,7 +25,9 @@ class AdminService {
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
-      print('AdminService getUsers error: $e');
+      if (kDebugMode) {
+        print('AdminService getUsers error: $e');
+      }
     }
     return [];
   }
@@ -38,7 +41,9 @@ class AdminService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print('AdminService changeUserRole error: $e');
+      if (kDebugMode) {
+        print('AdminService changeUserRole error: $e');
+      }
       return false;
     }
   }
@@ -51,7 +56,9 @@ class AdminService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print('AdminService deleteUser error: $e');
+      if (kDebugMode) {
+        print('AdminService deleteUser error: $e');
+      }
       return false;
     }
   }
@@ -65,7 +72,9 @@ class AdminService {
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
-      print('AdminService getStudentRequests error: $e');
+      if (kDebugMode) {
+        print('AdminService getStudentRequests error: $e');
+      }
     }
     return [];
   }
@@ -79,7 +88,9 @@ class AdminService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print('AdminService updateRequestStatus error: $e');
+      if (kDebugMode) {
+        print('AdminService updateRequestStatus error: $e');
+      }
       return false;
     }
   }
@@ -93,7 +104,9 @@ class AdminService {
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
-      print('AdminService getBots error: $e');
+      if (kDebugMode) {
+        print('AdminService getBots error: $e');
+      }
     }
     return [];
   }
@@ -107,7 +120,9 @@ class AdminService {
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('AdminService createBot error: $e');
+      if (kDebugMode) {
+        print('AdminService createBot error: $e');
+      }
       return false;
     }
   }
@@ -121,7 +136,9 @@ class AdminService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print('AdminService updateBot error: $e');
+      if (kDebugMode) {
+        print('AdminService updateBot error: $e');
+      }
       return false;
     }
   }
@@ -134,7 +151,9 @@ class AdminService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print('AdminService deleteBot error: $e');
+      if (kDebugMode) {
+        print('AdminService deleteBot error: $e');
+      }
       return false;
     }
   }

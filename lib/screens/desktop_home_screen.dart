@@ -375,7 +375,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
       child: Stack(
         children: [
           _buildMainMiddleContent(isDark, colorScheme),
-          if (_middlePanelOverlay != null) _middlePanelOverlay!,
+          ?_middlePanelOverlay,
         ],
       ),
     );

@@ -17,7 +17,6 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:intl/intl.dart';
 import '../constants.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/rendering.dart';
 
 import '../services/localization_service.dart';
 import '../widgets/skeleton_loader.dart';
@@ -907,15 +906,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     String language = prefs.getString('app_language') ?? 'Indonesian';
 
     // DEBUG LOGGING
-    print('DEBUG: --- SENDING TO AI ---');
-    print('DEBUG: Bot ID: $botIdForRequest');
-    print('DEBUG: Language: $language');
-    if (summaryPrompt != null) {
-      print('DEBUG: Summary Prompt: $summaryPrompt');
+    if (kDebugMode) {
+      print('DEBUG: --- SENDING TO AI ---');
+      print('DEBUG: Bot ID: $botIdForRequest');
+      print('DEBUG: Language: $language');
+      if (summaryPrompt != null) {
+        print('DEBUG: Summary Prompt: $summaryPrompt');
+      }
+      print('DEBUG: Messages Payload: ${jsonEncode(aiMessages)}');
+      print('DEBUG: ---------------------');
     }
-    print('DEBUG: Messages Payload: ${jsonEncode(aiMessages)}');
-    print('DEBUG: ---------------------');
-
+  
     try {
       final response = await _aiService.sendMessage(
         provider: widget.provider,
@@ -1218,8 +1219,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           'Accept': 'application/json',
         },
         body: jsonEncode({
-          if (xp != null) 'xp': xp,
-          if (level != null) 'level': level,
+          'xp': ?xp,
+          'level': ?level,
           if (reset) 'reset': true,
         }),
       );
@@ -3102,8 +3103,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == botId,
         orElse: () => <String, dynamic>{},
       );
-      if (member.isNotEmpty && member['name'] != null)
+      if (member.isNotEmpty && member['name'] != null) {
         return member['name'] as String;
+      }
     } catch (_) {}
     // fallback to widget.bot name for single chats or unknown ids
     return widget.bot['name'] as String?;
@@ -3130,8 +3132,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == botId,
         orElse: () => <String, dynamic>{},
       );
-      if (member.isNotEmpty && member['color'] != null)
+      if (member.isNotEmpty && member['color'] != null) {
         return _parseColor(member['color']);
+      }
     } catch (_) {}
     return _parseColor(widget.bot['color']);
   }
@@ -3808,8 +3811,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           ),
                         ),
                         onSubmitted: (_) {
-                          if (!_isTypingEffectActive && !_isSummarizing)
+                          if (!_isTypingEffectActive && !_isSummarizing) {
                             _sendMessage();
+                          }
                         },
                       ),
                     ),

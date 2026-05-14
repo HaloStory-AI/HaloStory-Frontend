@@ -71,7 +71,9 @@ class LocalChatService {
       await file.writeAsString(jsonContent);
       _updateController.add(chatId);
     } catch (e) {
-      print('DEBUG: Error saving chat: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error saving chat: $e');
+      }
     }
   }
 
@@ -144,7 +146,9 @@ class LocalChatService {
         return [];
       }
     } catch (e) {
-      print('DEBUG: Error loading chat ($chatId): $e');
+      if (kDebugMode) {
+        print('DEBUG: Error loading chat ($chatId): $e');
+      }
     }
     return [];
   }
@@ -168,7 +172,9 @@ class LocalChatService {
       final file = File('$path/$chatId.summary.json');
       await file.writeAsString(jsonContent);
     } catch (e) {
-      print('DEBUG: Error saving summary: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error saving summary: $e');
+      }
     }
   }
 
@@ -192,7 +198,9 @@ class LocalChatService {
         return decoded.map((k, v) => MapEntry(int.parse(k), v.toString()));
       }
     } catch (e) {
-      print('DEBUG: Error loading summary: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error loading summary: $e');
+      }
     }
     return {};
   }
@@ -232,7 +240,9 @@ class LocalChatService {
             .toList();
       }
     } catch (e) {
-      print('DEBUG: Error listing chats: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error listing chats: $e');
+      }
     }
     return [];
   }
@@ -254,7 +264,9 @@ class LocalChatService {
         return List<String>.from(jsonDecode(content));
       }
     } catch (e) {
-      print('DEBUG: Error loading pinned chats: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error loading pinned chats: $e');
+      }
     }
     return [];
   }
@@ -271,7 +283,9 @@ class LocalChatService {
       final file = File('$path/pinned_chats.json');
       await file.writeAsString(jsonEncode(pins));
     } catch (e) {
-      print('DEBUG: Error saving pinned chats: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error saving pinned chats: $e');
+      }
     }
   }
 
@@ -296,7 +310,9 @@ class LocalChatService {
         await summaryFile.delete();
       }
     } catch (e) {
-      print('DEBUG: Error deleting chat: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error deleting chat: $e');
+      }
     }
 
     _updateController.add(chatId);

@@ -190,7 +190,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               height: 1.5,
             ),
             children: [
-              TextSpan(text: tr('reset_password_otp_sent_to') + '\n'),
+              TextSpan(text: '${tr('reset_password_otp_sent_to')}\n'),
               TextSpan(
                 text: _emailController.text,
                 style: const TextStyle(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
@@ -93,7 +94,9 @@ class BotService {
     if (token == null) return _cachedBots ?? [];
 
     try {
-      print("DEBUG: Fetching bots from API... type=$type, category=$category");
+      if (kDebugMode) {
+        print("DEBUG: Fetching bots from API... type=$type, category=$category");
+      }
 
       String url = '${AppConstants.baseUrl}/bots';
       List<String> params = [];
@@ -150,7 +153,9 @@ class BotService {
         ConfigService.enterMaintenance();
       }
     } catch (e) {
-      print('DEBUG: BotService API Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: BotService API Error: $e');
+      }
     }
 
     return (type == null || type == 'Main') ? (_cachedBots ?? []) : [];
@@ -175,7 +180,9 @@ class BotService {
         return List<Map<String, dynamic>>.from(data);
       }
     } catch (e) {
-      print('DEBUG: getEventCategories Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: getEventCategories Error: $e');
+      }
     }
     return [];
   }
@@ -208,7 +215,9 @@ class BotService {
       }
       return response.statusCode == 200;
     } catch (e) {
-      print('DEBUG: recruitBot Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: recruitBot Error: $e');
+      }
       return false;
     }
   }
