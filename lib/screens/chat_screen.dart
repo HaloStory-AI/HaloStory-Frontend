@@ -2649,6 +2649,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       _summaries,
                     );
 
+                    if (!context.mounted) return;
+
                     // Show persistent loading popup
                     showDialog(
                       context: context,
@@ -2682,8 +2684,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                     await _generateSummaries();
 
-                    if (mounted) {
-                      Navigator.pop(context); // Close loading dialog
+                    if (context.mounted) {
+                      Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Re-generating summaries...'),
@@ -3883,7 +3885,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 _messages[index]['content'] = editController.text;
               });
               await _localChatService.saveChat(widget.bot['id'], _messages);
-              if (mounted) {
+              if (dialogContext.mounted) {
                 Navigator.pop(dialogContext);
               }
             },

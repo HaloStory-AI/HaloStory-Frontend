@@ -152,7 +152,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 10,
                   ),
                 ],

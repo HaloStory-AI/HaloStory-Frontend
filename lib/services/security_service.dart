@@ -2,7 +2,6 @@ import 'package:safe_device/safe_device.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:crypto/crypto.dart';
 import '../constants.dart';

@@ -103,7 +103,7 @@ class BotService {
       if (type != null) params.add('type=$type');
       if (category != null) params.add('category=$category');
       if (params.isNotEmpty) {
-        url += '?' + params.join('&');
+        url += '?${params.join('&')}';
       }
 
       final response = await http

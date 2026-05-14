@@ -105,18 +105,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       : () async {
                           if (nameController.text.trim().isEmpty) return;
                           
+                          final navigator = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+
                           setDialogState(() => isLoading = true);
                           final result = await _authService.updateName(
                             nameController.text.trim(),
                           );
 
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           setDialogState(() => isLoading = false);
 
                           if (result['success']) {
-                            Navigator.pop(context);
+                            navigator.pop();
                             _refreshProfile();
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(tr('profile_update_success')),
                                 backgroundColor: Colors.green,
@@ -124,7 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
                                   tr('profile_update_failed') +
@@ -255,6 +258,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: isLoading
                       ? null
                       : () async {
+                          final navigator = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+
                           setDialogState(() => isLoading = true);
                           final result = await _authService.updatePassword(
                             currentPasswordController.text,
@@ -262,12 +268,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             confirmPasswordController.text,
                           );
 
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           setDialogState(() => isLoading = false);
 
                           if (result['success']) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            navigator.pop();
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(tr('profile_update_success')),
                                 backgroundColor: Colors.green,
@@ -275,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
                                   tr('profile_update_failed') +
@@ -397,19 +403,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: isLoading
                       ? null
                       : () async {
+                          final navigator = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+
                           setDialogState(() => isLoading = true);
                           final result = await _authService.updateEmail(
                             emailController.text,
                             passwordController.text,
                           );
 
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           setDialogState(() => isLoading = false);
 
                           if (result['success']) {
-                            Navigator.pop(context);
+                            navigator.pop();
                             _refreshProfile();
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(tr('profile_update_success')),
                                 backgroundColor: Colors.green,
@@ -417,7 +426,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
                                   tr('profile_update_failed') +
@@ -641,7 +650,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

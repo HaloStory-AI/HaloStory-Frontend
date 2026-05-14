@@ -55,6 +55,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _isLoading = false);
 
+    if (!mounted) return;
+
     if (result['success']) {
       setState(() => _isOtpSent = true);
       _showSuccess(result['message'] ?? tr('forgot_password_otp_sent'));
@@ -93,9 +95,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _isLoading = false);
 
+    if (!mounted) return;
+
     if (result['success']) {
       _showSuccess(result['message'] ?? tr('reset_password_success'));
-      Navigator.pop(context); // Kembali ke form login
+      Navigator.pop(context);
     } else {
       _showError(result['message'] ?? tr('reset_password_failed'));
     }

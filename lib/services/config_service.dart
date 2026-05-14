@@ -122,8 +122,12 @@ class ConfigService {
       final remoteParts = remoteVer.split('.').map(int.parse).toList();
 
       // Ensure we have at least 3 parts (SuperMajor.Major.Minor)
-      while (localParts.length < 3) localParts.add(0);
-      while (remoteParts.length < 3) remoteParts.add(0);
+      while (localParts.length < 3) {
+        localParts.add(0);
+      }
+      while (remoteParts.length < 3) {
+        remoteParts.add(0);
+      }
 
       // Comparison logic:
       // SuperMajor [0] or Major [1] requires update.

@@ -157,7 +157,7 @@ class _BotEditorModalState extends State<BotEditorModal> {
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
-          fillColor: Colors.grey.withOpacity(0.1),
+          fillColor: Colors.grey.withValues(alpha: 0.1),
         ),
         validator: required ? (v) => v == null || v.isEmpty ? 'Wajib diisi' : null : null,
       ),

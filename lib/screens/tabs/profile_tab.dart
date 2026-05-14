@@ -89,18 +89,21 @@ class _ProfileTabState extends State<ProfileTab> {
                       : () async {
                           if (nameController.text.trim().isEmpty) return;
 
+                          final navigator = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+
                           setDialogState(() => isLoading = true);
                           final result = await _authService.updateName(
                             nameController.text.trim(),
                           );
 
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           setDialogState(() => isLoading = false);
 
                           if (result['success']) {
-                            Navigator.pop(context);
+                            navigator.pop();
                             _refreshProfile();
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(tr('profile_update_success')),
                                 backgroundColor: Colors.green,
@@ -108,7 +111,7 @@ class _ProfileTabState extends State<ProfileTab> {
                               ),
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
                                   tr('profile_update_failed') +
@@ -299,7 +302,7 @@ class _ProfileTabState extends State<ProfileTab> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

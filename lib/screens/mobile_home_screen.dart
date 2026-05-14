@@ -91,7 +91,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
             ElevatedButton(
               onPressed: () async {
                 await _authService.logout();
-                if (mounted) {
+                if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (_) => const SplashScreen()),
                     (route) => false,

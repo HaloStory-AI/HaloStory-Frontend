@@ -124,7 +124,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           IconButton(
             onPressed: () async {
               await _authService.logout();
-              if (mounted) {
+              if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const WelcomeScreen()),
                   (route) => false,

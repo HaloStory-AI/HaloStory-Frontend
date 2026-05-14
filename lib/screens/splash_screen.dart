@@ -197,6 +197,7 @@ class _SplashScreenState extends State<SplashScreen>
     final hasShown = prefs.getBool('notice_shown_$noticeId') ?? false;
 
     if (hasShown) return;
+    if (!mounted) return;
 
     await showModalBottomSheet(
       context: context,
