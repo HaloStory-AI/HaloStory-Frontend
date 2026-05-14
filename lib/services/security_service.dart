@@ -14,7 +14,6 @@ class SecurityService {
     try {
       if (Platform.isAndroid || Platform.isIOS) {
         bool isJailBroken = await SafeDevice.isJailBroken;
-        bool isRealDevice = await SafeDevice.isRealDevice;
         bool isSafeDevice = await SafeDevice.isSafeDevice;
         bool isDevelopmentModeEnable = false;
 

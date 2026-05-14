@@ -75,7 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                tr('profile_change_name') ?? 'Change Username',
+                tr('profile_change_name'),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -585,7 +585,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Icons.person_outline,
                       color: _primaryColor(context),
                     ),
-                    title: Text(tr('profile_change_name') ?? 'Change Username'),
+                    title: Text(tr('profile_change_name')),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _showChangeNameDialog(name),
                   ),

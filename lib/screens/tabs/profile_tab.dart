@@ -59,7 +59,7 @@ class _ProfileTabState extends State<ProfileTab> {
               ),
               const SizedBox(height: 24),
               Text(
-                tr('profile_change_name') ?? 'Change Username',
+                tr('profile_change_name'),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -268,7 +268,7 @@ class _ProfileTabState extends State<ProfileTab> {
                     Icons.person_outline,
                     color: Color(0xFF135ACF),
                   ),
-                  title: Text(tr('profile_change_name') ?? 'Change Username'),
+                  title: Text(tr('profile_change_name')),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showChangeNameDialog(name),
                 ),

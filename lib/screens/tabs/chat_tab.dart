@@ -38,7 +38,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   // entah kenapa saat diremove, langsung dibilang dibutuhkan
   // padahal disini katanya isn't used
   // but it's used here.
-  bool _isLoadingBots = true;
   bool _isLoadingChats = true;
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
@@ -221,7 +220,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   Future<void> initData({bool force = false, bool silent = false}) async {
     if (!silent) {
       setState(() {
-        _isLoadingBots = true;
         _isLoadingChats = true;
       });
     }
@@ -240,7 +238,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     if (mounted) {
       setState(() {
         _availableBots = bots;
-        _isLoadingBots = false;
       });
     }
   }

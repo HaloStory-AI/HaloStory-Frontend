@@ -933,9 +933,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
       if (!mounted || _isDisposed) return;
 
-      bool shouldStartTyping = false;
-      int partsLength = 0;
-
       _safeSetState(() {
         final aiTimestamp = DateTime.now().toIso8601String();
 

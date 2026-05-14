@@ -7,7 +7,6 @@ import 'tabs/chat_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
-import 'setup_screen.dart';
 import 'student_request_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'donation_screen.dart';
