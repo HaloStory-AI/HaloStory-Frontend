@@ -309,5 +309,22 @@
   "tutorial_single_chat": "个人聊天：从列表中选择 1 名学生开始私人聊天。",
   "tutorial_group_chat": "群聊：选择 2 名或更多学生。然后，点击右下角的箭头按钮创建一个新群组。",
   "tutorial_got_it": "知道了！",
-  "chat_compressing_memory": "正在压缩对话记忆，请稍候老师... ⏳"
+  "chat_compressing_memory": "正在压缩对话记忆，请稍候老师... ⏳",
+  "chat_regenerate_response": "重新生成响应",
+  "chat_regenerate_subtitle": "尝试从 AI 获取新的答案",
+  "bio_birthday_today": "🎂 生日快乐！",
+  "chat_hint_someone": "某人",
+  "chat_hint_group": "正在与",
+  "safety_title": "我们关心您的安全。",
+  "safety_body": "如果您正在经历困难时期，请知道您并不孤单。",
+  "safety_helpline_link": "寻找帮助热线 →",
+  "bond_total_xp": "总经验值：",
+  "bond_relationship_stranger": "陌生人",
+  "bond_level_label": "羁绊等级",
+  "bond_level_value": "Lv.",
+  "bond_progress_label": "距离下一级",
+  "bond_xp_unit": "经验值",
+  "bond_group_levels_title": "群组羁绊等级",
+  "bond_unknown_member": "未知",
+  "chat_regenerating_summaries": "正在重新生成摘要..."
 }

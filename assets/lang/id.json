@@ -315,5 +315,22 @@
   "tutorial_single_chat": "Personal Chat: Pilih 1 murid dari daftar untuk langsung ngobrol berdua.",
   "tutorial_group_chat": "Group Chat: Pilih 2 murid atau lebih. Setelah itu, tekan tombol panah di kanan bawah untuk menamai dan membuat grup baru.",
   "tutorial_got_it": "Mengerti!",
-  "chat_compressing_memory": "Sedang memadatkan memori percakapan, tunggu sebentar ya Sensei... ⏳"
+  "chat_compressing_memory": "Sedang memadatkan memori percakapan, tunggu sebentar ya Sensei... ⏳",
+  "chat_regenerate_response": "Hasilkan Ulang Respons",
+  "chat_regenerate_subtitle": "Coba dapatkan jawaban baru dari AI",
+  "bio_birthday_today": "🎂 Hari Ini Ulang Tahun!",
+  "chat_hint_someone": "seseorang",
+  "chat_hint_group": "Chat dengan",
+  "safety_title": "Kami peduli dengan keselamatanmu.",
+  "safety_body": "Jika kamu sedang mengalami masa sulit, ketahuilah bahwa kamu tidak sendirian.",
+  "safety_helpline_link": "Cari bantuan →",
+  "bond_total_xp": "Total XP:",
+  "bond_relationship_stranger": "Orang Asing",
+  "bond_level_label": "Level Bond",
+  "bond_level_value": "Lv.",
+  "bond_progress_label": "Progress ke Lv.",
+  "bond_xp_unit": "XP",
+  "bond_group_levels_title": "Level Bond Grup",
+  "bond_unknown_member": "Tidak Diketahui",
+  "chat_regenerating_summaries": "Menghasilkan ulang ringkasan..."
 }
