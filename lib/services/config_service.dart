@@ -29,7 +29,9 @@ class ConfigService {
     if (kDebugMode) return;
     isAutoDetectedMaintenance = true;
     if (msg != null) _maintenanceMsg = msg;
-    print("DEBUG: ConfigService - Entered Maintenance Mode via 503");
+    if (kDebugMode) {
+      print("DEBUG: ConfigService - Entered Maintenance Mode via 503");
+    }
   }
 
   /// Lightweight ping to check if server is up
@@ -52,7 +54,9 @@ class ConfigService {
       }
     } catch (e) {
       // Background ping failures (timeout/socket) don't force maintenance unless it's 503
-      print('DEBUG: ConfigService Ping Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: ConfigService Ping Error: $e');
+      }
     }
   }
 
@@ -86,7 +90,9 @@ class ConfigService {
       }
       return false;
     } catch (e) {
-      print('DEBUG: ConfigService Fetch Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: ConfigService Fetch Error: $e');
+      }
       if (e.toString().contains('TimeoutException') ||
           e.toString().contains('SocketException')) {
         isConnectionTimeout = true;
@@ -116,8 +122,12 @@ class ConfigService {
       final remoteParts = remoteVer.split('.').map(int.parse).toList();
 
       // Ensure we have at least 3 parts (SuperMajor.Major.Minor)
-      while (localParts.length < 3) localParts.add(0);
-      while (remoteParts.length < 3) remoteParts.add(0);
+      while (localParts.length < 3) {
+        localParts.add(0);
+      }
+      while (remoteParts.length < 3) {
+        remoteParts.add(0);
+      }
 
       // Comparison logic:
       // SuperMajor [0] or Major [1] requires update.
@@ -133,11 +143,15 @@ class ConfigService {
         _needsUpdate = false;
       }
 
-      print(
+      if (kDebugMode) {
+        print(
         "DEBUG: Version Check - Local: $localVer, Remote: $remoteVer, NeedsUpdate: $_needsUpdate",
       );
+      }
     } catch (e) {
-      print("DEBUG: Version check error: $e");
+      if (kDebugMode) {
+        print("DEBUG: Version check error: $e");
+      }
     }
   }
 

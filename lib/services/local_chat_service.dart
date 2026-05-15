@@ -71,7 +71,9 @@ class LocalChatService {
       await file.writeAsString(jsonContent);
       _updateController.add(chatId);
     } catch (e) {
-      print('DEBUG: Error saving chat: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error saving chat: $e');
+      }
     }
   }
 
@@ -119,6 +121,42 @@ class LocalChatService {
     return true;
   }
 
+  Future<bool> updateGroupMembers(
+    String chatId,
+    List<Map<String, dynamic>> members,
+  ) async {
+    final messages = await loadChat(chatId);
+    final metadata = <String, dynamic>{'id': chatId, 'isGroup': true};
+
+    int systemIndex = -1;
+    for (int i = 0; i < messages.length; i++) {
+      final message = messages[i];
+      if (message['role'] == 'system' && message['metadata'] != null) {
+        systemIndex = i;
+        final existingMetadata = message['metadata'];
+        if (existingMetadata is Map) {
+          metadata.addAll(Map<String, dynamic>.from(existingMetadata));
+        }
+        break;
+      }
+    }
+
+    metadata['members'] = members;
+
+    if (systemIndex >= 0) {
+      messages[systemIndex] = {...messages[systemIndex], 'metadata': metadata};
+    } else {
+      messages.insert(0, {
+        'role': 'system',
+        'content': 'Group created with ${members.length} members.',
+        'metadata': metadata,
+      });
+    }
+
+    await saveChat(chatId, messages);
+    return true;
+  }
+
   // Load a chat session
   Future<List<Map<String, dynamic>>> loadChat(String chatId) async {
     if (kIsWeb) {
@@ -144,7 +182,9 @@ class LocalChatService {
         return [];
       }
     } catch (e) {
-      print('DEBUG: Error loading chat ($chatId): $e');
+      if (kDebugMode) {
+        print('DEBUG: Error loading chat ($chatId): $e');
+      }
     }
     return [];
   }
@@ -168,7 +208,9 @@ class LocalChatService {
       final file = File('$path/$chatId.summary.json');
       await file.writeAsString(jsonContent);
     } catch (e) {
-      print('DEBUG: Error saving summary: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error saving summary: $e');
+      }
     }
   }
 
@@ -192,7 +234,9 @@ class LocalChatService {
         return decoded.map((k, v) => MapEntry(int.parse(k), v.toString()));
       }
     } catch (e) {
-      print('DEBUG: Error loading summary: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error loading summary: $e');
+      }
     }
     return {};
   }
@@ -232,7 +276,9 @@ class LocalChatService {
             .toList();
       }
     } catch (e) {
-      print('DEBUG: Error listing chats: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error listing chats: $e');
+      }
     }
     return [];
   }
@@ -254,7 +300,9 @@ class LocalChatService {
         return List<String>.from(jsonDecode(content));
       }
     } catch (e) {
-      print('DEBUG: Error loading pinned chats: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error loading pinned chats: $e');
+      }
     }
     return [];
   }
@@ -271,7 +319,9 @@ class LocalChatService {
       final file = File('$path/pinned_chats.json');
       await file.writeAsString(jsonEncode(pins));
     } catch (e) {
-      print('DEBUG: Error saving pinned chats: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error saving pinned chats: $e');
+      }
     }
   }
 
@@ -296,7 +346,9 @@ class LocalChatService {
         await summaryFile.delete();
       }
     } catch (e) {
-      print('DEBUG: Error deleting chat: $e');
+      if (kDebugMode) {
+        print('DEBUG: Error deleting chat: $e');
+      }
     }
 
     _updateController.add(chatId);

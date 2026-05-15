@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
@@ -126,7 +127,9 @@ class AIService {
         );
       }
     } catch (e) {
-      print('DEBUG: AIService Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: AIService Error: $e');
+      }
     }
     return null;
   }
@@ -432,7 +435,9 @@ class AIService {
 
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
-      print('DEBUG: AIService summarizeChat Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: AIService summarizeChat Error: $e');
+      }
     }
     return null;
   }
@@ -452,7 +457,9 @@ class AIService {
       if (response.statusCode == 200) return jsonDecode(response.body);
       if (response.statusCode == 404) return {'status': 'not_found'};
     } catch (e) {
-      print('DEBUG: AIService checkChatStatus Error: $e');
+      if (kDebugMode) {
+        print('DEBUG: AIService checkChatStatus Error: $e');
+      }
     }
     return null;
   }

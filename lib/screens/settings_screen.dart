@@ -193,6 +193,25 @@ class _SettingsScreenState extends State<SettingsScreen>
     };
   }
 
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(width: 16),
+              Expanded(child: Text(message)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _backupData() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -214,6 +233,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     if (confirm != true) return;
 
+    _showLoadingDialog(tr('settings_backup_loading'));
+
     final Map<String, dynamic> fullPayload = await _getBackupPayload();
 
     final String plainJson = jsonEncode(fullPayload);
@@ -232,6 +253,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       );
 
       if (!mounted) return;
+      if (context.mounted) Navigator.of(context).pop();
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -249,6 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       }
     } catch (e) {
       if (!mounted) return;
+      if (context.mounted) Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
@@ -316,35 +339,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
   }
 
-  Future<void> _applyRestore(String encryptedJson) async {
-    try {
-      final String plainJson = SecurityService.decryptData(encryptedJson);
-      final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
-      await _processRestorePayload(fullPayload);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('settings_restore_success')),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const SplashScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Decode/Apply Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   Future<void> _restoreData() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -366,6 +360,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     if (confirm != true) return;
 
+    _showLoadingDialog(tr('settings_restore_loading'));
+
     final token = await _authService.getToken();
     try {
       final response = await http.get(
@@ -378,6 +374,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       );
 
       if (!mounted) return;
+      if (context.mounted) Navigator.of(context).pop();
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = jsonDecode(response.body);
         if (responseBody['success'] == true && responseBody['data'] != null) {
@@ -427,6 +424,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             }
           }
 
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(tr('settings_restore_success')),
@@ -452,6 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       }
     } catch (e) {
       if (!mounted) return;
+      if (context.mounted) Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Restore Error: $e'),

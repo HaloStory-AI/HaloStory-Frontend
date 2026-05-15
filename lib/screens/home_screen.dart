@@ -176,11 +176,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final provider = AIService.normalizeProvider(
         p.getString('default_provider'),
       );
-      Navigator.push(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
           builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
         ),
+        (route) => route.isFirst,
       );
     });
   }

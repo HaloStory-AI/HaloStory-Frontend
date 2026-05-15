@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 class LocalizationService extends ChangeNotifier {
   static final LocalizationService _instance = LocalizationService._internal();
@@ -96,7 +97,7 @@ class LocalizationService extends ChangeNotifier {
     return _localizedStrings[key] ?? _fallbackStrings[key] ?? key;
   }
 
-  static LocalizationService of(k) => _instance;
+  static LocalizationService of(BuildContext? k) => _instance;
 }
 
 // Global helper for cleaner code
