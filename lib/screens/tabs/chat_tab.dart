@@ -1279,7 +1279,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
             title: Row(
               children: [
                 Text(
-                  chat['name'],
+                  (chat['name'] as String).length > 20
+                      ? '${(chat['name'] as String).substring(0, 20)}...'
+                      : chat['name'],
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -1314,7 +1316,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
               ),
             ),
             trailing: isGroupChat
-                ? const SizedBox(width: 45)
+                ? null
                 : Container(
                     width: 45,
                     height: 45,
