@@ -88,6 +88,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _showScrollButton = false;
   Timer? _pollingTimer;
   bool _isPollingCompleted = false;
+  List<Map<String, dynamic>> _allMessages = [];
+  static const int _pageSize = 20;
+  bool _isLoadingMore = false;
 
   // Debug overlay state
   bool _showDebugOverlay = false;
@@ -206,6 +209,25 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _showScrollButton = shouldShow;
       });
     }
+
+    if (currentScroll <= 0 &&
+        !_isLoadingMore &&
+        _allMessages.length > _messages.length) {
+      _loadMoreMessages();
+    }
+  }
+
+  void _loadMoreMessages() {
+    _isLoadingMore = true;
+    final currentOldest = _allMessages.length - _messages.length;
+    final newStart = currentOldest - _pageSize > 0
+        ? currentOldest - _pageSize
+        : 0;
+    final olderMessages = _allMessages.sublist(newStart, currentOldest);
+
+    _messages.insertAll(0, olderMessages);
+    _safeSetState(() {});
+    _isLoadingMore = false;
   }
 
   Future<void> _loadSystemNote() async {
@@ -492,7 +514,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final summaries = await _localChatService.loadSummaries(widget.bot['id']);
     if (!mounted || _isDisposed) return;
     _safeSetState(() {
-      _messages = history;
+      _allMessages = history;
+      final start = history.length > _pageSize ? history.length - _pageSize : 0;
+      _messages = history.sublist(start);
       _summaries = summaries;
     });
     _scrollToBottom();
@@ -536,7 +560,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _summaryProgress = 0.0;
     });
 
-    bool updated = false;
     int processedBatches = 0;
 
     for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
@@ -584,7 +607,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       statusCheck['response']?['summary'];
                   if (summaryText != null) {
                     _summaries[i] = summaryText;
-                    updated = true;
+                    await _localChatService.saveSummaries(
+                      widget.bot['id'], _summaries,
+                    );
                   }
                   summaryCompleted = true;
                 }
@@ -593,7 +618,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             }
           } else if (result != null && result['summary'] != null) {
             _summaries[i] = result['summary'];
-            updated = true;
+            await _localChatService.saveSummaries(
+              widget.bot['id'], _summaries,
+            );
           }
         } catch (_) {}
 
@@ -602,10 +629,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           _summaryProgress = processedBatches / totalBatchesToSummarize;
         });
       }
-    }
-
-    if (updated) {
-      await _localChatService.saveSummaries(widget.bot['id'], _summaries);
     }
 
     _safeSetState(() {
@@ -664,14 +687,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     _messageController.clear();
     final timestamp = DateTime.now().toIso8601String();
+    final userMsg = {
+      'role': 'user',
+      'content': userMessage,
+      'timestamp': timestamp,
+      'status': 'sending',
+      'uuid': null,
+    };
     _safeSetState(() {
-      _messages.add({
-        'role': 'user',
-        'content': userMessage,
-        'timestamp': timestamp,
-        'status': 'sending',
-        'uuid': null,
-      });
+      _messages.add(userMsg);
+      _allMessages.add(userMsg);
     });
     _scrollToBottom();
 
@@ -903,6 +928,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             _messages.last['status'] = 'completed';
           }
         });
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted || _isDisposed) return;
         _handleAIResponseData(response, botIdForRequest, aiTimestamp);
       }
     });
@@ -936,7 +963,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               .where((s) => s.trim().isNotEmpty)
               .toList();
 
-          _messages.add({
+          final assMsg = <String, dynamic>{
             'role': 'assistant',
             'content': aiContent,
             'timestamp': aiTimestamp,
@@ -945,7 +972,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             'bot_avatar': resolveBotAvatar(botIdForRequest, _groupMembers, widget.bot),
             if (parts.length > 1) 'visible_parts': 1,
             if (parts.length > 1) 'is_typing_next': true,
-          });
+          };
+
+          _messages.add(assMsg);
+          _allMessages.add(assMsg);
 
           if (parts.length > 1) {
             shouldStartTyping = true;
@@ -1298,11 +1328,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       errorMsg = '[$statusCode] $errorMsg';
     }
 
-    _messages.add({
+    final errMsg = <String, dynamic>{
       'role': 'system',
       'content': errorMsg,
       'timestamp': timestamp,
-    });
+    };
+
+    _messages.add(errMsg);
+    _allMessages.add(errMsg);
   }
 
   String _formatErrorPayload(int? statusCode, dynamic rawError) {
@@ -2002,7 +2035,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ],
                       ),
                     ),
-                    if (_isLoading)
+                    if (_isLoading && (_messages.isEmpty || _messages.last['status'] == 'processing'))
                       TypingIndicator(
                         messages: _messages,
                         isLoading: _isLoading,
