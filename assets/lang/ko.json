@@ -271,6 +271,8 @@
   "setup_backup_question": "지금 데이터를 복원하시겠습니까?",
   "setup_btn_restore": "지금 복원",
   "setup_btn_skip": "새 설정으로 계속",
+  "settings_backup_loading": "데이터 백업 중...",
+  "settings_restore_loading": "데이터 복원 중...",
   "chat_sync_notice": "채팅 데이터가 별도의 기기에 있는 데이터와 동기화되지 않았습니다. 데이터를 이동하려면 클라우드 저장을 사용하세요",
   "settings_tab_p2p_title": "로컬 P2P 동기화",
   "settings_tab_p2p_desc": "클라우드 없이 WiFi를 통해 기기간 데이터를 전송합니다. (데스크탑은 서버, 모바일은 스캐너)",

@@ -6,7 +6,6 @@ class ChatInputArea extends StatelessWidget {
   final TextEditingController controller;
   final bool isGroup;
   final bool isTypingEffectActive;
-  final bool isSummarizing;
   final bool isCharacterMenuOpen;
   final String? selectedBotId;
   final List<Map<String, dynamic>> groupMembers;
@@ -21,7 +20,6 @@ class ChatInputArea extends StatelessWidget {
     required this.controller,
     required this.isGroup,
     required this.isTypingEffectActive,
-    required this.isSummarizing,
     required this.isCharacterMenuOpen,
     this.selectedBotId,
     required this.groupMembers,
@@ -211,7 +209,7 @@ class ChatInputArea extends StatelessWidget {
         ),
       ),
       onSubmitted: (_) {
-        if (!isTypingEffectActive && !isSummarizing) {
+        if (!isTypingEffectActive) {
           onSend();
         }
       },
@@ -221,13 +219,13 @@ class ChatInputArea extends StatelessWidget {
   Widget _buildSendButton(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
-      onTap: (isTypingEffectActive || isSummarizing) ? null : onSend,
+      onTap: isTypingEffectActive ? null : onSend,
       child: Container(
         margin: const EdgeInsets.only(right: 4),
         padding: const EdgeInsets.all(6),
         child: Icon(
           Icons.send,
-          color: (isTypingEffectActive || isSummarizing)
+          color: isTypingEffectActive
               ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
               : colorScheme.primary,
           size: 24,

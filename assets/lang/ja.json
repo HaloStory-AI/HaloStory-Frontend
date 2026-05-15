@@ -271,6 +271,8 @@
   "setup_backup_question": "今すぐデータを復元しますか？",
   "setup_btn_restore": "今すぐ復元",
   "setup_btn_skip": "新しい設定を続行",
+  "settings_backup_loading": "データをバックアップ中...",
+  "settings_restore_loading": "データを復元中...",
   "chat_sync_notice": "チャットデータは別のデバイス上のデータと同期されていません。データの移動にはクラウド保存を使用してください",
   "settings_tab_p2p_title": "ローカルP2P同期",
   "settings_tab_p2p_desc": "クラウドを使わずWiFi経由でデバイス間データを転送します。(デスクトップはサーバー、モバイルはスキャナー)",

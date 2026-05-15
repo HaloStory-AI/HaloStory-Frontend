@@ -85,11 +85,20 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   void _handleMoreOptions(String option) {
     if (option == 'disclaimer') _showDisclaimerOverlay();
     if (option == 'donation') _showDonationOverlay();
-    if (option == 'contributor' || option == 'suggest' || option == 'help') {
+    if (option == 'contributor' || option == 'help') {
       launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
     }
+    if (option == 'suggest') {
+      setState(() {
+        _middlePanelOverlay = null;
+        _middlePanelState = MiddlePanelState.suggest;
+      });
+    }
     if (option == 'info') {
-      _showInfoOverlay();
+      setState(() {
+        _middlePanelOverlay = null;
+        _middlePanelState = MiddlePanelState.info;
+      });
     }
     switch (option) {
       case 'admin':
@@ -120,36 +129,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     setState(() {
       _middlePanelOverlay = null;
       _middlePanelState = MiddlePanelState.donation;
-    });
-  }
-
-  void _showInfoOverlay() {
-    setState(() {
-      _middlePanelOverlay = _buildLocalOverlay(
-        title: tr('sidebar_info'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircleAvatar(
-              radius: 40,
-              backgroundImage: AssetImage('assets/icon/avatar.png'),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('app_name'),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '${tr('app_info_version')} 0.7.0',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(tr('welcome_made_by'), textAlign: TextAlign.center),
-          ],
-        ),
-      );
     });
   }
 

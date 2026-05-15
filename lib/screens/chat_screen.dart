@@ -534,14 +534,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _safeSetState(() {
       _isSummarizing = true;
       _summaryProgress = 0.0;
-      _messages.add({
-        'role': 'assistant',
-        'content': tr('chat_compressing_memory'),
-        'status': 'processing',
-        'isTempSummary': true,
-      });
     });
-    _scrollToBottom();
 
     bool updated = false;
     int processedBatches = 0;
@@ -616,7 +609,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
 
     _safeSetState(() {
-      _messages.removeWhere((m) => m['isTempSummary'] == true);
       _isSummarizing = false;
       _summaryProgress = 0.0;
     });
@@ -643,7 +635,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_isLoading || _isTypingEffectActive || _isSummarizing) return;
+    if (_isLoading || _isTypingEffectActive) return;
 
     if (_isGroup && _selectedBotId == null) {
       if (_groupMembers.isNotEmpty) {
@@ -683,7 +675,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
     _scrollToBottom();
 
-    await _generateSummaries();
     await _getAIResponse();
   }
 
@@ -2030,7 +2021,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       controller: _messageController,
                       isGroup: _isGroup,
                       isTypingEffectActive: _isTypingEffectActive,
-                      isSummarizing: _isSummarizing,
                       isCharacterMenuOpen: _isCharacterMenuOpen,
                       selectedBotId: _selectedBotId,
                       groupMembers: _groupMembers,

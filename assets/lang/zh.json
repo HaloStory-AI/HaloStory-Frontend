@@ -271,6 +271,8 @@
   "setup_backup_question": "老师现在要恢复数据吗？",
   "setup_btn_restore": "立即恢复",
   "setup_btn_skip": "继续全新设置",
+  "settings_backup_loading": "正在备份数据...",
+  "settings_restore_loading": "正在恢复数据...",
   "chat_sync_notice": "聊天数据未与独立设备上的数据同步，请使用云端保存来移动数据",
   "settings_tab_p2p_title": "本地 P2P 同步",
   "settings_tab_p2p_desc": "通过 WiFi 在设备间传输数据，无需云端。（电脑为服务器，手机为扫描仪）",

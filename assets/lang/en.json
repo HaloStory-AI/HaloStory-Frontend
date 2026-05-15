@@ -272,6 +272,8 @@
   "setup_backup_question": "Would you like to restore your data now?",
   "setup_btn_restore": "Restore Now",
   "setup_btn_skip": "Continue Fresh Setup",
+  "settings_backup_loading": "Backing up data...",
+  "settings_restore_loading": "Restoring data...",
   "chat_sync_notice": "Chat data is not synced with data on separate devices, please use cloud saving to move the data",
   "settings_tab_p2p_title": "Local P2P Sync",
   "settings_tab_p2p_desc": "Transfer data between devices via WiFi without Cloud. (Desktop as Server, Mobile as Scanner)",

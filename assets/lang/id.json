@@ -273,6 +273,8 @@
   "setup_backup_question": "Ingin memulihkan data Anda sekarang?",
   "setup_btn_restore": "Pulihkan Sekarang",
   "setup_btn_skip": "Lanjut Setup Baru",
+  "settings_backup_loading": "Mencadangkan data...",
+  "settings_restore_loading": "Memulihkan data...",
   "chat_sync_notice": "Data chat tidak sinkron dengan data pada device terpisah, silahkan gunakan cloud saving untuk memindahkan datanya",
   "settings_tab_p2p_title": "Sinkronisasi P2P Lokal",
   "settings_tab_p2p_desc": "Pindahkan data antar perangkat via WiFi tanpa Cloud. (Desktop jadi Server, HP jadi Scanner)",
