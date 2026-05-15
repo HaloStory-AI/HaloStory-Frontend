@@ -328,5 +328,12 @@
   "bond_xp_unit": "经验值",
   "bond_group_levels_title": "群组羁绊等级",
   "bond_unknown_member": "未知",
-  "chat_regenerating_summaries": "正在重新生成摘要..."
+  "chat_regenerating_summaries": "正在重新生成摘要...",
+  "group_members": "成员",
+  "group_kick": "踢出",
+  "group_kick_confirm": "将 {name} 从群组中移除？",
+  "group_add_member": "添加成员",
+  "group_kick_done": "{name} 已从群组中移除",
+  "group_add_done": "{name} 已添加到群组",
+  "group_no_members": "暂无成员"
 }

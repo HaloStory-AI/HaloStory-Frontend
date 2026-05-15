@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 import '../../services/localization_service.dart';
 import '../../utils/chat_theme_helpers.dart';
+import '../../utils/chat_resolver.dart';
 
 class StudentBioSheet extends StatelessWidget {
   final Map<String, dynamic> bot;
   final bool isDesktop;
+  final bool isGroup;
+  final List<Map<String, dynamic>> groupMembers;
+  final VoidCallback? onAddMember;
+  final ValueChanged<String>? onKickMember;
 
   const StudentBioSheet({
     super.key,
     required this.bot,
     this.isDesktop = false,
+    this.isGroup = false,
+    this.groupMembers = const [],
+    this.onAddMember,
+    this.onKickMember,
   });
 
   @override
@@ -49,7 +58,9 @@ class StudentBioSheet extends StatelessWidget {
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
-                  _buildPersonalitySection(context),
+                  isGroup
+                      ? _buildGroupMembersSection(context)
+                      : _buildPersonalitySection(context),
                 ],
               ),
             ),
@@ -120,6 +131,114 @@ class StudentBioSheet extends StatelessWidget {
         fontSize: 15,
         color: subtitleColor(context),
         fontStyle: FontStyle.italic,
+      ),
+    );
+  }
+
+  Widget _buildGroupMembersSection(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final resolved = groupMembers.map((m) {
+      final id = m['bot_id']?.toString() ?? m['id']?.toString() ?? '';
+      final name = resolveBotName(id, groupMembers, bot) ?? '?';
+      final avatar = resolveBotAvatar(id, groupMembers, bot);
+      final color = resolveBotColor(id, groupMembers, bot);
+      return (id: id, name: name, avatar: avatar, color: color);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          tr('group_members'),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: cs.primary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (resolved.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: Text(
+                tr('group_no_members'),
+                style: TextStyle(color: subtitleColor(context)),
+              ),
+            ),
+          )
+        else
+          ...resolved.map((member) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: member.color,
+                  backgroundImage: member.avatar != null
+                      ? NetworkImage(member.avatar!)
+                      : null,
+                  child: member.avatar == null
+                      ? Text(
+                          member.name[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    member.name,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                if (onKickMember != null)
+                  IconButton(
+                    onPressed: () => _confirmKick(context, member.id, member.name),
+                    icon: Icon(Icons.person_remove, color: cs.error, size: 22),
+                    tooltip: tr('group_kick'),
+                  ),
+              ],
+            ),
+          )),
+        if (onAddMember != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onAddMember,
+              icon: const Icon(Icons.person_add),
+              label: Text(tr('group_add_member')),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _confirmKick(BuildContext context, String botId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('group_kick')),
+        content: Text(tr('group_kick_confirm').replaceFirst('{name}', name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onKickMember?.call(botId);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(tr('group_kick')),
+          ),
+        ],
       ),
     );
   }

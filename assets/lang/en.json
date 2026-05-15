@@ -333,5 +333,12 @@
   "bond_xp_unit": "XP",
   "bond_group_levels_title": "Group Bond Levels",
   "bond_unknown_member": "Unknown",
-  "chat_regenerating_summaries": "Re-generating summaries..."
+  "chat_regenerating_summaries": "Re-generating summaries...",
+  "group_members": "Members",
+  "group_kick": "Kick",
+  "group_kick_confirm": "Remove {name} from group?",
+  "group_add_member": "Add Member",
+  "group_kick_done": "{name} removed from group",
+  "group_add_done": "{name} added to group",
+  "group_no_members": "No members yet"
 }

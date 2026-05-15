@@ -328,5 +328,12 @@
   "bond_xp_unit": "XP",
   "bond_group_levels_title": "グループボンドレベル",
   "bond_unknown_member": "不明",
-  "chat_regenerating_summaries": "要約を再生成中..."
+  "chat_regenerating_summaries": "要約を再生成中...",
+  "group_members": "メンバー",
+  "group_kick": "キック",
+  "group_kick_confirm": "{name}をグループから削除しますか？",
+  "group_add_member": "メンバー追加",
+  "group_kick_done": "{name}をグループから削除しました",
+  "group_add_done": "{name}をグループに追加しました",
+  "group_no_members": "まだメンバーがいません"
 }

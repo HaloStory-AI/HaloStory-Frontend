@@ -9,11 +9,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SelectContactScreen extends StatefulWidget {
   final Function(Map<String, dynamic> chatData) onContactSelected;
   final VoidCallback onCancel;
+  final Set<String>? excludeIds;
 
   const SelectContactScreen({
     super.key,
     required this.onContactSelected,
     required this.onCancel,
+    this.excludeIds,
   });
 
   @override
@@ -533,8 +535,10 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
                 Expanded(
                   child: _buildBotList(
                     _availableBots.where((bot) {
+                      final botId = (bot['id'] ?? '').toString();
+                      if (widget.excludeIds?.contains(botId) == true) return false;
                       final name = (bot['name'] ?? '').toString().toLowerCase();
-                      final id = (bot['id'] ?? '').toString().toLowerCase();
+                      final id = botId.toLowerCase();
                       final query = _searchQuery.toLowerCase();
                       return name.contains(query) || id.contains(query);
                     }).toList(),

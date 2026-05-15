@@ -31,6 +31,7 @@ import '../widgets/chat/message_options_sheet.dart';
 import '../widgets/chat/bond_simulator_sheet.dart';
 import '../widgets/chat/debug_overlay.dart';
 import '../widgets/chat/desktop_overlay.dart';
+import 'select_contact_screen.dart';
 
 @Preview(name: 'Chat Detail Screen', size: Size(390, 844))
 Widget chatDetailScreenPreview() {
@@ -1443,7 +1444,72 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StudentBioSheet(bot: widget.bot),
+      builder: (context) => StudentBioSheet(
+        bot: widget.bot,
+        isGroup: _isGroup,
+        groupMembers: _groupMembers,
+        onAddMember: () {
+          Navigator.pop(context);
+          _handleAddMember();
+        },
+        onKickMember: (botId) {
+          Navigator.pop(context);
+          _handleKickMember(botId);
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleAddMember() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SelectContactScreen(
+          excludeIds: _groupMembers.map((m) => m['bot_id']?.toString() ?? m['id']?.toString() ?? '').toSet(),
+          onContactSelected: (newBot) async {
+            Navigator.pop(context, newBot);
+          },
+          onCancel: () => Navigator.pop(context),
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    _safeSetState(() {
+      _groupMembers.add(result);
+    });
+    await _localChatService.updateGroupMembers(widget.bot['id'], _groupMembers);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(tr('group_add_done').replaceFirst('{name}', result['name'] ?? '')),
+      ),
+    );
+  }
+
+  Future<void> _handleKickMember(String botId) async {
+    final member = _groupMembers.firstWhere(
+      (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == botId,
+      orElse: () => <String, dynamic>{},
+    );
+    final name = member['name']?.toString() ?? botId;
+
+    if (_selectedBotId == botId) {
+      _selectedBotId = null;
+    }
+
+    _safeSetState(() {
+      _groupMembers.removeWhere(
+        (m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == botId,
+      );
+    });
+    await _localChatService.updateGroupMembers(widget.bot['id'], _groupMembers);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(tr('group_kick_done').replaceFirst('{name}', name)),
+      ),
     );
   }
 
