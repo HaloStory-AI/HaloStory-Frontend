@@ -612,7 +612,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     const int batchSize = 20;
 
-    final List<Map<String, dynamic>> realMessages = _messages
+    final List<Map<String, dynamic>> realMessages = _allMessages
         .where(
           (m) =>
               m['content'] != null &&
@@ -661,7 +661,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final summarizedCount = _summaries.length * 20;
     final remaining = totalReal - summarizedCount;
 
-    if (remaining > 150 && totalReal > 150) {
+    if (totalReal > 150 && remaining > 20) {
       await _startForcedSummary(realMessages, totalReal);
     }
   }
@@ -697,7 +697,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
       final currentDone = _summaries.length * 20;
       final currentRemaining = totalReal - currentDone;
-      if (currentRemaining <= 150) break;
+      if (currentRemaining <= 20) break;
 
       await _summarizeSingleBatch(realMessages, i, batchSize);
 
@@ -875,7 +875,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
 
-    List<Map<String, String>> fullHistory = _messages
+    List<Map<String, String>> fullHistory = _allMessages
         .where((m) => m['content'] != null && m['role'] != 'system')
         .map(
           (m) => {
@@ -1091,7 +1091,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
 
     if (!_isTypingEffectActive) {
-      _localChatService.saveChat(widget.bot['id'], _messages).then((_) {
+      _localChatService.saveChat(widget.bot['id'], _allMessages).then((_) {
         _generateSummaries();
       });
     }
@@ -1127,7 +1127,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         }
       });
 
-      await _localChatService.saveChat(widget.bot['id'], _messages);
+      await _localChatService.saveChat(widget.bot['id'], _allMessages);
       _scrollToBottom();
     }
 
@@ -2275,14 +2275,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         canRegenerate: canRegenerate,
         onRegenerate: _regenerateResponse,
         onRewind: () async {
-          final trimmed = _messages.sublist(0, index + 1);
+          final startOffset = _allMessages.length - _messages.length;
+          final allTrimmed = _allMessages.sublist(0, startOffset + index + 1);
           _safeSetState(() {
-            _messages = trimmed;
+            _messages = _messages.sublist(0, index + 1);
+            _allMessages = allTrimmed;
             _summaries.removeWhere(
-              (key, value) => key >= trimmed.length,
+              (key, _) => key >= allTrimmed.length,
             );
           });
-          await _localChatService.saveChat(widget.bot['id'], _messages);
+          await _localChatService.saveChat(widget.bot['id'], _allMessages);
           await _localChatService.saveSummaries(
             widget.bot['id'],
             _summaries,
@@ -2328,7 +2330,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               _safeSetState(() {
                 _messages[index]['content'] = editController.text;
               });
-              await _localChatService.saveChat(widget.bot['id'], _messages);
+              await _localChatService.saveChat(widget.bot['id'], _allMessages);
               if (dialogContext.mounted) {
                 Navigator.pop(dialogContext);
               }
