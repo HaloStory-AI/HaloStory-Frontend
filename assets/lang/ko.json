@@ -335,5 +335,8 @@
   "group_add_member": "멤버 추가",
   "group_kick_done": "{name}이(가) 그룹에서 추방되었습니다",
   "group_add_done": "{name}이(가) 그룹에 추가되었습니다",
-  "group_no_members": "아직 멤버가 없습니다"
+  "group_no_members": "아직 멤버가 없습니다",
+  "chat_summary_locking_title": "채팅 메모리 압축 중...",
+  "chat_summary_wait": "대화 메모리를 압축 중입니다. 잠시만 기다려주세요 선생님...",
+  "chat_summary_progress": "총: {total} | 압축됨: {done} | 남음: {remaining}"
 }

@@ -335,5 +335,8 @@
   "group_add_member": "メンバー追加",
   "group_kick_done": "{name}をグループから削除しました",
   "group_add_done": "{name}をグループに追加しました",
-  "group_no_members": "まだメンバーがいません"
+  "group_no_members": "まだメンバーがいません",
+  "chat_summary_locking_title": "チャット記憶を圧縮中...",
+  "chat_summary_wait": "会話の記憶を圧縮しています。少々お待ちください先生...",
+  "chat_summary_progress": "合計: {total} | 圧縮済み: {done} | 残り: {remaining}"
 }

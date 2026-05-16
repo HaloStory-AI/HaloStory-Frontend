@@ -11,6 +11,7 @@ class ChatInputArea extends StatelessWidget {
   final List<Map<String, dynamic>> groupMembers;
   final Map<String, dynamic> bot;
   final bool isSystemNoteOpen;
+  final bool isLockedForSummary;
   final VoidCallback onSend;
   final VoidCallback onToggleCharacterMenu;
   final VoidCallback onToggleSystemNote;
@@ -25,6 +26,7 @@ class ChatInputArea extends StatelessWidget {
     required this.groupMembers,
     required this.bot,
     required this.isSystemNoteOpen,
+    this.isLockedForSummary = false,
     required this.onSend,
     required this.onToggleCharacterMenu,
     required this.onToggleSystemNote,
@@ -208,8 +210,9 @@ class ChatInputArea extends StatelessWidget {
           vertical: 8,
         ),
       ),
+      readOnly: isLockedForSummary,
       onSubmitted: (_) {
-        if (!isTypingEffectActive) {
+        if (!isTypingEffectActive && !isLockedForSummary) {
           onSend();
         }
       },
@@ -219,13 +222,13 @@ class ChatInputArea extends StatelessWidget {
   Widget _buildSendButton(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
-      onTap: isTypingEffectActive ? null : onSend,
+      onTap: (isTypingEffectActive || isLockedForSummary) ? null : onSend,
       child: Container(
         margin: const EdgeInsets.only(right: 4),
         padding: const EdgeInsets.all(6),
         child: Icon(
           Icons.send,
-          color: isTypingEffectActive
+          color: (isTypingEffectActive || isLockedForSummary)
               ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
               : colorScheme.primary,
           size: 24,

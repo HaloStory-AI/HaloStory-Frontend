@@ -340,5 +340,8 @@
   "group_add_member": "Add Member",
   "group_kick_done": "{name} removed from group",
   "group_add_done": "{name} added to group",
-  "group_no_members": "No members yet"
+  "group_no_members": "No members yet",
+  "chat_summary_locking_title": "Compressing Chat Memory...",
+  "chat_summary_wait": "Please wait, the conversation memory is being compressed Sensei...",
+  "chat_summary_progress": "Total: {total} | Compressed: {done} | Remaining: {remaining}"
 }

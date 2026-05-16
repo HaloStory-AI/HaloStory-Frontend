@@ -341,5 +341,8 @@
   "group_add_member": "Tambah Anggota",
   "group_kick_done": "{name} dikeluarkan dari grup",
   "group_add_done": "{name} ditambahkan ke grup",
-  "group_no_members": "Belum ada anggota"
+  "group_no_members": "Belum ada anggota",
+  "chat_summary_locking_title": "Memadatkan Memori Chat...",
+  "chat_summary_wait": "Tunggu ya Sensei, memori percakapan sedang dipadatkan...",
+  "chat_summary_progress": "Total: {total} | Terkompres: {done} | Sisa: {remaining}"
 }

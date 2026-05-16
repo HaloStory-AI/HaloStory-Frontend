@@ -85,6 +85,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
   bool _isTypingEffectActive = false;
+  bool _isLockedForSummary = false;
   bool _isDisposed = false;
   bool _showScrollButton = false;
   Timer? _pollingTimer;
@@ -523,10 +524,83 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _scrollToBottom();
 
     _generateSummaries();
+    _checkAndStartForcedSummary();
 
     if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
       _messageController.text = widget.initialMessage!;
       _sendMessage();
+    }
+  }
+
+  Future<bool> _summarizeSingleBatch(
+    List<Map<String, dynamic>> realMessages,
+    int start,
+    int batchSize,
+  ) async {
+    if (_summaries.containsKey(start)) return false;
+    if (!mounted || _isDisposed) return false;
+
+    try {
+      final List<Map<String, String>> batch = realMessages
+          .sublist(start, start + batchSize)
+          .map(
+            (m) => {
+              'role': m['role'] as String,
+              'content': m['content'] as String,
+            },
+          )
+          .toList();
+
+      final result = await _aiService.summarizeChat(
+        messages: batch,
+        botId: widget.bot['id'],
+        provider: widget.provider,
+      );
+
+      if (result != null &&
+          result['status'] == 'queued' &&
+          result['uuid'] != null) {
+        String uuid = result['uuid'];
+        bool summaryCompleted = false;
+        int timeoutChecks = 60;
+
+        while (mounted &&
+            !_isDisposed &&
+            !summaryCompleted &&
+            timeoutChecks > 0) {
+          await Future.delayed(const Duration(seconds: 2));
+          final statusCheck = await _aiService.checkChatStatus(uuid);
+          if (statusCheck != null) {
+            if (statusCheck['status'] == 'queued' ||
+                statusCheck['status'] == 'processing') {
+            } else if (statusCheck['status'] == 'not_found' ||
+                statusCheck['status'] == 'failed' ||
+                statusCheck['error'] != null) {
+              summaryCompleted = true;
+            } else {
+              final summaryText =
+                  statusCheck['summary'] ?? statusCheck['response']?['summary'];
+              if (summaryText != null) {
+                _summaries[start] = summaryText;
+                await _localChatService.saveSummaries(
+                  widget.bot['id'], _summaries,
+                );
+              }
+              summaryCompleted = true;
+            }
+          }
+          timeoutChecks--;
+        }
+      } else if (result != null && result['summary'] != null) {
+        _summaries[start] = result['summary'];
+        await _localChatService.saveSummaries(
+          widget.bot['id'], _summaries,
+        );
+      }
+
+      return _summaries.containsKey(start);
+    } catch (_) {
+      return false;
     }
   }
 
@@ -536,7 +610,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     _addDebugLog('Starting summary generation for bot ${widget.bot['id']}');
 
-    final int batchSize = 20;
+    const int batchSize = 20;
 
     final List<Map<String, dynamic>> realMessages = _messages
         .where(
@@ -564,77 +638,82 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     int processedBatches = 0;
 
     for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
-      if (!_summaries.containsKey(i)) {
-        try {
-          final List<Map<String, String>> batch = realMessages
-              .sublist(i, i + batchSize)
-              .map(
-                (m) => {
-                  'role': m['role'] as String,
-                  'content': m['content'] as String,
-                },
-              )
-              .toList();
-
-          final result = await _aiService.summarizeChat(
-            messages: batch,
-            botId: widget.bot['id'],
-            provider: widget.provider,
-          );
-
-          if (result != null &&
-              result['status'] == 'queued' &&
-              result['uuid'] != null) {
-            String uuid = result['uuid'];
-            bool summaryCompleted = false;
-            int timeoutChecks = 60;
-
-            while (mounted &&
-                !_isDisposed &&
-                !summaryCompleted &&
-                timeoutChecks > 0) {
-              await Future.delayed(const Duration(seconds: 2));
-              final statusCheck = await _aiService.checkChatStatus(uuid);
-              if (statusCheck != null) {
-                if (statusCheck['status'] == 'queued' ||
-                    statusCheck['status'] == 'processing') {
-                } else if (statusCheck['status'] == 'not_found' ||
-                    statusCheck['status'] == 'failed' ||
-                    statusCheck['error'] != null) {
-                  summaryCompleted = true;
-                } else {
-                  final summaryText =
-                      statusCheck['summary'] ??
-                      statusCheck['response']?['summary'];
-                  if (summaryText != null) {
-                    _summaries[i] = summaryText;
-                    await _localChatService.saveSummaries(
-                      widget.bot['id'], _summaries,
-                    );
-                  }
-                  summaryCompleted = true;
-                }
-              }
-              timeoutChecks--;
-            }
-          } else if (result != null && result['summary'] != null) {
-            _summaries[i] = result['summary'];
-            await _localChatService.saveSummaries(
-              widget.bot['id'], _summaries,
-            );
-          }
-        } catch (_) {}
-
-        processedBatches++;
-        _safeSetState(() {
-          _summaryProgress = processedBatches / totalBatchesToSummarize;
-        });
-      }
+      await _summarizeSingleBatch(realMessages, i, batchSize);
+      processedBatches++;
+      _safeSetState(() {
+        _summaryProgress = processedBatches / totalBatchesToSummarize;
+      });
     }
 
     _safeSetState(() {
       _isSummarizing = false;
       _summaryProgress = 0.0;
+    });
+  }
+
+  Future<void> _checkAndStartForcedSummary() async {
+    if (_isDisposed || !mounted || _isLockedForSummary) return;
+
+    final realMessages = _allMessages
+        .where((m) => m['content'] != null && m['role'] != 'system')
+        .toList();
+    final totalReal = realMessages.length;
+    final summarizedCount = _summaries.length * 20;
+    final remaining = totalReal - summarizedCount;
+
+    if (remaining > 150 && totalReal > 150) {
+      await _startForcedSummary(realMessages, totalReal);
+    }
+  }
+
+  Future<void> _startForcedSummary(
+    List<Map<String, dynamic>> realMessages,
+    int totalReal,
+  ) async {
+    if (!mounted || _isDisposed) return;
+
+    const int batchSize = 20;
+
+    _safeSetState(() {
+      _isLockedForSummary = true;
+    });
+
+    final progressNotifier = ValueNotifier<Map<String, int>>({
+      'total': totalReal,
+      'done': _summaries.length * 20,
+      'remaining': totalReal - (_summaries.length * 20),
+    });
+
+    if (!mounted || _isDisposed) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _SummaryProgressDialog(notifier: progressNotifier),
+    );
+
+    for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
+      if (!mounted || _isDisposed) break;
+
+      final currentDone = _summaries.length * 20;
+      final currentRemaining = totalReal - currentDone;
+      if (currentRemaining <= 150) break;
+
+      await _summarizeSingleBatch(realMessages, i, batchSize);
+
+      progressNotifier.value = {
+        'total': totalReal,
+        'done': _summaries.length * 20,
+        'remaining': totalReal - (_summaries.length * 20),
+      };
+    }
+
+    if (mounted && !_isDisposed) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    _safeSetState(() {
+      _isLockedForSummary = false;
     });
   }
 
@@ -1805,43 +1884,59 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                     if (!context.mounted) return;
 
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => Dialog(
-                        backgroundColor: surfaceBackground(context),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const CircularProgressIndicator(),
-                              const SizedBox(height: 16),
-                              Text(
-                                tr('chat_resummary_loading'),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Theme.of(context).colorScheme.onSurface,
+                    final realMessages = _allMessages
+                        .where((m) => m['content'] != null && m['role'] != 'system')
+                        .toList();
+                    final totalReal = realMessages.length;
+
+                    if (totalReal > 150) {
+                      await _startForcedSummary(realMessages, totalReal);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(tr('chat_regenerating_summaries')),
+                          ),
+                        );
+                      }
+                    } else {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => Dialog(
+                          backgroundColor: surfaceBackground(context),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(),
+                                const SizedBox(height: 16),
+                                Text(
+                                  tr('chat_resummary_loading'),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-
-                    await _generateSummaries();
-
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(tr('chat_regenerating_summaries')),
-                        ),
                       );
+
+                      await _generateSummaries();
+
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(tr('chat_regenerating_summaries')),
+                          ),
+                        );
+                      }
                     }
                   } else if (value == 'delete') {
                     await _localChatService.deleteChat(widget.bot['id']);
@@ -2101,7 +2196,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ],
                       ),
                     ),
-                    if (_isLoading && (_messages.isEmpty || _messages.last['status'] == 'processing'))
+                    if (_isLoading && _activeBotId != null)
                       TypingIndicator(
                         messages: _messages,
                         isLoading: _isLoading,
@@ -2125,6 +2220,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       groupMembers: _groupMembers,
                       bot: widget.bot,
                       isSystemNoteOpen: _isSystemNoteOpen,
+                      isLockedForSummary: _isLockedForSummary,
                       onSend: _sendMessage,
                       onToggleCharacterMenu: () {
                         _safeSetState(() {
@@ -2372,4 +2468,77 @@ class _ParticlePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ParticlePainter oldDelegate) =>
       oldDelegate.progress != progress;
+}
+
+class _SummaryProgressDialog extends StatelessWidget {
+  final ValueNotifier<Map<String, int>> notifier;
+
+  const _SummaryProgressDialog({required this.notifier});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Map<String, int>>(
+      valueListenable: notifier,
+      builder: (context, progress, _) {
+        final total = progress['total'] ?? 0;
+        final done = progress['done'] ?? 0;
+        final remaining = progress['remaining'] ?? 0;
+        final progressValue = total > 0 ? done / total : 0.0;
+
+        return Dialog(
+          backgroundColor: surfaceBackground(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  tr('chat_summary_locking_title'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  tr('chat_summary_wait'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: progressValue,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                  minHeight: 4,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  tr('chat_summary_progress')
+                      .replaceFirst('{total}', total.toString())
+                      .replaceFirst('{done}', done.toString())
+                      .replaceFirst('{remaining}', remaining.toString()),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

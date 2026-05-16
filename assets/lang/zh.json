@@ -335,5 +335,8 @@
   "group_add_member": "添加成员",
   "group_kick_done": "{name} 已从群组中移除",
   "group_add_done": "{name} 已添加到群组",
-  "group_no_members": "暂无成员"
+  "group_no_members": "暂无成员",
+  "chat_summary_locking_title": "正在压缩聊天记忆...",
+  "chat_summary_wait": "正在压缩对话记忆，请稍候老师...",
+  "chat_summary_progress": "总计: {total} | 已压缩: {done} | 剩余: {remaining}"
 }
