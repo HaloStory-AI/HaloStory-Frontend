@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -75,7 +74,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isTypingEffectActive = false;
   bool _isDisposed = false;
   bool _showScrollButton = false;
-  Timer? _pollingTimer;
+  bool _isPollingActive = false;
 
   // Debug overlay state
   bool _showDebugOverlay = false;
@@ -181,7 +180,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void dispose() {
     _isDisposed = true;
-    _pollingTimer?.cancel();
+    _isPollingActive = false;
     _debugOverlayEntry?.remove();
     _debugScrollController.dispose();
     _scrollController.removeListener(_scrollListener);
@@ -655,7 +654,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 !_isDisposed &&
                 !summaryCompleted &&
                 timeoutChecks > 0) {
-              await Future.delayed(const Duration(seconds: 2));
+              await Future.delayed(const Duration(seconds: 1));
               final statusCheck = await _aiService.checkChatStatus(uuid);
               if (statusCheck != null) {
                 if (statusCheck['status'] == 'queued' ||
@@ -916,7 +915,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       print('DEBUG: Messages Payload: ${jsonEncode(aiMessages)}');
       print('DEBUG: ---------------------');
     }
-  
+
     try {
       final response = await _aiService.sendMessage(
         provider: widget.provider,
@@ -958,21 +957,35 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  void _startPolling(String uuid, String? botIdForRequest, String aiTimestamp) {
-    _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!mounted || _isDisposed) {
-        timer.cancel();
-        return;
-      }
+  Future<void> _startPolling(
+    String uuid,
+    String? botIdForRequest,
+    String aiTimestamp,
+  ) async {
+    _isPollingActive = false;
+    _isPollingActive = true;
+    await _pollLoop(uuid, botIdForRequest, aiTimestamp);
+  }
+
+  Future<void> _pollLoop(
+    String uuid,
+    String? botIdForRequest,
+    String aiTimestamp,
+  ) async {
+    while (_isPollingActive && mounted && !_isDisposed) {
       final response = await _aiService.checkChatStatus(uuid);
+
+      if (!_isPollingActive || !mounted || _isDisposed) return;
+
       if (response == null || response['status'] == 'not_found') {
-        timer.cancel();
-        _safeSetState(() {
-          _isLoading = false;
-          _activeBotId = null;
-          _addSystemError(aiTimestamp);
-        });
+        _isPollingActive = false;
+        if (mounted && !_isDisposed) {
+          _safeSetState(() {
+            _isLoading = false;
+            _activeBotId = null;
+            _addSystemError(aiTimestamp);
+          });
+        }
         return;
       }
 
@@ -982,22 +995,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             _messages.last['status'] = 'processing';
           }
         });
-        return;
+        await Future.delayed(const Duration(seconds: 1));
+        continue;
       }
 
       if (response['status'] == 'completed' ||
           response['choices'] != null ||
           response['error'] != null) {
-        timer.cancel();
-        _safeSetState(() {
-          if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
-            _messages.last['status'] =
-                'completed'; // Atau biarkan saja, centang 2 sudah tercapai di processing
-          }
-        });
-        _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+        _isPollingActive = false;
+        if (mounted && !_isDisposed) {
+          _safeSetState(() {
+            if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+              _messages.last['status'] = 'completed';
+            }
+          });
+          _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+        }
+        return;
       }
-    });
+
+      await Future.delayed(const Duration(seconds: 1));
+    }
   }
 
   void _handleAIResponseData(

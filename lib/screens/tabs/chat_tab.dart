@@ -46,6 +46,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
+  static const String _syncNoticeDismissedKey = 'chat_sync_notice_dismissed';
   static const String _chatHeaderPopupFont = 'Roboto';
   static const List<ChatSortType> _sortOptions = [
     ChatSortType.newest,
@@ -198,9 +199,20 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     await prefs.setBool(_chatSortAscKey, _sortAscending);
   }
 
+  Future<void> _loadSyncNoticePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool(_syncNoticeDismissedKey) ?? false;
+    if (mounted) {
+      setState(() {
+        _showSyncNotice = !dismissed;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadSyncNoticePreference();
     _loadSortPreferencesAndInit();
 
     // Listen to real-time chat updates (new messages, deleted chats)
@@ -828,10 +840,14 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _showSyncNotice = false;
-                    });
+                  onTap: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool(_syncNoticeDismissedKey, true);
+                    if (mounted) {
+                      setState(() {
+                        _showSyncNotice = false;
+                      });
+                    }
                   },
                   child: const Padding(
                     padding: EdgeInsets.only(left: 8.0),
