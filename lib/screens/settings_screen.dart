@@ -38,7 +38,7 @@ class SettingsScreen extends StatelessWidget {
             _SettingsCard(
               icon: Icons.api,
               title: tr('settings_tab_ai'),
-              subtitle: 'BYOK/BYOM, Gen Parameters',
+              subtitle: 'BYOK Config, Gen Parameters',
               surfaceColor: surface,
               onTap: () => Navigator.push(
                 context,

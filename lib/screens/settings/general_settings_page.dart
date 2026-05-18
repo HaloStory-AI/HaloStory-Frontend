@@ -18,7 +18,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
   bool _amoledDarkEnabled = false;
   String _selectedProvider = 'System';
   bool _aiReasoningEnabled = false;
-  final List<String> _providers = ['System', 'BYOK', 'BYOM'];
+  final List<String> _providers = ['System', 'BYOK'];
 
   @override
   void initState() {
@@ -35,6 +35,10 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
       _selectedProvider = AIService.normalizeProvider(
         prefs.getString('default_provider'),
       );
+      if (_selectedProvider == 'BYOM') {
+        _selectedProvider = 'System';
+        prefs.setString('default_provider', 'System');
+      }
       _aiReasoningEnabled = prefs.getBool('ai_reasoning_enabled') ?? false;
     });
   }
@@ -242,7 +246,6 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
             const SizedBox(height: 10),
             _buildModeInfo('System', tr('settings_mode_system_desc')),
             _buildModeInfo('BYOK', tr('settings_mode_byok_desc')),
-            _buildModeInfo('BYOM', tr('settings_mode_byom_desc')),
             const SizedBox(height: 24),
           ],
         ),

@@ -19,7 +19,7 @@ class AIEngineSettingsPage extends StatefulWidget {
 class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
   String _selectedProvider = 'System';
   String _byokProvider = 'gemini';
-  final List<String> _providers = ['System', 'BYOK', 'BYOM'];
+  final List<String> _providers = ['System', 'BYOK'];
 
   final Map<String, String> _byokProvidersList = {
     'gemini': 'Google Gemini',
@@ -43,9 +43,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
   final TextEditingController _byokApiKeyController = TextEditingController();
   final TextEditingController _byokModelController = TextEditingController();
   final TextEditingController _byokBaseUrlController = TextEditingController();
-  final TextEditingController _byomEndpointController = TextEditingController();
-  final TextEditingController _byomModelController = TextEditingController();
-  final TextEditingController _byomApiKeyController = TextEditingController();
   final TextEditingController _aiTempController = TextEditingController();
   final TextEditingController _aiResponseLengthController =
       TextEditingController();
@@ -73,9 +70,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     _byokApiKeyController.dispose();
     _byokModelController.dispose();
     _byokBaseUrlController.dispose();
-    _byomEndpointController.dispose();
-    _byomModelController.dispose();
-    _byomApiKeyController.dispose();
     _aiTempController.dispose();
     _aiResponseLengthController.dispose();
     _aiMaxTokenController.dispose();
@@ -97,15 +91,15 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
       _selectedProvider = AIService.normalizeProvider(
         prefs.getString('default_provider'),
       );
+      if (_selectedProvider == 'BYOM') {
+        _selectedProvider = 'System';
+        prefs.setString('default_provider', 'System');
+      }
       _byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
 
       _byokApiKeyController.text = prefs.getString('byok_api_key') ?? '';
       _byokModelController.text = prefs.getString('byok_model') ?? '';
       _byokBaseUrlController.text = prefs.getString('byok_base_url') ?? '';
-
-      _byomEndpointController.text = prefs.getString('byom_endpoint') ?? '';
-      _byomModelController.text = prefs.getString('byom_model') ?? '';
-      _byomApiKeyController.text = prefs.getString('byom_api_key') ?? '';
 
       _aiTempController.text = (prefs.getDouble('ai_temp') ?? 0.7).toString();
       _aiResponseLengthController.text =
@@ -135,10 +129,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     await prefs.setString('byok_api_key', _byokApiKeyController.text);
     await prefs.setString('byok_model', _byokModelController.text);
     await prefs.setString('byok_base_url', _byokBaseUrlController.text);
-
-    await prefs.setString('byom_endpoint', _byomEndpointController.text);
-    await prefs.setString('byom_model', _byomModelController.text);
-    await prefs.setString('byom_api_key', _byomApiKeyController.text);
 
     final syncPayload = {
       'ai_temp': double.tryParse(_aiTempController.text) ?? 0.7,
@@ -242,7 +232,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
 
             // ── Provider Config ──
             if (_selectedProvider == 'BYOK') ..._buildBYOKFields(),
-            if (_selectedProvider == 'BYOM') ..._buildBYOMFields(),
             if (_selectedProvider == 'System')
               Center(
                 child: Padding(
@@ -444,32 +433,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     ];
   }
 
-  List<Widget> _buildBYOMFields() {
-    return [
-      _buildTextField(
-        controller: _byomEndpointController,
-        label: tr('settings_local_endpoint'),
-        hint: 'http://localhost:11434/v1/chat/completions',
-        icon: Icons.computer,
-      ),
-      const SizedBox(height: 16),
-      _buildTextField(
-        controller: _byomModelController,
-        label: tr('settings_local_model_name'),
-        hint: tr('settings_local_model_name_hint'),
-        icon: Icons.model_training,
-      ),
-      const SizedBox(height: 16),
-      _buildTextField(
-        controller: _byomApiKeyController,
-        label: tr('settings_api_key_optional'),
-        hint: 'cth: sk-xxxx...',
-        obscure: true,
-        icon: Icons.vpn_key,
-      ),
-    ];
-  }
-
   Future<void> _showModelSearchBottomSheet() async {
     final apiKey = _byokApiKeyController.text;
     final prov = _byokProvider;
@@ -637,8 +600,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
 
     if (_selectedProvider == 'BYOK') {
       helpUrl = 'https://s.my-bini.my.id/byok';
-    } else if (_selectedProvider == 'BYOM') {
-      helpUrl = 'https://s.my-bini.my.id/byom';
     }
 
     return Align(
