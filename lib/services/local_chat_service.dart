@@ -42,6 +42,16 @@ class LocalChatService {
       }
       return path;
     }
+    if (Platform.isLinux) {
+      // For Windows, create HaloStoryData folder in Documents
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/HaloStoryData';
+      final dir = Directory(path);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      return path;
+    }
 
     final directory = await getApplicationDocumentsDirectory();
     return directory.path;

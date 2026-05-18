@@ -16,6 +16,7 @@ import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
 import 'donation_screen.dart';
 import 'tabs/chat_tab.dart';
+import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import '../services/auth_service.dart';
 
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _tabs = [
       ChatTab(onChatSelected: _onChatSelected),
+      const StoriesTab(),
       const CalendarTab(),
     ];
     _pageController = PageController(initialPage: _currentIndex);
@@ -256,7 +258,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
     Navigator.maybePop(context);
-    setState(() => _currentIndex = index);
+    // Sidebar indices: 0=Chat, 1=Stories, 2=Calendar
+    // Nav indices: 0=Chat, 1=Stories, 3=Calendar
+    // Page indices: 0=Chat, 1=Stories, 2=Calendar
+    int navIndex = index >= 2 ? index + 1 : index;
+    setState(() => _currentIndex = navIndex);
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 260),
@@ -265,12 +271,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onBottomNavTap(int index) {
-    if (index == 1) {
+    if (index == 2) {
       _scaffoldKey.currentState?.openDrawer();
       return;
     }
-    
-    if (index == 3) {
+
+    if (index == 4) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const SettingsScreen()),
@@ -280,9 +286,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (index == _currentIndex) return;
 
-    // Map Nav index to PageView index
-    int pageIndex = index;
-    if (index == 2) pageIndex = 1; 
+    // Nav-to-page: 0->0(Chat), 1->1(Stories), 3->2(Calendar)
+    int pageIndex = index >= 3 ? index - 1 : index;
 
     setState(() => _currentIndex = index);
     _pageController.animateToPage(
@@ -423,9 +428,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     unselectedColor: sidebarIconColor,
                   ),
                   _buildSidebarNavItem(
-                    iconAsset: 'assets/icon/sidebar_calendar.svg',
+                    iconAsset: 'assets/icon/sidebar_stories.svg',
                     index: 1,
                     isSelected: _currentIndex == 1,
+                    selectedBackgroundColor: sidebarSelectedBg,
+                    selectedColor: sidebarIconSelectedColor,
+                    unselectedColor: sidebarIconColor,
+                  ),
+                  _buildSidebarNavItem(
+                    iconAsset: 'assets/icon/sidebar_calendar.svg',
+                    index: 2,
+                    isSelected: _currentIndex == 3,
                     selectedBackgroundColor: sidebarSelectedBg,
                     selectedColor: sidebarIconSelectedColor,
                     unselectedColor: sidebarIconColor,
@@ -643,8 +656,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: PageView(
                 controller: _pageController,
                 onPageChanged: (index) {
-                  int navIndex = index;
-                  if (index == 1) navIndex = 2; // Page 1 is Calendar (Nav Index 2)
+                  // Page-to-nav: 0->0(Chat), 1->1(Stories), 2->3(Calendar)
+                  int navIndex = index >= 2 ? index + 1 : index;
                   if (navIndex == _currentIndex) return;
                   setState(() => _currentIndex = navIndex);
                 },
@@ -684,6 +697,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     BottomNavigationBarItem(
                       icon: const Icon(Icons.chat_bubble_rounded),
                       label: tr('tab_chat'),
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.auto_stories),
+                      label: tr('tab_stories'),
                     ),
                     BottomNavigationBarItem(
                       icon: const Icon(Icons.menu),

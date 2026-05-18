@@ -61,9 +61,22 @@ class DesktopSidebar extends StatelessWidget {
 
           const SizedBox(height: 16),
           _buildSvgNavItem(
+            iconAsset: 'assets/icon/sidebar_stories.svg',
+            label: tr('tab_stories'),
+            isSelected: currentIndex == 1 && !isSettingsSelected,
+            selectedBg: selectedBg,
+            iconSelected: iconSelected,
+            iconUnselected: iconUnselected,
+            labelSelected: labelSelected,
+            labelUnselected: labelUnselected,
+            onTap: () => onTabSelected(1),
+          ),
+
+          const SizedBox(height: 16),
+          _buildSvgNavItem(
             iconAsset: 'assets/icon/sidebar_calendar.svg',
             label: tr('tab_calendar'),
-            isSelected: currentIndex == 1 && !isSettingsSelected,
+            isSelected: currentIndex == 2 && !isSettingsSelected,
             selectedBg: selectedBg,
             iconSelected: iconSelected,
             iconUnselected: iconUnselected,
