@@ -10,7 +10,8 @@ class CalendarTab extends StatefulWidget {
   State<CalendarTab> createState() => _CalendarTabState();
 }
 
-class _CalendarTabState extends State<CalendarTab> with AutomaticKeepAliveClientMixin {
+class _CalendarTabState extends State<CalendarTab>
+    with AutomaticKeepAliveClientMixin {
   final BotService _botService = BotService();
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
@@ -58,7 +59,6 @@ class _CalendarTabState extends State<CalendarTab> with AutomaticKeepAliveClient
 
     return Column(
       children: [
-        _buildHeader(),
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -146,39 +146,6 @@ class _CalendarTabState extends State<CalendarTab> with AutomaticKeepAliveClient
                 ),
         ),
       ],
-    );
-  }
-
-  Widget _buildHeader() {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            tr('tab_calendar_title'),
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
-            ),
-          ),
-          Text(
-            tr('tab_calendar_subtitle'),
-            style: TextStyle(color: colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
     );
   }
 
@@ -277,8 +244,7 @@ class _CalendarTabState extends State<CalendarTab> with AutomaticKeepAliveClient
                   Icons.chat_bubble_outline,
                   color: colorScheme.primary,
                 ),
-                onPressed: () {
-                },
+                onPressed: () {},
               ),
             ],
           ),
