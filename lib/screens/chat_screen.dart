@@ -935,20 +935,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
       if (!mounted || _isDisposed) return;
 
-      _safeSetState(() {
-        final aiTimestamp = DateTime.now().toIso8601String();
+      final aiTimestamp = DateTime.now().toIso8601String();
 
-        if (response != null && response['status'] == 'queued') {
+      if (response != null && response['status'] == 'queued') {
+        _safeSetState(() {
           if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
             _messages.last['status'] = 'sent';
             _messages.last['uuid'] = response['uuid'];
           }
-          _startPolling(response['uuid'], botIdForRequest, aiTimestamp);
-          return;
-        }
+        });
+        _startPolling(response['uuid'], botIdForRequest, aiTimestamp);
+        return;
+      }
 
-        _handleAIResponseData(response, botIdForRequest, aiTimestamp);
-      });
+      await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
     } catch (e) {
       if (!mounted || _isDisposed) return;
       _safeSetState(() {
@@ -1011,7 +1011,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               _messages.last['status'] = 'completed';
             }
           });
-          _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+          await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
         }
         return;
       }
@@ -1020,11 +1020,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  void _handleAIResponseData(
+  Future<void> _handleAIResponseData(
     Map<String, dynamic>? response,
     String? botIdForRequest,
     String aiTimestamp,
-  ) {
+  ) async {
     bool shouldStartTyping = false;
     int partsLength = 0;
 
@@ -1090,13 +1090,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
 
     if (shouldStartTyping) {
-      _startTypingEffect(partsLength);
-    }
-
-    if (!_isTypingEffectActive) {
-      _localChatService.saveChat(widget.bot['id'], _messages).then((_) {
-        _generateSummaries();
-      });
+      await _startTypingEffect(partsLength);
+    } else {
+      await _localChatService.saveChat(widget.bot['id'], _messages);
+      _generateSummaries();
     }
     _scrollToBottom();
 
@@ -2515,6 +2512,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       widget.bot['id'].toString(),
       name: newName,
       bio: newBio,
+      members: _groupMembers,
     );
 
     if (!mounted || _isDisposed) return;

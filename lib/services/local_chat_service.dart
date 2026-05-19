@@ -78,7 +78,9 @@ class LocalChatService {
     try {
       final path = await _getStoragePath();
       final file = File('$path/$chatId.json');
-      await file.writeAsString(jsonContent);
+      final tempFile = File('$path/$chatId.json.tmp');
+      await tempFile.writeAsString(jsonContent);
+      await tempFile.rename(file.path);
       _updateController.add(chatId);
     } catch (e) {
       if (kDebugMode) {
@@ -91,6 +93,7 @@ class LocalChatService {
     String chatId, {
     String? name,
     String? bio,
+    List<Map<String, dynamic>>? members,
   }) async {
     final messages = await loadChat(chatId);
     final metadata = <String, dynamic>{'id': chatId, 'isGroup': true};
@@ -115,6 +118,10 @@ class LocalChatService {
     if (bio != null) {
       metadata['bio'] = bio;
       metadata['description'] = bio;
+    }
+
+    if (members != null) {
+      metadata['members'] = members;
     }
 
     if (systemIndex >= 0) {
@@ -158,6 +165,7 @@ class LocalChatService {
     } catch (e) {
       if (kDebugMode) {
         print('DEBUG: Error loading chat ($chatId): $e');
+        print('DEBUG: Chat file may be corrupted — returning empty history');
       }
     }
     return [];
