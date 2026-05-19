@@ -315,5 +315,9 @@
   "chat_compressing_memory": "대화 메모리를 압축 중입니다. 잠시만 기다려주세요 선생님... ⏳",
   "settings_tab_appearance": "외관",
   "settings_ai_reasoning_title": "AI 추론 활성화",
-  "settings_ai_reasoning_desc": "AI가 응답 전에 확장된 사고/추론 블록을 사용할 수 있도록 합니다 (시스템 AI 및/또는 비사고형 BYOK 모델을 사용하는 경우 권장하지 않음)."
+  "settings_ai_reasoning_desc": "AI가 응답 전에 확장된 사고/추론 블록을 사용할 수 있도록 합니다 (시스템 AI 및/또는 비사고형 BYOK 모델을 사용하는 경우 권장하지 않음).",
+  "settings_wallpaper": "배경화면",
+  "settings_wallpaper_none": "없음",
+  "settings_wallpaper_from_gallery": "갤러리에서",
+  "settings_wallpaper_dim": "어둡게"
 }

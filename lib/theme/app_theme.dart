@@ -10,6 +10,9 @@ class AppTheme {
   static const Color momoRailBackground = Color(0xFF4C5B72);
   static const Color momoRailSelected = Color(0xFF627089);
 
+  static const Color botBubbleLight = Color(0xFFE8F0FE);
+  static const Color botBubbleDark = Color(0xFF1E1E2E);
+
   static const Color amoledBlack = Color(0xFF000000);
   static const Color amoledSurface = Color(0xFF0D0D0D);
   static const Color amoledSurfaceAlt = Color(0xFF141414);

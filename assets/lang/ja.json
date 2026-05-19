@@ -315,5 +315,9 @@
   "chat_compressing_memory": "会話の記憶を圧縮しています。少々お待ちください、先生... ⏳",
   "settings_tab_appearance": "外観",
   "settings_ai_reasoning_title": "AI推論を有効化",
-  "settings_ai_reasoning_desc": "AIが応答前に拡張思考/推論ブロックを使用できるようにします（システムAIや非思考型BYOKモデルを使用している場合は非推奨）。"
+  "settings_ai_reasoning_desc": "AIが応答前に拡張思考/推論ブロックを使用できるようにします（システムAIや非思考型BYOKモデルを使用している場合は非推奨）。",
+  "settings_wallpaper": "壁紙",
+  "settings_wallpaper_none": "なし",
+  "settings_wallpaper_from_gallery": "ギャラリーから",
+  "settings_wallpaper_dim": "暗さ"
 }

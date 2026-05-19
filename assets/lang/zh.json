@@ -315,5 +315,9 @@
   "chat_compressing_memory": "正在压缩对话记忆，请稍候老师... ⏳",
   "settings_tab_appearance": "外观",
   "settings_ai_reasoning_title": "启用 AI 推理",
-  "settings_ai_reasoning_desc": "允许 AI 在回复前使用扩展思考/推理模块（如果您使用系统 AI 和/或非思考型 BYOK 模型，则不推荐）。"
+  "settings_ai_reasoning_desc": "允许 AI 在回复前使用扩展思考/推理模块（如果您使用系统 AI 和/或非思考型 BYOK 模型，则不推荐）。",
+  "settings_wallpaper": "壁纸",
+  "settings_wallpaper_none": "无",
+  "settings_wallpaper_from_gallery": "从相册选择",
+  "settings_wallpaper_dim": "暗度"
 }

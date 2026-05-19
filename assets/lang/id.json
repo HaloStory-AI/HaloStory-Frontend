@@ -321,5 +321,9 @@
   "chat_compressing_memory": "Sedang memadatkan memori percakapan, tunggu sebentar ya Sensei... ⏳",
   "settings_tab_appearance": "Tampilan",
   "settings_ai_reasoning_title": "Aktifkan Penalaran AI",
-  "settings_ai_reasoning_desc": "Izinkan AI menggunakan blok pemikiran/penalaran yang diperluas sebelum menjawab (Tidak disarankan jika menggunakan AI Sistem dan/atau Model BYOK Non-Thinkable)."
+  "settings_ai_reasoning_desc": "Izinkan AI menggunakan blok pemikiran/penalaran yang diperluas sebelum menjawab (Tidak disarankan jika menggunakan AI Sistem dan/atau Model BYOK Non-Thinkable).",
+  "settings_wallpaper": "Wallpaper",
+  "settings_wallpaper_none": "Tidak Ada",
+  "settings_wallpaper_from_gallery": "Dari Galeri",
+  "settings_wallpaper_dim": "Redup"
 }

@@ -18,6 +18,8 @@ import '../constants.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/localization_service.dart';
+import '../services/wallpaper_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/skeleton_loader.dart';
 
 @Preview(name: 'Chat Detail Screen', size: Size(390, 844))
@@ -2826,7 +2828,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ),
                 ),
               Container(
-                color: _pageBackground(context),
+                decoration: _getWallpaperDecoration(context) ?? BoxDecoration(color: _pageBackground(context)),
                 child: Column(
                   children: [
                     if (_showSafetyBar) _buildSafetyBar(),
@@ -3054,8 +3056,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isDarkMode(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
 
+  Color _textOnWallpaper(BuildContext context, Color defaultColor) {
+    if (WallpaperService().type == 'none') return defaultColor;
+    return Colors.white;
+  }
+
+  Color _subtextOnWallpaper(BuildContext context, Color defaultColor) {
+    if (WallpaperService().type == 'none') return defaultColor;
+    return Colors.white70;
+  }
+
   Color _pageBackground(BuildContext context) =>
       Theme.of(context).scaffoldBackgroundColor;
+
+  BoxDecoration? _getWallpaperDecoration(BuildContext context) =>
+      WallpaperService().getBoxDecoration(context);
 
   Color _surfaceBackground(BuildContext context) =>
       Theme.of(context).colorScheme.surface;
@@ -3101,7 +3116,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Color _botBubbleBackground(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainerHighest;
+      _isDarkMode(context) ? AppTheme.botBubbleDark : AppTheme.botBubbleLight;
 
   Color _fieldBorderColor(BuildContext context) =>
       Theme.of(context).colorScheme.outlineVariant;
@@ -3252,12 +3267,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         return Icon(
           Icons.access_time,
           size: 12,
-          color: colorScheme.onSurfaceVariant,
+          color: Colors.white,
         );
       } else if (status == 'sent') {
-        return Icon(Icons.check, size: 14, color: colorScheme.onSurfaceVariant);
+        return Icon(Icons.check, size: 14, color: Colors.white);
       } else if (status == 'processing' || status == 'completed') {
-        return Icon(Icons.done_all, size: 14, color: colorScheme.primary);
+        return Icon(Icons.done_all, size: 14, color: Colors.white);
       }
       return const SizedBox.shrink();
     }
@@ -3270,21 +3285,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           if (timestamp != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 4, right: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _formatMessageTime(timestamp),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (status != null) ...[
-                    const SizedBox(width: 4),
-                    buildStatusIcon(),
-                  ],
-                ],
+              child: Text(
+                _formatMessageTime(timestamp),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _subtextOnWallpaper(context, colorScheme.onSurfaceVariant),
+                ),
               ),
             ),
           Align(
@@ -3333,6 +3339,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         listBullet: TextStyle(color: colorScheme.onPrimary),
                       ),
                     ),
+                    if (status != null) ...[
+                      const SizedBox(height: 4),
+                      buildStatusIcon(),
+                    ],
                   ],
                 ),
               ),
@@ -3393,7 +3403,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: _titleColor(context),
+                        color: _textOnWallpaper(context, _titleColor(context)),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -3402,7 +3412,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         _formatMessageTime(timestamp),
                         style: TextStyle(
                           fontSize: 11,
-                          color: colorScheme.onSurfaceVariant,
+                          color: _subtextOnWallpaper(context, colorScheme.onSurfaceVariant),
                         ),
                       ),
                   ],
