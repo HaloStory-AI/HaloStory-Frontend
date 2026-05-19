@@ -312,5 +312,8 @@
   "tutorial_single_chat": "个人聊天：从列表中选择 1 名学生开始私人聊天。",
   "tutorial_group_chat": "群聊：选择 2 名或更多学生。然后，点击右下角的箭头按钮创建一个新群组。",
   "tutorial_got_it": "知道了！",
-  "chat_compressing_memory": "正在压缩对话记忆，请稍候老师... ⏳"
+  "chat_compressing_memory": "正在压缩对话记忆，请稍候老师... ⏳",
+  "settings_tab_appearance": "外观",
+  "settings_ai_reasoning_title": "启用 AI 推理",
+  "settings_ai_reasoning_desc": "允许 AI 在回复前使用扩展思考/推理模块（如果您使用系统 AI 和/或非思考型 BYOK 模型，则不推荐）。"
 }

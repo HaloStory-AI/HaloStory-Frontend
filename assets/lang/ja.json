@@ -312,5 +312,8 @@
   "tutorial_single_chat": "個人チャット: リストから生徒を1人選んで個人チャットを始めます。",
   "tutorial_group_chat": "グループチャット: 2人以上の生徒を選びます。その後、右下の矢印ボタンをタップして新しいグループを作成します。",
   "tutorial_got_it": "わかりました！",
-  "chat_compressing_memory": "会話の記憶を圧縮しています。少々お待ちください、先生... ⏳"
+  "chat_compressing_memory": "会話の記憶を圧縮しています。少々お待ちください、先生... ⏳",
+  "settings_tab_appearance": "外観",
+  "settings_ai_reasoning_title": "AI推論を有効化",
+  "settings_ai_reasoning_desc": "AIが応答前に拡張思考/推論ブロックを使用できるようにします（システムAIや非思考型BYOKモデルを使用している場合は非推奨）。"
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/localization_service.dart';
 import 'settings/general_settings_page.dart';
+import 'settings/appearance_settings_page.dart';
 import 'settings/ai_engine_settings_page.dart';
 import 'settings/backup_settings_page.dart';
 
@@ -32,6 +33,17 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const GeneralSettingsPage()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SettingsCard(
+              icon: Icons.palette,
+              title: tr('settings_tab_appearance'),
+              subtitle: 'Theme, Display, Language',
+              surfaceColor: surface,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AppearanceSettingsPage()),
               ),
             ),
             const SizedBox(height: 12),
