@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/auth_service.dart';
+import '../../services/localization_service.dart';
 import '../profile_screen.dart';
+import '../admin_screen.dart';
+import '../student_request_screen.dart';
+import '../donation_screen.dart';
+import '../settings_screen.dart';
+import '../app_info_screen.dart';
 
 class MoreTab extends StatefulWidget {
   const MoreTab({super.key});
@@ -51,6 +58,44 @@ class _MoreTabState extends State<MoreTab> {
     };
   }
 
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('sidebar_logout')),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Logout',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -65,8 +110,9 @@ class _MoreTabState extends State<MoreTab> {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
+        // ── Profile Card ──
         Card(
           elevation: 0,
           color: cardColor,
@@ -167,6 +213,224 @@ class _MoreTabState extends State<MoreTab> {
                 ],
               ),
             ),
+          ),
+        ),
+
+        // ── Admin Section ──
+        if (_user?['role'] == 'admin') ...[
+          _sectionHeader('Admin'),
+          Card(
+            elevation: 0,
+            color: cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              leading: const Icon(
+                Icons.admin_panel_settings,
+                color: Colors.amber,
+              ),
+              title: Text(
+                tr('sidebar_admin_panel'),
+                style: const TextStyle(
+                  color: Colors.amber,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              trailing: Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+
+        // ── Community Section ──
+        _sectionHeader(tr('sidebar_contributor')),
+        Card(
+          elevation: 0,
+          color: cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.add_task_rounded,
+                  color: colorScheme.primary,
+                ),
+                title: Text(tr('sidebar_suggest_student')),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const StudentRequestScreen(),
+                    ),
+                  );
+                },
+              ),
+              Divider(
+                height: 1,
+                indent: 56,
+                color: colorScheme.outlineVariant,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.people_outline_rounded,
+                  color: colorScheme.primary,
+                ),
+                title: Text(tr('sidebar_contributor')),
+                trailing: Icon(
+                  Icons.open_in_new,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                onTap: () {
+                  launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                },
+              ),
+            ],
+          ),
+        ),
+
+        // ── Support Section ──
+        _sectionHeader(tr('sidebar_help')),
+        Card(
+          elevation: 0,
+          color: cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.favorite_rounded,
+                  color: Colors.pinkAccent,
+                ),
+                title: Text(tr('sidebar_donation')),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DonationScreen(),
+                    ),
+                  );
+                },
+              ),
+              Divider(
+                height: 1,
+                indent: 56,
+                color: colorScheme.outlineVariant,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.help_outline,
+                  color: colorScheme.primary,
+                ),
+                title: Text(tr('sidebar_help')),
+                trailing: Icon(
+                  Icons.open_in_new,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                onTap: () {
+                  launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                },
+              ),
+            ],
+          ),
+        ),
+
+        // ── App Section ──
+        _sectionHeader(tr('sidebar_settings')),
+        Card(
+          elevation: 0,
+          color: cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.settings_outlined,
+                  color: colorScheme.primary,
+                ),
+                title: Text(tr('sidebar_settings')),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              Divider(
+                height: 1,
+                indent: 56,
+                color: colorScheme.outlineVariant,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.info_outline,
+                  color: colorScheme.primary,
+                ),
+                title: Text(tr('sidebar_info')),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AppInfoScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+
+        // ── Account Section ──
+        _sectionHeader(tr('sidebar_logout')),
+        Card(
+          elevation: 0,
+          color: cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            leading: const Icon(Icons.logout, color: Colors.redAccent),
+            title: Text(
+              tr('sidebar_logout'),
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+            onTap: _showLogoutDialog,
           ),
         ),
       ],

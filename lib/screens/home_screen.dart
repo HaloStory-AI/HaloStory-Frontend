@@ -18,7 +18,6 @@ import 'tabs/chat_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'tabs/more_tab.dart';
-import '../services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,10 +48,6 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  int _pageIndex(int navIndex) => navIndex > 2 ? navIndex - 1 : navIndex;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final AuthService _authService = AuthService();
-  Map<String, dynamic>? _userProfile;
   late final List<Widget> _tabs;
 
   @override
@@ -64,15 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const _KeepAliveWrapper(child: CalendarTab()),
       const _KeepAliveWrapper(child: MoreTab()),
     ];
-    _loadProfile();
     _checkDonation();
-  }
-
-  Future<void> _loadProfile() async {
-    final profile = await _authService.getUserProfile();
-    if (mounted) {
-      setState(() => _userProfile = profile);
-    }
   }
 
   Future<void> _checkDonation() async {
@@ -230,61 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showAppInfoDialog() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AppInfoScreen()),
-    );
-  }
-
-  void _showSettingsDialog() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SettingsScreen()),
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.redAccent),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
     Navigator.maybePop(context);
-    // Sidebar indices: 0=Chat, 1=Stories, 2=Calendar
-    // Nav indices: 0=Chat, 1=Stories, 3=Calendar
-    // Page indices: 0=Chat, 1=Stories, 2=Calendar
-    int navIndex = index >= 2 ? index + 1 : index;
-    setState(() => _currentIndex = navIndex);
+    setState(() => _currentIndex = index);
   }
 
   void _onBottomNavTap(int index) {
-    if (index == 2) {
-      _scaffoldKey.currentState?.openDrawer();
-      return;
-    }
-
     if (index == _currentIndex) return;
 
     setState(() => _currentIndex = index);
@@ -324,9 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
         : Colors.white;
 
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: theme.scaffoldBackgroundColor,
-      drawer: isDesktop ? null : _buildDrawer(context),
       appBar: AppBar(
         backgroundColor: appBarBg,
         elevation: 0,
@@ -419,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildSidebarNavItem(
                     iconAsset: 'assets/icon/sidebar_calendar.svg',
                     index: 2,
-                    isSelected: _currentIndex == 3,
+                    isSelected: _currentIndex == 2,
                     selectedBackgroundColor: sidebarSelectedBg,
                     selectedColor: sidebarIconSelectedColor,
                     unselectedColor: sidebarIconColor,
@@ -470,7 +407,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
                           break;
                         case 'info':
-                          _showAppInfoDialog();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AppInfoScreen(),
+                            ),
+                          );
                           break;
                       }
                     },
@@ -584,7 +526,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   InkWell(
-                    onTap: _showSettingsDialog,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
+                        ),
+                      );
+                    },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -607,7 +556,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   InkWell(
-                    onTap: _showLogoutDialog,
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Logout'),
+                          content: const Text('Are you sure you want to logout?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text(
+                                'Logout',
+                                style: TextStyle(color: Colors.redAccent),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -635,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: SafeArea(
               child: IndexedStack(
-                index: _pageIndex(_currentIndex),
+                index: _currentIndex,
                 children: _tabs,
               ),
             ),
@@ -678,10 +648,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: tr('tab_stories'),
                     ),
                     BottomNavigationBarItem(
-                      icon: const Icon(Icons.menu),
-                      label: tr('sidebar_menu'),
-                    ),
-                    BottomNavigationBarItem(
                       icon: const Icon(Icons.calendar_month_rounded),
                       label: tr('tab_calendar'),
                     ),
@@ -693,132 +659,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-    );
-  }
-
-  Widget _buildDrawer(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Drawer(
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                if (_userProfile?['role'] == 'admin')
-                  ListTile(
-                    leading: const Icon(
-                      Icons.admin_panel_settings,
-                      color: Colors.amber,
-                    ),
-                    title: Text(
-                      tr('sidebar_admin_panel'),
-                      style: const TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ListTile(
-                  leading: Icon(
-                    Icons.add_task_rounded,
-                    color: colorScheme.primary,
-                  ),
-                  title: Text(tr('sidebar_suggest_student')),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const StudentRequestScreen(),
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.favorite_rounded,
-                    color: Colors.pinkAccent,
-                  ),
-                  title: Text(tr('sidebar_donation')),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DonationScreen(),
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.people_outline_rounded,
-                    color: colorScheme.primary,
-                  ),
-                  title: Text(tr('sidebar_contributor')),
-                  onTap: () {
-                    Navigator.pop(context);
-                    launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.settings_outlined,
-                    color: colorScheme.primary,
-                  ),
-                  title: Text(tr('sidebar_settings')),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showSettingsDialog();
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.help_outline, color: colorScheme.primary),
-                  title: Text(tr('sidebar_help')),
-                  onTap: () {
-                    Navigator.pop(context);
-                    launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.info_outline, color: colorScheme.primary),
-                  title: Text(tr('sidebar_info')),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showAppInfoDialog();
-                  },
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: Text(
-              tr('sidebar_logout'),
-              style: const TextStyle(color: Colors.redAccent),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutDialog();
-            },
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
     );
   }
 
