@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../select_contact_screen.dart';
-import '../chat_screen.dart';
 
 enum ChatSortType { newest, name, bond }
 
@@ -666,15 +665,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                         onContactSelected: (chatData) {
                           widget.onChatSelected(chatData);
                           initData(); // Refresh list
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatDetailScreen(
-                                bot: chatData,
-                                provider: 'gemini',
-                              ),
-                            ),
-                          );
+                          Navigator.pop(context);
                         },
                         onCancel: () => Navigator.pop(context),
                       ),
