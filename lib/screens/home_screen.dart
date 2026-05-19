@@ -9,7 +9,6 @@ import '../theme/app_theme.dart';
 import 'chat_screen.dart';
 import 'admin_screen.dart';
 import 'student_request_screen.dart';
-import 'profile_screen.dart';
 import 'settings_screen.dart';
 
 import 'app_info_screen.dart';
@@ -18,6 +17,7 @@ import 'donation_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
+import 'tabs/more_tab.dart';
 import '../services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -27,9 +27,29 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+class _KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const _KeepAliveWrapper({required this.child});
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  late final PageController _pageController;
+  int _pageIndex(int navIndex) => navIndex > 2 ? navIndex - 1 : navIndex;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final AuthService _authService = AuthService();
   Map<String, dynamic>? _userProfile;
@@ -39,11 +59,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _tabs = [
-      ChatTab(onChatSelected: _onChatSelected),
-      const StoriesTab(),
-      const CalendarTab(),
+      _KeepAliveWrapper(child: ChatTab(onChatSelected: _onChatSelected)),
+      const _KeepAliveWrapper(child: StoriesTab()),
+      const _KeepAliveWrapper(child: CalendarTab()),
+      const _KeepAliveWrapper(child: MoreTab()),
     ];
-    _pageController = PageController(initialPage: _currentIndex);
     _loadProfile();
     _checkDonation();
   }
@@ -53,12 +73,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() => _userProfile = profile);
     }
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
   }
 
   Future<void> _checkDonation() async {
@@ -263,11 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // Page indices: 0=Chat, 1=Stories, 2=Calendar
     int navIndex = index >= 2 ? index + 1 : index;
     setState(() => _currentIndex = navIndex);
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
   }
 
   void _onBottomNavTap(int index) {
@@ -276,25 +285,14 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    if (index == 4) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SettingsScreen()),
-      );
-      return;
-    }
-
     if (index == _currentIndex) return;
 
-    // Nav-to-page: 0->0(Chat), 1->1(Stories), 3->2(Calendar)
-    int pageIndex = index >= 3 ? index - 1 : index;
-
     setState(() => _currentIndex = index);
-    _pageController.animateToPage(
-      pageIndex,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   @override
@@ -354,17 +352,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontSize: 24,
               ),
             ),
-            const SizedBox(width: 4),
-            InkWell(
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
               onTap: _showDisclaimer,
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(6),
               child: Container(
-                width: 20,
-                height: 20,
+                width: 28,
+                height: 28,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(6),
                   boxShadow: isDark
                       ? const []
                       : [
@@ -381,30 +383,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: isDark
                       ? theme.scaffoldBackgroundColor
                       : AppTheme.momoLightTopBar,
-                  size: 16,
+                  size: 18,
                   weight: 900,
                 ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfileScreen(),
-                  ),
-                );
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.white.withValues(alpha: 0.3),
-                backgroundImage: const AssetImage('assets/icon/avatar.png'),
               ),
             ),
           ),
@@ -653,14 +634,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           Expanded(
             child: SafeArea(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  // Page-to-nav: 0->0(Chat), 1->1(Stories), 2->3(Calendar)
-                  int navIndex = index >= 2 ? index + 1 : index;
-                  if (navIndex == _currentIndex) return;
-                  setState(() => _currentIndex = navIndex);
-                },
+              child: IndexedStack(
+                index: _pageIndex(_currentIndex),
                 children: _tabs,
               ),
             ),
@@ -711,8 +686,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: tr('tab_calendar'),
                     ),
                     BottomNavigationBarItem(
-                      icon: const Icon(Icons.settings_outlined),
-                      label: tr('sidebar_settings'),
+                      icon: const Icon(Icons.grid_view_rounded),
+                      label: 'More',
                     ),
                   ],
                 ),
