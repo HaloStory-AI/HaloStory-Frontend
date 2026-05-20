@@ -269,31 +269,33 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     for (var meta in chatMetadata) {
       try {
         final id = meta['id'].toString();
-        final history = await _localChatService.loadChat(id);
 
         Map<String, dynamic>? bot;
         bool isGroup = id.startsWith('group_');
 
-        if (isGroup && history.isNotEmpty) {
-          final systemMsg = history.firstWhere(
-            (m) => m['role'] == 'system' && m['metadata'] != null,
-            orElse: () => <String, dynamic>{},
-          );
-          if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
-            final metadata = systemMsg['metadata'];
-            if (kDebugMode) {
-              print(
-                'DEBUG: _loadActiveChats group $id -> name="${metadata['name']}" bio="${metadata['bio']}"',
-              );
+        if (isGroup) {
+          final history = await _localChatService.loadChat(id);
+          if (history.isNotEmpty) {
+            final systemMsg = history.firstWhere(
+              (m) => m['role'] == 'system' && m['metadata'] != null,
+              orElse: () => <String, dynamic>{},
+            );
+            if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
+              final metadata = systemMsg['metadata'];
+              if (kDebugMode) {
+                print(
+                  'DEBUG: _loadActiveChats group $id -> name="${metadata['name']}" bio="${metadata['bio']}"',
+                );
+              }
+              bot = {
+                'id': id,
+                'name': metadata['name'] ?? 'New Group',
+                'description': metadata['bio'] ?? metadata['description'] ?? '',
+                'avatar': null,
+                'color': '0xFF607D8B',
+                'isGroup': true,
+              };
             }
-            bot = {
-              'id': id,
-              'name': metadata['name'] ?? 'New Group',
-              'description': metadata['bio'] ?? metadata['description'] ?? '',
-              'avatar': null,
-              'color': '0xFF607D8B',
-              'isGroup': true,
-            };
           }
         }
 
@@ -312,16 +314,13 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
           'color': '0xFF607D8B',
         };
 
-        if (history.isNotEmpty) {
-          loadedChats.add({
-            ...bot,
-            'lastMessage': history.last['content'] ?? '...',
-            'time': _formatDateTime(meta['lastModified']),
-            'provider': isGroup ? 'Group' : 'Global Config',
-            'lastModified': meta['lastModified'],
-            'isPinned': _pinnedChatIds.contains(id),
-          });
-        }
+        loadedChats.add({
+          ...bot,
+          'time': _formatDateTime(meta['lastModified']),
+          'provider': isGroup ? 'Group' : 'Global Config',
+          'lastModified': meta['lastModified'],
+          'isPinned': _pinnedChatIds.contains(id),
+        });
       } catch (e) {
         if (kDebugMode) {
           print('DEBUG: Error processing chat entry ${meta['id']}: $e');
@@ -1291,18 +1290,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 ),
               ],
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                chat['lastMessage'],
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _secondaryTextColor(context),
-                  fontSize: 15,
-                ),
-              ),
-            ),
+
             trailing: isGroupChat
                 ? const SizedBox(width: 45)
                 : Container(

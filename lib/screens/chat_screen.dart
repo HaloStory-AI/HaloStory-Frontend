@@ -536,6 +536,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _loadHistory() async {
+    _safeSetState(() => _isLoading = true);
     final history = await _localChatService.loadChat(widget.bot['id']);
     for (var msg in history) {
       msg.remove('visible_parts');
@@ -582,6 +583,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _safeSetState(() {
       _messages = history;
       _summaries = summaries;
+      _isLoading = false;
     });
     _scrollToBottom();
 
@@ -3156,67 +3158,71 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     Expanded(
                       child: Stack(
                         children: [
-                          ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) {
-                              final msg = _messages[index];
-                              final isUser = msg['role'] == 'user';
-                              final isSystem = msg['role'] == 'system';
+                          if (_isLoading && _messages.isEmpty)
+                            const ChatMessagesSkeleton()
+                          else
+                            ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final msg = _messages[index];
+                                final isUser = msg['role'] == 'user';
+                                final isSystem = msg['role'] == 'system';
 
-                              if (isSystem) {
-                                return Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: Text(
-                                      msg['content'],
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
-                                        fontSize: 12,
+                                if (isSystem) {
+                                  return Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Text(
+                                        msg['content'],
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  );
+                                }
+
+                                final timestamp = msg['timestamp'] != null
+                                    ? DateTime.parse(msg['timestamp'])
+                                    : null;
+
+                                final content =
+                                    msg['content']?.toString() ?? '';
+
+                                final bubble = isUser
+                                    ? _buildUserBubble(
+                                        content,
+                                        timestamp,
+                                        index,
+                                        status: msg['status']?.toString(),
+                                      )
+                                    : _buildBotBubble(
+                                        msg,
+                                        timestamp,
+                                        index,
+                                        visibleParts:
+                                            msg['visible_parts'] as int?,
+                                        isTypingNext:
+                                            msg['is_typing_next'] == true,
+                                      );
+
+                                return GestureDetector(
+                                  onLongPress: () =>
+                                      _showMessageOptions(index, content),
+                                  child: bubble,
                                 );
-                              }
-
-                              final timestamp = msg['timestamp'] != null
-                                  ? DateTime.parse(msg['timestamp'])
-                                  : null;
-
-                              final content = msg['content']?.toString() ?? '';
-
-                              final bubble = isUser
-                                  ? _buildUserBubble(
-                                      content,
-                                      timestamp,
-                                      index,
-                                      status: msg['status']?.toString(),
-                                    )
-                                  : _buildBotBubble(
-                                      msg,
-                                      timestamp,
-                                      index,
-                                      visibleParts:
-                                          msg['visible_parts'] as int?,
-                                      isTypingNext:
-                                          msg['is_typing_next'] == true,
-                                    );
-
-                              return GestureDetector(
-                                onLongPress: () =>
-                                    _showMessageOptions(index, content),
-                                child: bubble,
-                              );
-                            },
-                          ),
+                              },
+                            ),
                           if (_showScrollButton)
                             Positioned(
                               bottom: 16,

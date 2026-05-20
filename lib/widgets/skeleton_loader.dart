@@ -150,6 +150,67 @@ class BotGridSkeleton extends StatelessWidget {
   }
 }
 
+class ChatMessagesSkeleton extends StatelessWidget {
+  const ChatMessagesSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bubbleColor = isDark ? Colors.grey.shade800 : Colors.grey.shade300;
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        final isUser = index.isEven;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment:
+                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: SkeletonWidget(
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                  ),
+                ),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment:
+                      isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    SkeletonWidget(
+                      width: MediaQuery.of(context).size.width *
+                          (isUser ? 0.5 : 0.65),
+                      height: 16,
+                      borderRadius: 12,
+                      color: bubbleColor,
+                    ),
+                    const SizedBox(height: 4),
+                    if (index % 3 == 0)
+                      SkeletonWidget(
+                        width: MediaQuery.of(context).size.width * 0.3,
+                        height: 16,
+                        borderRadius: 12,
+                        color: bubbleColor,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class ProfileSkeleton extends StatelessWidget {
   const ProfileSkeleton({super.key});
 
