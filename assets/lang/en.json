@@ -317,7 +317,7 @@
   "tutorial_single_chat": "Single Chat: Select 1 student from the list to start a private chat.",
   "tutorial_group_chat": "Group Chat: Select 2 or more students. Then, tap the arrow button at the bottom right to create a new group.",
   "tutorial_got_it": "Got it!",
-  "chat_compressing_memory": "Compressing conversation memory, please wait a moment Sensei... ⏳",
+  "chat_compressing_memory": "Compressing conversation memory, please wait a moment... ⏳",
   "settings_tab_appearance": "Appearance",
   "settings_ai_reasoning_title": "Enable AI Reasoning",
   "settings_ai_reasoning_desc": "Allow the AI to use extended thinking/reasoning blocks before replying (Not recomendded if you're using System AI and/or Non-Thinkable BYOK Models).",

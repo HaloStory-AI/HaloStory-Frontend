@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -73,6 +74,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Map<int, String> _summaries = {};
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
+  final ValueNotifier<String> _summaryProgressText = ValueNotifier<String>('');
   bool _isTypingEffectActive = false;
   bool _isDisposed = false;
   bool _showScrollButton = false;
@@ -189,6 +191,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _systemNoteController.dispose();
+    _messages.removeWhere((m) => m['isTempSummary'] == true);
+    unawaited(_localChatService.saveChat(widget.bot['id'], _messages));
+    unawaited(_localChatService.saveSummaries(widget.bot['id'], _summaries));
+    _summaryProgressText.dispose();
     super.dispose();
   }
 
@@ -693,7 +699,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         processedBatches++;
         _safeSetState(() {
           _summaryProgress = processedBatches / totalBatchesToSummarize;
+          if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+            _messages.last['content'] =
+                '${tr('chat_compressing_memory')} ($processedBatches/$totalBatchesToSummarize)';
+          }
         });
+        _summaryProgressText.value =
+            '$processedBatches/$totalBatchesToSummarize';
+        await _localChatService.saveSummaries(
+            widget.bot['id'], _summaries);
       }
     }
 
@@ -1111,13 +1125,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _isTypingEffectActive = true;
     });
 
+    await _localChatService.saveChat(widget.bot['id'], _messages);
+
     for (int i = 1; i < totalParts; i++) {
       await Future.delayed(const Duration(milliseconds: 500));
       _scrollToBottom();
 
       await Future.delayed(const Duration(milliseconds: 1500));
 
-      if (!mounted || _isDisposed) return;
+      if (!mounted || _isDisposed) {
+        await _localChatService.saveChat(widget.bot['id'], _messages);
+        return;
+      }
 
       _safeSetState(() {
         _messages.last['visible_parts'] = i + 1;
@@ -2669,6 +2688,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                     if (!context.mounted) return;
 
+                    _summaryProgressText.value = '';
+
                     // Show persistent loading popup
                     showDialog(
                       context: context,
@@ -2685,14 +2706,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             children: [
                               const CircularProgressIndicator(),
                               const SizedBox(height: 16),
-                              Text(
-                                tr('chat_resummary_loading'),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
+                              ListenableBuilder(
+                                listenable: _summaryProgressText,
+                                builder: (context, _) {
+                                  final progress = _summaryProgressText.value;
+                                  return Text(
+                                    progress.isNotEmpty
+                                        ? '${tr('chat_resummary_loading')} ($progress)'
+                                        : tr('chat_resummary_loading'),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
