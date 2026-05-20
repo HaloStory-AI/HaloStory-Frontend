@@ -226,6 +226,7 @@ class _MoreTabState extends State<MoreTab> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(
                 Icons.admin_panel_settings,
                 color: Colors.amber,
@@ -264,6 +265,7 @@ class _MoreTabState extends State<MoreTab> {
           child: Column(
             children: [
               ListTile(
+                tileColor: Colors.transparent,
                 leading: Icon(
                   Icons.add_task_rounded,
                   color: colorScheme.primary,
@@ -288,6 +290,7 @@ class _MoreTabState extends State<MoreTab> {
                 color: colorScheme.outlineVariant,
               ),
               ListTile(
+                tileColor: Colors.transparent,
                 leading: Icon(
                   Icons.people_outline_rounded,
                   color: colorScheme.primary,
@@ -317,6 +320,7 @@ class _MoreTabState extends State<MoreTab> {
           child: Column(
             children: [
               ListTile(
+                tileColor: Colors.transparent,
                 leading: const Icon(
                   Icons.favorite_rounded,
                   color: Colors.pinkAccent,
@@ -341,6 +345,7 @@ class _MoreTabState extends State<MoreTab> {
                 color: colorScheme.outlineVariant,
               ),
               ListTile(
+                tileColor: Colors.transparent,
                 leading: Icon(
                   Icons.help_outline,
                   color: colorScheme.primary,
@@ -370,6 +375,7 @@ class _MoreTabState extends State<MoreTab> {
           child: Column(
             children: [
               ListTile(
+                tileColor: Colors.transparent,
                 leading: Icon(
                   Icons.settings_outlined,
                   color: colorScheme.primary,
@@ -394,6 +400,7 @@ class _MoreTabState extends State<MoreTab> {
                 color: colorScheme.outlineVariant,
               ),
               ListTile(
+                tileColor: Colors.transparent,
                 leading: Icon(
                   Icons.info_outline,
                   color: colorScheme.primary,
@@ -425,6 +432,7 @@ class _MoreTabState extends State<MoreTab> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: ListTile(
+            tileColor: Colors.transparent,
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: Text(
               tr('sidebar_logout'),

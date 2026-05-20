@@ -22,6 +22,7 @@ import '../services/localization_service.dart';
 import '../services/wallpaper_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/skeleton_loader.dart';
+import 'select_contact_screen.dart';
 
 @Preview(name: 'Chat Detail Screen', size: Size(390, 844))
 Widget chatDetailScreenPreview() {
@@ -102,6 +103,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _showSafetyBar = false;
 
   bool _isGroup = false;
+  bool _groupInfoChanged = false;
   List<Map<String, dynamic>> _groupMembers = [];
   String? _selectedBotId;
   String _groupName = '';
@@ -1648,6 +1650,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 final member = _groupMembers[index];
                 final hearts = member['bond_hearts'] ?? 0;
                 return ListTile(
+                  tileColor: Colors.transparent,
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
                     backgroundColor: _parseColor(member['color']),
@@ -2026,11 +2029,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _buildStudentBioContainer(),
+      builder: (sheetContext) => _buildStudentBioContainer(
+        onClose: () => Navigator.pop(sheetContext),
+      ),
     );
   }
 
-  Widget _buildStudentBioContainer({bool isDesktop = false}) {
+  Widget _buildStudentBioContainer({bool isDesktop = false, VoidCallback? onClose}) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
@@ -2107,141 +2112,145 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      tr('personality_title_label'),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
+                  if (_isGroup)
+                    _buildGroupMembersSection(onClose: onClose)
+                  else ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        tr('personality_title_label'),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Builder(
-                      builder: (context) {
-                        final pData = widget.bot['personality'] ?? '';
-                        if (pData.trim().isEmpty) {
-                          return Text(
-                            tr('bio_no_personality'),
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: _subtitleColor(context),
-                            ),
-                          );
-                        }
-
-                        Map<String, String> parseBioAttributes(
-                          String personality,
-                        ) {
-                          Map<String, String> result = {
-                            'Nickname': '*Unknown*',
-                            'Age': '*Unknown*',
-                            'Nationality': '*Unknown*',
-                            'Height': '*Unknown*',
-                            'Weight': '*Unknown*',
-                            'Like': '*Unknown*',
-                            'Dislike': '*Unknown*',
-                          };
-
-                          String? findMatch(String pattern) {
-                            final regExp = RegExp(
-                              pattern,
-                              caseSensitive: false,
-                              multiLine: true,
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Builder(
+                        builder: (context) {
+                          final pData = widget.bot['personality'] ?? '';
+                          if (pData.trim().isEmpty) {
+                            return Text(
+                              tr('bio_no_personality'),
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: _subtitleColor(context),
+                              ),
                             );
-                            final match = regExp.firstMatch(personality);
-                            if (match != null && match.groupCount >= 1) {
-                              String val = match.group(1)!.trim();
-                              val = val
-                                  .replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '')
-                                  .trim();
-                              if (val.endsWith(',')) {
-                                val = val.substring(0, val.length - 1).trim();
-                              }
-                              return val;
-                            }
-                            return null;
                           }
 
-                          result['Nickname'] =
-                              findMatch(
-                                r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
-                              ) ??
-                              '*Unknown*';
-                          result['Age'] =
-                              findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                          result['Nationality'] =
-                              findMatch(
-                                r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
-                              ) ??
-                              '*Unknown*';
-                          result['Height'] =
-                              findMatch(r'Height\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
-                          result['Weight'] =
-                              findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
-                          result['Like'] =
-                              findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
-                          result['Dislike'] =
-                              findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
+                          Map<String, String> parseBioAttributes(
+                            String personality,
+                          ) {
+                            Map<String, String> result = {
+                              'Nickname': '*Unknown*',
+                              'Age': '*Unknown*',
+                              'Nationality': '*Unknown*',
+                              'Height': '*Unknown*',
+                              'Weight': '*Unknown*',
+                              'Like': '*Unknown*',
+                              'Dislike': '*Unknown*',
+                            };
 
-                          return result;
-                        }
+                            String? findMatch(String pattern) {
+                              final regExp = RegExp(
+                                pattern,
+                                caseSensitive: false,
+                                multiLine: true,
+                              );
+                              final match = regExp.firstMatch(personality);
+                              if (match != null && match.groupCount >= 1) {
+                                String val = match.group(1)!.trim();
+                                val = val
+                                    .replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '')
+                                    .trim();
+                                if (val.endsWith(',')) {
+                                  val = val.substring(0, val.length - 1).trim();
+                                }
+                                return val;
+                              }
+                              return null;
+                            }
 
-                        final attrs = parseBioAttributes(pData);
+                            result['Nickname'] =
+                                findMatch(
+                                  r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
+                                ) ??
+                                '*Unknown*';
+                            result['Age'] =
+                                findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
+                            result['Nationality'] =
+                                findMatch(
+                                  r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
+                                ) ??
+                                '*Unknown*';
+                            result['Height'] =
+                                findMatch(r'Height\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Weight'] =
+                                findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Like'] =
+                                findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Dislike'] =
+                                findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
 
-                        Widget buildBioRow(String label, String value) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 90,
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: _subtitleColor(context),
-                                      fontSize: 14,
+                            return result;
+                          }
+
+                          final attrs = parseBioAttributes(pData);
+
+                          Widget buildBioRow(String label, String value) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 90,
+                                    child: Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _subtitleColor(context),
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    value,
-                                    style: TextStyle(
-                                      color: _titleColor(context),
-                                      fontSize: 14,
+                                  Expanded(
+                                    child: Text(
+                                      value,
+                                      style: TextStyle(
+                                        color: _titleColor(context),
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Column(
+                            children: [
+                              buildBioRow('Nickname', attrs['Nickname']!),
+                              buildBioRow('Age', attrs['Age']!),
+                              buildBioRow('Nationality', attrs['Nationality']!),
+                              buildBioRow('Height', attrs['Height']!),
+                              buildBioRow('Weight', attrs['Weight']!),
+                              buildBioRow('Like', attrs['Like']!),
+                              buildBioRow('Dislike', attrs['Dislike']!),
+                            ],
                           );
-                        }
-
-                        return Column(
-                          children: [
-                            buildBioRow('Nickname', attrs['Nickname']!),
-                            buildBioRow('Age', attrs['Age']!),
-                            buildBioRow('Nationality', attrs['Nationality']!),
-                            buildBioRow('Height', attrs['Height']!),
-                            buildBioRow('Weight', attrs['Weight']!),
-                            buildBioRow('Like', attrs['Like']!),
-                            buildBioRow('Dislike', attrs['Dislike']!),
-                          ],
-                        );
-                      },
+                        },
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -2249,6 +2258,232 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildGroupMembersSection({VoidCallback? onClose}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            tr('group_members_title'),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_groupMembers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: Text(
+                tr('group_no_members'),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: _subtitleColor(context),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          )
+        else
+          ..._groupMembers.asMap().entries.map((entry) {
+            final index = entry.key;
+            final member = entry.value;
+            final memberName = member['name'] ?? 'Unknown';
+            final memberColor = _parseColor(member['color']);
+            final memberAvatar = member['image_url'] ?? member['avatar'];
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: memberColor,
+                    backgroundImage: memberAvatar != null
+                        ? NetworkImage(memberAvatar)
+                        : null,
+                    child: memberAvatar == null
+                        ? Text(
+                            memberName[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      memberName,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: _titleColor(context),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.remove_circle_outline,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 22,
+                    ),
+                    onPressed: () => _confirmKickMember(index, onClose: onClose),
+                    tooltip: tr('group_kick_member'),
+                  ),
+                ],
+              ),
+            );
+          }),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _navigateToAddMember(onClose: onClose),
+            icon: const Icon(Icons.person_add),
+            label: Text(tr('group_add_member')),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _navigateToAddMember({VoidCallback? onClose}) async {
+    final existingIds = _groupMembers
+        .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    final result = await Navigator.push<List<Map<String, dynamic>>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SelectContactScreen(
+          mode: SelectContactMode.addToGroup,
+          existingMemberIds: existingIds,
+          onContactSelected: (_) {},
+          onCancel: () => Navigator.pop(context),
+        ),
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && mounted) {
+      final currentIds = _groupMembers
+          .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+          .toSet();
+
+      for (final bot in result) {
+        final botId = bot['id'].toString();
+        if (!currentIds.contains(botId)) {
+          _groupMembers.add({
+            'bot_id': botId,
+            'id': botId,
+            'name': bot['name'] ?? 'Unknown',
+            'image_url': bot['image_url'],
+            'avatar': bot['avatar'],
+            'color': bot['color'],
+          });
+        }
+      }
+
+      await _localChatService.updateGroupMetadata(
+        widget.bot['id'].toString(),
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+      _syncMetadataToMessages(
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+
+      if (mounted) {
+        onClose?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('group_member_added'))),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmKickMember(int index, {VoidCallback? onClose}) async {
+    final member = _groupMembers[index];
+    final name = member['name'] ?? 'Unknown';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('group_confirm_kick_title')),
+        content: Text(
+          tr('group_confirm_kick_body').replaceAll('{name}', name),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('group_kick_confirm_no')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(tr('group_kick_confirm_yes')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final kickedId =
+          member['bot_id']?.toString() ?? member['id']?.toString();
+
+      _groupMembers.removeAt(index);
+
+      if (kickedId != null && _selectedBotId == kickedId) {
+        _selectedBotId = _groupMembers.isNotEmpty
+            ? (_groupMembers.first['bot_id']?.toString() ??
+                _groupMembers.first['id']?.toString())
+            : null;
+        await _saveSelectedBot(_selectedBotId ?? '');
+      }
+
+      await _localChatService.updateGroupMetadata(
+        widget.bot['id'].toString(),
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+      _syncMetadataToMessages(
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+
+      if (mounted) {
+        onClose?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('group_member_removed'))),
+        );
+      }
+    }
   }
 
   void _showMessageOptions(int index, String content) {
@@ -2282,6 +2517,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
               if (canRegenerate) ...[
                 ListTile(
+                  tileColor: Colors.transparent,
                   leading: CircleAvatar(
                     backgroundColor: scheme.primaryContainer,
                     child: Icon(
@@ -2308,6 +2544,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 const Divider(height: 1),
               ],
               ListTile(
+                tileColor: Colors.transparent,
                 leading: CircleAvatar(
                   backgroundColor: scheme.secondaryContainer,
                   child: Icon(
@@ -2347,6 +2584,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
               const Divider(height: 1),
               ListTile(
+                tileColor: Colors.transparent,
                 leading: CircleAvatar(
                   backgroundColor: scheme.primaryContainer,
                   child: Icon(
@@ -2371,6 +2609,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
               const Divider(height: 1),
               ListTile(
+                tileColor: Colors.transparent,
                 leading: CircleAvatar(
                   backgroundColor: scheme.tertiaryContainer,
                   child: Icon(
@@ -2462,6 +2701,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  void _syncMetadataToMessages({
+    String? name,
+    String? bio,
+    List<Map<String, dynamic>>? members,
+  }) {
+    final idx = _messages.indexWhere(
+      (m) => m['role'] == 'system' && m['metadata'] != null,
+    );
+    if (idx < 0) return;
+    final oldMeta = _messages[idx]['metadata'];
+    final meta = Map<String, dynamic>.from(
+      oldMeta is Map ? Map<String, dynamic>.from(oldMeta) : <String, dynamic>{},
+    );
+    if (name != null) meta['name'] = name;
+    if (bio != null) {
+      meta['bio'] = bio;
+      meta['description'] = bio;
+    }
+    if (members != null) meta['members'] = members;
+    _messages[idx] = {..._messages[idx], 'metadata': meta};
+  }
+
   Future<void> _showEditGroupInfoDialog() async {
     if (!_isGroup) return;
 
@@ -2533,6 +2794,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       bio: newBio,
       members: _groupMembers,
     );
+    _syncMetadataToMessages(
+      name: newName,
+      bio: newBio,
+      members: _groupMembers,
+    );
 
     if (!mounted || _isDisposed) return;
 
@@ -2542,6 +2808,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       widget.bot['name'] = newName;
       widget.bot['description'] = newBio;
     });
+    _groupInfoChanged = true;
 
     ScaffoldMessenger.of(
       context,
@@ -2574,7 +2841,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       },
       child: Focus(
         autofocus: true,
-        child: Scaffold(
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            if (!mounted || _isDisposed) return;
+            if (_groupInfoChanged) {
+              Navigator.of(context).pop(<String, dynamic>{
+                'type': 'group_info_updated',
+                'id': widget.bot['id'].toString(),
+                'name': _groupName,
+                'bio': _groupBio,
+              });
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+          child: Scaffold(
           appBar: AppBar(
             backgroundColor: _pageBackground(context),
             elevation: 0,
@@ -3006,6 +3289,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               if (_activeOverlay != null) _buildDesktopOverlay(),
             ],
           ),
+        ),
         ),
       ),
     );

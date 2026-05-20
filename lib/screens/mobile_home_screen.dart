@@ -56,12 +56,16 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
       prefs.getString('default_provider'),
     );
     if (!mounted) return;
-    await Navigator.push(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
       ),
     );
+    if (!mounted) return;
+    if (result != null && result['type'] == 'group_info_updated') {
+      _chatTabKey.currentState?.initData();
+    }
   }
 
   void _showLogoutDialog() {
@@ -246,6 +250,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
             ),
             if (_userProfile?['role'] == 'admin')
               ListTile(
+                tileColor: Colors.transparent,
                 leading: const Icon(
                   Icons.admin_panel_settings,
                   color: Colors.amber,
@@ -268,6 +273,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
                 },
               ),
             ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(
                 Icons.add_task_rounded,
                 color: Color(0xFF135ACF),
@@ -284,6 +290,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               },
             ),
             ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(
                 Icons.favorite_rounded,
                 color: Colors.pinkAccent,
@@ -300,6 +307,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               },
             ),
             ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(
                 Icons.people_outline_rounded,
                 color: Color(0xFF135ACF),
@@ -315,6 +323,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               },
             ),
             ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(
                 Icons.settings_outlined,
                 color: Color(0xFF135ACF),
@@ -331,6 +340,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               },
             ),
             ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(Icons.help_outline, color: Color(0xFF135ACF)),
               title: Text(tr('sidebar_help')),
               onTap: () {
@@ -339,6 +349,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
               },
             ),
             ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(Icons.info_outline, color: Color(0xFF135ACF)),
               title: Text(tr('sidebar_info')),
               onTap: () {
@@ -354,6 +365,7 @@ class _MobileHomeScreenState extends State<MobileHomeScreen> {
             const Spacer(), // Pushes logout to bottom
             const Divider(),
             ListTile(
+              tileColor: Colors.transparent,
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: Text(
                 tr('sidebar_logout'),

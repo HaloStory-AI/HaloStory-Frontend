@@ -49,12 +49,13 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late final List<Widget> _tabs;
+  final GlobalKey<ChatTabState> _chatTabKey = GlobalKey<ChatTabState>();
 
   @override
   void initState() {
     super.initState();
     _tabs = [
-      _KeepAliveWrapper(child: ChatTab(onChatSelected: _onChatSelected)),
+      _KeepAliveWrapper(child: ChatTab(key: _chatTabKey, onChatSelected: _onChatSelected)),
       const _KeepAliveWrapper(child: StoriesTab()),
       const _KeepAliveWrapper(child: CalendarTab()),
       const _KeepAliveWrapper(child: MoreTab()),
@@ -172,20 +173,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
-  void _onChatSelected(Map<String, dynamic> bot) {
-    final prefs = SharedPreferences.getInstance();
-    prefs.then((p) {
-      if (!mounted) return;
-      final provider = AIService.normalizeProvider(
-        p.getString('default_provider'),
-      );
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
-        ),
-      );
-    });
+  Future<void> _onChatSelected(Map<String, dynamic> bot) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final provider = AIService.normalizeProvider(
+      prefs.getString('default_provider'),
+    );
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
+      ),
+    );
+    if (!mounted) return;
+    if (result != null && result['type'] == 'group_info_updated') {
+      _chatTabKey.currentState?.initData();
+    }
   }
 
   void _showDisclaimer() {

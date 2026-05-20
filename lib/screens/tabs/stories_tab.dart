@@ -244,6 +244,7 @@ class _StoriesTabState extends State<StoriesTab> {
                         );
 
                         return ListTile(
+                          tileColor: Colors.transparent,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 8,
                           ),

@@ -249,6 +249,12 @@ class LocalChatService {
             .listSync()
             .whereType<File>()
             .where((file) => file.path.endsWith('.json'))
+            .where((file) {
+              final name = file.uri.pathSegments.last;
+              return !name.startsWith('pinned_chats') &&
+                  !name.endsWith('.summary.json') &&
+                  !name.endsWith('.tmp');
+            })
             .map(
               (file) => {
                 'id': file.uri.pathSegments.last.replaceFirst('.json', ''),

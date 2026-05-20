@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
@@ -266,50 +267,65 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     List<Map<String, dynamic>> loadedChats = [];
 
     for (var meta in chatMetadata) {
-      final id = meta['id'].toString();
-      final history = await _localChatService.loadChat(id);
+      try {
+        final id = meta['id'].toString();
+        final history = await _localChatService.loadChat(id);
 
-      Map<String, dynamic>? bot;
-      bool isGroup = id.startsWith('group_');
+        Map<String, dynamic>? bot;
+        bool isGroup = id.startsWith('group_');
 
-      if (isGroup && history.isNotEmpty) {
-        // Try to get group name from system message metadata
-        final systemMsg = history.firstWhere(
-          (m) => m['role'] == 'system' && m['metadata'] != null,
-          orElse: () => <String, dynamic>{},
-        );
-        if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
-          final metadata = systemMsg['metadata'];
-          bot = {
-            'id': id,
-            'name': metadata['name'] ?? 'New Group',
-            'description': metadata['bio'] ?? metadata['description'] ?? '',
-            'avatar': null,
-            'color': '0xFF607D8B',
-            'isGroup': true,
-          };
+        if (isGroup && history.isNotEmpty) {
+          final systemMsg = history.firstWhere(
+            (m) => m['role'] == 'system' && m['metadata'] != null,
+            orElse: () => <String, dynamic>{},
+          );
+          if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
+            final metadata = systemMsg['metadata'];
+            if (kDebugMode) {
+              print(
+                'DEBUG: _loadActiveChats group $id -> name="${metadata['name']}" bio="${metadata['bio']}"',
+              );
+            }
+            bot = {
+              'id': id,
+              'name': metadata['name'] ?? 'New Group',
+              'description': metadata['bio'] ?? metadata['description'] ?? '',
+              'avatar': null,
+              'color': '0xFF607D8B',
+              'isGroup': true,
+            };
+          }
         }
-      }
 
-      if (bot == null) {
-        try {
-          bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
-        } catch (_) {
-          bot = await _botService.getBotById(id);
+        if (bot == null) {
+          try {
+            bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
+          } catch (_) {
+            bot = await _botService.getBotById(id);
+          }
         }
-      }
 
-      bot ??= {'id': id, 'name': id, 'avatar': null, 'color': '0xFF607D8B'};
+        bot ??= {
+          'id': id,
+          'name': id,
+          'avatar': null,
+          'color': '0xFF607D8B',
+        };
 
-      if (history.isNotEmpty) {
-        loadedChats.add({
-          ...bot,
-          'lastMessage': history.last['content'] ?? '...',
-          'time': _formatDateTime(meta['lastModified']),
-          'provider': isGroup ? 'Group' : 'Global Config',
-          'lastModified': meta['lastModified'],
-          'isPinned': _pinnedChatIds.contains(id),
-        });
+        if (history.isNotEmpty) {
+          loadedChats.add({
+            ...bot,
+            'lastMessage': history.last['content'] ?? '...',
+            'time': _formatDateTime(meta['lastModified']),
+            'provider': isGroup ? 'Group' : 'Global Config',
+            'lastModified': meta['lastModified'],
+            'isPinned': _pinnedChatIds.contains(id),
+          });
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('DEBUG: Error processing chat entry ${meta['id']}: $e');
+        }
       }
     }
 
@@ -1144,8 +1160,10 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          color: isSelected ? selectedChatBgColor : Colors.transparent,
           child: ListTile(
+            selected: isSelected,
+            tileColor: Colors.transparent,
+            selectedTileColor: selectedChatBgColor,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,

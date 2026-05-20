@@ -6,14 +6,20 @@ import '../../widgets/skeleton_loader.dart';
 import 'student_request_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum SelectContactMode { newChat, addToGroup }
+
 class SelectContactScreen extends StatefulWidget {
   final Function(Map<String, dynamic> chatData) onContactSelected;
   final VoidCallback onCancel;
+  final SelectContactMode mode;
+  final Set<String> existingMemberIds;
 
   const SelectContactScreen({
     super.key,
     required this.onContactSelected,
     required this.onCancel,
+    this.mode = SelectContactMode.newChat,
+    this.existingMemberIds = const {},
   });
 
   @override
@@ -113,7 +119,8 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
       if (_selectedBotIds.contains(id)) {
         _selectedBotIds.remove(id);
       } else {
-        if (_selectedBotIds.length < 10) {
+        if (widget.mode == SelectContactMode.addToGroup ||
+            _selectedBotIds.length < 10) {
           _selectedBotIds.add(id);
         }
       }
@@ -122,6 +129,24 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
 
   Future<void> _handleProceed() async {
     if (_selectedBotIds.isEmpty) return;
+
+    if (widget.mode == SelectContactMode.addToGroup) {
+      final List<Map<String, dynamic>> selectedBots = [];
+      for (final id in _selectedBotIds) {
+        final bot = [..._availableBots, ..._eventBots].firstWhere(
+          (b) => b['id'].toString() == id,
+          orElse: () => {
+            'id': id,
+            'name': id,
+            'avatar': null,
+            'color': '0xFF607D8B',
+          },
+        );
+        selectedBots.add(bot);
+      }
+      if (mounted) Navigator.pop(context, selectedBots);
+      return;
+    }
 
     if (_selectedBotIds.length == 1) {
       // Single chat
@@ -483,7 +508,9 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: widget.onCancel,
+            onPressed: widget.mode == SelectContactMode.addToGroup
+                ? () => Navigator.pop(context)
+                : widget.onCancel,
           ),
           bottom: TabBar(
             labelColor: cs.primary,
@@ -533,6 +560,11 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
                 Expanded(
                   child: _buildBotList(
                     _availableBots.where((bot) {
+                      if (widget.mode == SelectContactMode.addToGroup &&
+                          widget.existingMemberIds
+                              .contains(bot['id'].toString())) {
+                        return false;
+                      }
                       final name = (bot['name'] ?? '').toString().toLowerCase();
                       final id = (bot['id'] ?? '').toString().toLowerCase();
                       final query = _searchQuery.toLowerCase();
