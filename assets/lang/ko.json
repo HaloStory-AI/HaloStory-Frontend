@@ -324,10 +324,16 @@
   "tutorial_got_it": "알겠습니다!",
   "chat_compressing_memory": "대화 메모리를 압축 중입니다. 잠시만 기다려주세요 선생님... ⏳",
   "settings_tab_appearance": "외관",
+  "settings_realtime_date_title": "실시간 날짜 및 시간 활성화",
+  "settings_realtime_date_desc": "전송되는 각 메시지에 실시간 타임스탬프를 첨부",
   "settings_ai_reasoning_title": "AI 추론 활성화",
   "settings_ai_reasoning_desc": "AI가 응답 전에 확장된 사고/추론 블록을 사용할 수 있도록 합니다 (시스템 AI 및/또는 비사고형 BYOK 모델을 사용하는 경우 권장하지 않음).",
   "settings_wallpaper": "배경화면",
   "settings_wallpaper_none": "없음",
   "settings_wallpaper_from_gallery": "갤러리에서",
-  "settings_wallpaper_dim": "어둡게"
+  "settings_wallpaper_dim": "어둡게",
+  "chat_delete_sheet_title": "이 캐릭터의 메시지와 기억을 삭제하시겠습니까?",
+  "chat_delete_option_cancel": "취소, 잘못 눌렀어요!",
+  "chat_delete_option_chat_only": "네... 채팅만 삭제하고 기억은 남겨주세요 :(",
+  "chat_delete_option_all": "네... 전부 삭제합니다"
 }

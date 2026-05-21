@@ -329,10 +329,16 @@
   "tutorial_got_it": "Got it!",
   "chat_compressing_memory": "Compressing conversation memory, please wait a moment... ⏳",
   "settings_tab_appearance": "Appearance",
+  "settings_realtime_date_title": "Enable Realtime Date and Time",
+  "settings_realtime_date_desc": "Attach a realtime timestamp to each message sent to AI",
   "settings_ai_reasoning_title": "Enable AI Reasoning",
   "settings_ai_reasoning_desc": "Allow the AI to use extended thinking/reasoning blocks before replying (Not recomendded if you're using System AI and/or Non-Thinkable BYOK Models).",
   "settings_wallpaper": "Wallpaper",
   "settings_wallpaper_none": "None",
   "settings_wallpaper_from_gallery": "From Gallery",
-  "settings_wallpaper_dim": "Dim Level"
+  "settings_wallpaper_dim": "Dim Level",
+  "chat_delete_sheet_title": "Delete this character's memories and messages?",
+  "chat_delete_option_cancel": "Cancel, wrong tap!",
+  "chat_delete_option_chat_only": "Yes... delete chat only, keep memories :(",
+  "chat_delete_option_all": "Yes... I want to... say goodbye"
 }

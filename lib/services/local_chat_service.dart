@@ -348,4 +348,34 @@ class LocalChatService {
       await savePinnedChats(pins);
     }
   }
+
+  // Delete chat messages only, keep summary file
+  Future<void> deleteChatOnly(String chatId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_webPrefix$chatId');
+      await prefs.remove('$_webTimePrefix$chatId');
+      return;
+    }
+
+    try {
+      final path = await _getStoragePath();
+      final file = File('$path/$chatId.json');
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: Error deleting chat (keeping summary): $e');
+      }
+    }
+
+    _updateController.add(chatId);
+
+    final pins = await getPinnedChats();
+    if (pins.contains(chatId)) {
+      pins.remove(chatId);
+      await savePinnedChats(pins);
+    }
+  }
 }

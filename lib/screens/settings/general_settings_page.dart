@@ -13,6 +13,7 @@ class GeneralSettingsPage extends StatefulWidget {
 class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
   String _selectedProvider = 'System';
   bool _aiReasoningEnabled = false;
+  bool _realtimeDateTimeEnabled = false;
   final List<String> _providers = ['System', 'BYOK'];
 
   @override
@@ -33,6 +34,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
         prefs.setString('default_provider', 'System');
       }
       _aiReasoningEnabled = prefs.getBool('ai_reasoning_enabled') ?? false;
+      _realtimeDateTimeEnabled = prefs.getBool('realtime_date_time_enabled') ?? false;
     });
   }
 
@@ -40,6 +42,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('default_provider', _selectedProvider);
     await prefs.setBool('ai_reasoning_enabled', _aiReasoningEnabled);
+    await prefs.setBool('realtime_date_time_enabled', _realtimeDateTimeEnabled);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -127,6 +130,33 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
                 activeThumbColor: colorScheme.primary,
                 onChanged: (bool value) {
                   setState(() => _aiReasoningEnabled = value);
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Section: Realtime Date & Time ──
+            Container(
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SwitchListTile(
+                title: Text(
+                  tr('settings_realtime_date_title'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
+                subtitle: Text(
+                  tr('settings_realtime_date_desc'),
+                  style: TextStyle(color: textColor.withValues(alpha: 0.7)),
+                ),
+                value: _realtimeDateTimeEnabled,
+                activeThumbColor: colorScheme.primary,
+                onChanged: (bool value) {
+                  setState(() => _realtimeDateTimeEnabled = value);
                 },
               ),
             ),

@@ -50,6 +50,7 @@ class ChatDetailScreen extends StatefulWidget {
   final String provider;
   final String? initialMessage;
   final bool isDesktopMode;
+  final VoidCallback? onChatDeleted;
 
   const ChatDetailScreen({
     super.key,
@@ -57,6 +58,7 @@ class ChatDetailScreen extends StatefulWidget {
     required this.provider,
     this.initialMessage,
     this.isDesktopMode = false,
+    this.onChatDeleted,
   });
 
   @override
@@ -923,6 +925,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted || _isDisposed) return;
     String language = prefs.getString('app_language') ?? 'Indonesian';
+
+    final bool realtimeDateTime = prefs.getBool('realtime_date_time_enabled') ?? false;
+    if (realtimeDateTime) {
+      final timeTag = DateFormat("'[this message sent at 'dd/MM/yyyy HH:mm:ss']'").format(DateTime.now());
+      final List<Map<String, String>> injected = [];
+      for (final msg in aiMessages) {
+        injected.add(msg);
+        if (msg['role'] == 'user' && msg['content'] != '[Continue]') {
+          injected.add({'role': 'user', 'content': timeTag});
+        }
+      }
+      aiMessages = injected;
+    }
 
     // DEBUG LOGGING
     if (kDebugMode) {
@@ -2817,6 +2832,72 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     ).showSnackBar(const SnackBar(content: Text('Group info updated.')));
   }
 
+  Future<String?> _showDeleteBottomSheet() {
+    return showModalBottomSheet<String>(
+      context: context,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  tr('chat_delete_sheet_title'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_forever,
+                  color: Colors.red.shade400,
+                ),
+                title: Text(
+                  tr('chat_delete_option_all'),
+                  style: TextStyle(color: Colors.red.shade400),
+                ),
+                onTap: () => Navigator.pop(context, 'delete_all'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Colors.orange.shade400,
+                ),
+                title: Text(
+                  tr('chat_delete_option_chat_only'),
+                  style: TextStyle(color: Colors.orange.shade400),
+                ),
+                onTap: () => Navigator.pop(context, 'delete_chat_only'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.cancel_outlined,
+                  color: Colors.blue.shade400,
+                ),
+                title: Text(
+                  tr('chat_delete_option_cancel'),
+                  style: TextStyle(color: Colors.blue.shade400),
+                ),
+                onTap: () => Navigator.pop(context, 'cancel'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<Directory> _getDownloadDir() async {
     Directory? baseDir;
     if (Platform.isAndroid) {
@@ -3025,11 +3106,26 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       );
                     }
                   } else if (value == 'delete') {
-                    await _localChatService.deleteChat(widget.bot['id']);
-                    _safeSetState(() {
-                      _messages = [];
-                      _summaries.clear();
-                    });
+                    final result = await _showDeleteBottomSheet();
+                    if (result == 'delete_all') {
+                      await _localChatService.deleteChat(widget.bot['id']);
+                      if (!context.mounted) return;
+                      _safeSetState(() {
+                        _messages = [];
+                        _summaries.clear();
+                      });
+                      if (widget.isDesktopMode) {
+                        widget.onChatDeleted?.call();
+                      } else {
+                        Navigator.of(context).pop();
+                      }
+                    } else if (result == 'delete_chat_only') {
+                      await _localChatService.deleteChatOnly(widget.bot['id']);
+                      if (!context.mounted) return;
+                      _safeSetState(() {
+                        _messages = [];
+                      });
+                    }
                   }
                 },
                 itemBuilder: (BuildContext context) {

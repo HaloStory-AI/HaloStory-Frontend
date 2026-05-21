@@ -330,10 +330,16 @@
   "tutorial_got_it": "Mengerti!",
   "chat_compressing_memory": "Sedang memadatkan memori percakapan, tunggu sebentar ya... ⏳",
   "settings_tab_appearance": "Tampilan",
+  "settings_realtime_date_title": "Aktifkan Waktu dan Tanggal Real-time",
+  "settings_realtime_date_desc": "Sisipkan cap waktu realtime ke setiap pesan yang dikirim ke AI",
   "settings_ai_reasoning_title": "Aktifkan Penalaran AI",
   "settings_ai_reasoning_desc": "Izinkan AI menggunakan blok pemikiran/penalaran yang diperluas sebelum menjawab (Tidak disarankan jika menggunakan AI Sistem dan/atau Model BYOK Non-Thinkable).",
   "settings_wallpaper": "Wallpaper",
   "settings_wallpaper_none": "Tidak Ada",
   "settings_wallpaper_from_gallery": "Dari Galeri",
-  "settings_wallpaper_dim": "Redup"
+  "settings_wallpaper_dim": "Redup",
+  "chat_delete_sheet_title": "Apakah kamu ingin menghapus pesan dan memori karaktermu pada chat ini?",
+  "chat_delete_option_cancel": "Gajadi, salah pencet",
+  "chat_delete_option_chat_only": "Ya... mau hapus, cuman Chatnya saja, memorinya jangan :(",
+  "chat_delete_option_all": "Ya... Saya ingin... sayonara"
 }

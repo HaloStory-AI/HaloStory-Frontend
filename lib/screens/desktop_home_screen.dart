@@ -364,6 +364,11 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           provider: _defaultProvider ?? 'gemini',
           isDesktopMode: true,
           initialMessage: _initialChatMessage,
+          onChatDeleted: () {
+            setState(() {
+              _selectedBot = null;
+            });
+          },
         ),
       );
     }

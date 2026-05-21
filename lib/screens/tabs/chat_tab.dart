@@ -1292,7 +1292,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
             ),
 
             trailing: isGroupChat
-                ? const SizedBox(width: 45)
+                ? const SizedBox.shrink()
                 : Container(
                     width: 45,
                     height: 45,
