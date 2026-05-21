@@ -42,6 +42,16 @@ class LocalChatService {
       }
       return path;
     }
+    if (Platform.isLinux) {
+      // For Windows, create HaloStoryData folder in Documents
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/HaloStoryData';
+      final dir = Directory(path);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      return path;
+    }
 
     final directory = await getApplicationDocumentsDirectory();
     return directory.path;
@@ -68,7 +78,9 @@ class LocalChatService {
     try {
       final path = await _getStoragePath();
       final file = File('$path/$chatId.json');
-      await file.writeAsString(jsonContent);
+      final tempFile = File('$path/$chatId.json.tmp');
+      await tempFile.writeAsString(jsonContent);
+      await tempFile.rename(file.path);
       _updateController.add(chatId);
     } catch (e) {
       if (kDebugMode) {
@@ -81,6 +93,7 @@ class LocalChatService {
     String chatId, {
     String? name,
     String? bio,
+    List<Map<String, dynamic>>? members,
   }) async {
     final messages = await loadChat(chatId);
     final metadata = <String, dynamic>{'id': chatId, 'isGroup': true};
@@ -105,6 +118,10 @@ class LocalChatService {
     if (bio != null) {
       metadata['bio'] = bio;
       metadata['description'] = bio;
+    }
+
+    if (members != null) {
+      metadata['members'] = members;
     }
 
     if (systemIndex >= 0) {
@@ -148,6 +165,7 @@ class LocalChatService {
     } catch (e) {
       if (kDebugMode) {
         print('DEBUG: Error loading chat ($chatId): $e');
+        print('DEBUG: Chat file may be corrupted — returning empty history');
       }
     }
     return [];
@@ -231,6 +249,12 @@ class LocalChatService {
             .listSync()
             .whereType<File>()
             .where((file) => file.path.endsWith('.json'))
+            .where((file) {
+              final name = file.uri.pathSegments.last;
+              return !name.startsWith('pinned_chats') &&
+                  !name.endsWith('.summary.json') &&
+                  !name.endsWith('.tmp');
+            })
             .map(
               (file) => {
                 'id': file.uri.pathSegments.last.replaceFirst('.json', ''),
@@ -318,6 +342,36 @@ class LocalChatService {
     _updateController.add(chatId);
 
     // Auto-remove from pins if deleted
+    final pins = await getPinnedChats();
+    if (pins.contains(chatId)) {
+      pins.remove(chatId);
+      await savePinnedChats(pins);
+    }
+  }
+
+  // Delete chat messages only, keep summary file
+  Future<void> deleteChatOnly(String chatId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_webPrefix$chatId');
+      await prefs.remove('$_webTimePrefix$chatId');
+      return;
+    }
+
+    try {
+      final path = await _getStoragePath();
+      final file = File('$path/$chatId.json');
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: Error deleting chat (keeping summary): $e');
+      }
+    }
+
+    _updateController.add(chatId);
+
     final pins = await getPinnedChats();
     if (pins.contains(chatId)) {
       pins.remove(chatId);

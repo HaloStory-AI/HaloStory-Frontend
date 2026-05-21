@@ -19,7 +19,10 @@ import '../constants.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/localization_service.dart';
+import '../services/wallpaper_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/skeleton_loader.dart';
+import 'select_contact_screen.dart';
 
 @Preview(name: 'Chat Detail Screen', size: Size(390, 844))
 Widget chatDetailScreenPreview() {
@@ -47,6 +50,7 @@ class ChatDetailScreen extends StatefulWidget {
   final String provider;
   final String? initialMessage;
   final bool isDesktopMode;
+  final VoidCallback? onChatDeleted;
 
   const ChatDetailScreen({
     super.key,
@@ -54,6 +58,7 @@ class ChatDetailScreen extends StatefulWidget {
     required this.provider,
     this.initialMessage,
     this.isDesktopMode = false,
+    this.onChatDeleted,
   });
 
   @override
@@ -72,10 +77,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Map<int, String> _summaries = {};
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
+  final ValueNotifier<String> _summaryProgressText = ValueNotifier<String>('');
   bool _isTypingEffectActive = false;
   bool _isDisposed = false;
   bool _showScrollButton = false;
-  Timer? _pollingTimer;
+  bool _isPollingActive = false;
 
   // Debug overlay state
   bool _showDebugOverlay = false;
@@ -99,6 +105,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _showSafetyBar = false;
 
   bool _isGroup = false;
+  bool _groupInfoChanged = false;
   List<Map<String, dynamic>> _groupMembers = [];
   String? _selectedBotId;
   String _groupName = '';
@@ -181,13 +188,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void dispose() {
     _isDisposed = true;
-    _pollingTimer?.cancel();
+    _isPollingActive = false;
     _debugOverlayEntry?.remove();
     _debugScrollController.dispose();
     _scrollController.removeListener(_scrollListener);
     _messageController.dispose();
     _scrollController.dispose();
     _systemNoteController.dispose();
+    _messages.removeWhere((m) => m['isTempSummary'] == true);
+    unawaited(_localChatService.saveChat(widget.bot['id'], _messages));
+    unawaited(_localChatService.saveSummaries(widget.bot['id'], _summaries));
+    _summaryProgressText.dispose();
     super.dispose();
   }
 
@@ -527,6 +538,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _loadHistory() async {
+    _safeSetState(() => _isLoading = true);
     final history = await _localChatService.loadChat(widget.bot['id']);
     for (var msg in history) {
       msg.remove('visible_parts');
@@ -573,6 +585,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _safeSetState(() {
       _messages = history;
       _summaries = summaries;
+      _isLoading = false;
     });
     _scrollToBottom();
 
@@ -655,7 +668,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 !_isDisposed &&
                 !summaryCompleted &&
                 timeoutChecks > 0) {
-              await Future.delayed(const Duration(seconds: 2));
+              await Future.delayed(const Duration(seconds: 1));
               final statusCheck = await _aiService.checkChatStatus(uuid);
               if (statusCheck != null) {
                 if (statusCheck['status'] == 'queued' ||
@@ -692,7 +705,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         processedBatches++;
         _safeSetState(() {
           _summaryProgress = processedBatches / totalBatchesToSummarize;
+          if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+            _messages.last['content'] =
+                '${tr('chat_compressing_memory')} ($processedBatches/$totalBatchesToSummarize)';
+          }
         });
+        _summaryProgressText.value =
+            '$processedBatches/$totalBatchesToSummarize';
+        await _localChatService.saveSummaries(
+            widget.bot['id'], _summaries);
       }
     }
 
@@ -905,6 +926,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (!mounted || _isDisposed) return;
     String language = prefs.getString('app_language') ?? 'Indonesian';
 
+    final bool realtimeDateTime = prefs.getBool('realtime_date_time_enabled') ?? false;
+    if (realtimeDateTime) {
+      final timeTag = DateFormat("'[this message sent at 'dd/MM/yyyy HH:mm:ss']'").format(DateTime.now());
+      final List<Map<String, String>> injected = [];
+      for (final msg in aiMessages) {
+        injected.add(msg);
+        if (msg['role'] == 'user' && msg['content'] != '[Continue]') {
+          injected.add({'role': 'user', 'content': timeTag});
+        }
+      }
+      aiMessages = injected;
+    }
+
     // DEBUG LOGGING
     if (kDebugMode) {
       print('DEBUG: --- SENDING TO AI ---');
@@ -916,7 +950,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       print('DEBUG: Messages Payload: ${jsonEncode(aiMessages)}');
       print('DEBUG: ---------------------');
     }
-  
+
     try {
       final response = await _aiService.sendMessage(
         provider: widget.provider,
@@ -934,20 +968,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
       if (!mounted || _isDisposed) return;
 
-      _safeSetState(() {
-        final aiTimestamp = DateTime.now().toIso8601String();
+      final aiTimestamp = DateTime.now().toIso8601String();
 
-        if (response != null && response['status'] == 'queued') {
+      if (response != null && response['status'] == 'queued') {
+        _safeSetState(() {
           if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
             _messages.last['status'] = 'sent';
             _messages.last['uuid'] = response['uuid'];
           }
-          _startPolling(response['uuid'], botIdForRequest, aiTimestamp);
-          return;
-        }
+        });
+        _startPolling(response['uuid'], botIdForRequest, aiTimestamp);
+        return;
+      }
 
-        _handleAIResponseData(response, botIdForRequest, aiTimestamp);
-      });
+      await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
     } catch (e) {
       if (!mounted || _isDisposed) return;
       _safeSetState(() {
@@ -958,21 +992,35 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  void _startPolling(String uuid, String? botIdForRequest, String aiTimestamp) {
-    _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!mounted || _isDisposed) {
-        timer.cancel();
-        return;
-      }
+  Future<void> _startPolling(
+    String uuid,
+    String? botIdForRequest,
+    String aiTimestamp,
+  ) async {
+    _isPollingActive = false;
+    _isPollingActive = true;
+    await _pollLoop(uuid, botIdForRequest, aiTimestamp);
+  }
+
+  Future<void> _pollLoop(
+    String uuid,
+    String? botIdForRequest,
+    String aiTimestamp,
+  ) async {
+    while (_isPollingActive && mounted && !_isDisposed) {
       final response = await _aiService.checkChatStatus(uuid);
+
+      if (!_isPollingActive || !mounted || _isDisposed) return;
+
       if (response == null || response['status'] == 'not_found') {
-        timer.cancel();
-        _safeSetState(() {
-          _isLoading = false;
-          _activeBotId = null;
-          _addSystemError(aiTimestamp);
-        });
+        _isPollingActive = false;
+        if (mounted && !_isDisposed) {
+          _safeSetState(() {
+            _isLoading = false;
+            _activeBotId = null;
+            _addSystemError(aiTimestamp);
+          });
+        }
         return;
       }
 
@@ -982,29 +1030,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             _messages.last['status'] = 'processing';
           }
         });
-        return;
+        await Future.delayed(const Duration(seconds: 1));
+        continue;
       }
 
       if (response['status'] == 'completed' ||
           response['choices'] != null ||
           response['error'] != null) {
-        timer.cancel();
-        _safeSetState(() {
-          if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
-            _messages.last['status'] =
-                'completed'; // Atau biarkan saja, centang 2 sudah tercapai di processing
-          }
-        });
-        _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+        _isPollingActive = false;
+        if (mounted && !_isDisposed) {
+          _safeSetState(() {
+            if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+              _messages.last['status'] = 'completed';
+            }
+          });
+          await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+        }
+        return;
       }
-    });
+
+      await Future.delayed(const Duration(seconds: 1));
+    }
   }
 
-  void _handleAIResponseData(
+  Future<void> _handleAIResponseData(
     Map<String, dynamic>? response,
     String? botIdForRequest,
     String aiTimestamp,
-  ) {
+  ) async {
     bool shouldStartTyping = false;
     int partsLength = 0;
 
@@ -1070,13 +1123,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
 
     if (shouldStartTyping) {
-      _startTypingEffect(partsLength);
-    }
-
-    if (!_isTypingEffectActive) {
-      _localChatService.saveChat(widget.bot['id'], _messages).then((_) {
-        _generateSummaries();
-      });
+      await _startTypingEffect(partsLength);
+    } else {
+      await _localChatService.saveChat(widget.bot['id'], _messages);
+      _generateSummaries();
     }
     _scrollToBottom();
 
@@ -1094,13 +1144,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _isTypingEffectActive = true;
     });
 
+    await _localChatService.saveChat(widget.bot['id'], _messages);
+
     for (int i = 1; i < totalParts; i++) {
       await Future.delayed(const Duration(milliseconds: 500));
       _scrollToBottom();
 
       await Future.delayed(const Duration(milliseconds: 1500));
 
-      if (!mounted || _isDisposed) return;
+      if (!mounted || _isDisposed) {
+        await _localChatService.saveChat(widget.bot['id'], _messages);
+        return;
+      }
 
       _safeSetState(() {
         _messages.last['visible_parts'] = i + 1;
@@ -1612,6 +1667,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 final member = _groupMembers[index];
                 final hearts = member['bond_hearts'] ?? 0;
                 return ListTile(
+                  tileColor: Colors.transparent,
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
                     backgroundColor: _parseColor(member['color']),
@@ -1990,11 +2046,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _buildStudentBioContainer(),
+      builder: (sheetContext) => _buildStudentBioContainer(
+        onClose: () => Navigator.pop(sheetContext),
+      ),
     );
   }
 
-  Widget _buildStudentBioContainer({bool isDesktop = false}) {
+  Widget _buildStudentBioContainer({bool isDesktop = false, VoidCallback? onClose}) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
@@ -2071,141 +2129,145 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      tr('personality_title_label'),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
+                  if (_isGroup)
+                    _buildGroupMembersSection(onClose: onClose)
+                  else ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        tr('personality_title_label'),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Builder(
-                      builder: (context) {
-                        final pData = widget.bot['personality'] ?? '';
-                        if (pData.trim().isEmpty) {
-                          return Text(
-                            tr('bio_no_personality'),
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: _subtitleColor(context),
-                            ),
-                          );
-                        }
-
-                        Map<String, String> parseBioAttributes(
-                          String personality,
-                        ) {
-                          Map<String, String> result = {
-                            'Nickname': '*Unknown*',
-                            'Age': '*Unknown*',
-                            'Nationality': '*Unknown*',
-                            'Height': '*Unknown*',
-                            'Weight': '*Unknown*',
-                            'Like': '*Unknown*',
-                            'Dislike': '*Unknown*',
-                          };
-
-                          String? findMatch(String pattern) {
-                            final regExp = RegExp(
-                              pattern,
-                              caseSensitive: false,
-                              multiLine: true,
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Builder(
+                        builder: (context) {
+                          final pData = widget.bot['personality'] ?? '';
+                          if (pData.trim().isEmpty) {
+                            return Text(
+                              tr('bio_no_personality'),
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: _subtitleColor(context),
+                              ),
                             );
-                            final match = regExp.firstMatch(personality);
-                            if (match != null && match.groupCount >= 1) {
-                              String val = match.group(1)!.trim();
-                              val = val
-                                  .replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '')
-                                  .trim();
-                              if (val.endsWith(',')) {
-                                val = val.substring(0, val.length - 1).trim();
-                              }
-                              return val;
-                            }
-                            return null;
                           }
 
-                          result['Nickname'] =
-                              findMatch(
-                                r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
-                              ) ??
-                              '*Unknown*';
-                          result['Age'] =
-                              findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                          result['Nationality'] =
-                              findMatch(
-                                r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
-                              ) ??
-                              '*Unknown*';
-                          result['Height'] =
-                              findMatch(r'Height\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
-                          result['Weight'] =
-                              findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
-                          result['Like'] =
-                              findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
-                          result['Dislike'] =
-                              findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
-                              '*Unknown*';
+                          Map<String, String> parseBioAttributes(
+                            String personality,
+                          ) {
+                            Map<String, String> result = {
+                              'Nickname': '*Unknown*',
+                              'Age': '*Unknown*',
+                              'Nationality': '*Unknown*',
+                              'Height': '*Unknown*',
+                              'Weight': '*Unknown*',
+                              'Like': '*Unknown*',
+                              'Dislike': '*Unknown*',
+                            };
 
-                          return result;
-                        }
+                            String? findMatch(String pattern) {
+                              final regExp = RegExp(
+                                pattern,
+                                caseSensitive: false,
+                                multiLine: true,
+                              );
+                              final match = regExp.firstMatch(personality);
+                              if (match != null && match.groupCount >= 1) {
+                                String val = match.group(1)!.trim();
+                                val = val
+                                    .replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '')
+                                    .trim();
+                                if (val.endsWith(',')) {
+                                  val = val.substring(0, val.length - 1).trim();
+                                }
+                                return val;
+                              }
+                              return null;
+                            }
 
-                        final attrs = parseBioAttributes(pData);
+                            result['Nickname'] =
+                                findMatch(
+                                  r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
+                                ) ??
+                                '*Unknown*';
+                            result['Age'] =
+                                findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
+                            result['Nationality'] =
+                                findMatch(
+                                  r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
+                                ) ??
+                                '*Unknown*';
+                            result['Height'] =
+                                findMatch(r'Height\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Weight'] =
+                                findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Like'] =
+                                findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
+                            result['Dislike'] =
+                                findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
+                                '*Unknown*';
 
-                        Widget buildBioRow(String label, String value) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 90,
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: _subtitleColor(context),
-                                      fontSize: 14,
+                            return result;
+                          }
+
+                          final attrs = parseBioAttributes(pData);
+
+                          Widget buildBioRow(String label, String value) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 90,
+                                    child: Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _subtitleColor(context),
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    value,
-                                    style: TextStyle(
-                                      color: _titleColor(context),
-                                      fontSize: 14,
+                                  Expanded(
+                                    child: Text(
+                                      value,
+                                      style: TextStyle(
+                                        color: _titleColor(context),
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Column(
+                            children: [
+                              buildBioRow('Nickname', attrs['Nickname']!),
+                              buildBioRow('Age', attrs['Age']!),
+                              buildBioRow('Nationality', attrs['Nationality']!),
+                              buildBioRow('Height', attrs['Height']!),
+                              buildBioRow('Weight', attrs['Weight']!),
+                              buildBioRow('Like', attrs['Like']!),
+                              buildBioRow('Dislike', attrs['Dislike']!),
+                            ],
                           );
-                        }
-
-                        return Column(
-                          children: [
-                            buildBioRow('Nickname', attrs['Nickname']!),
-                            buildBioRow('Age', attrs['Age']!),
-                            buildBioRow('Nationality', attrs['Nationality']!),
-                            buildBioRow('Height', attrs['Height']!),
-                            buildBioRow('Weight', attrs['Weight']!),
-                            buildBioRow('Like', attrs['Like']!),
-                            buildBioRow('Dislike', attrs['Dislike']!),
-                          ],
-                        );
-                      },
+                        },
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -2213,6 +2275,232 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildGroupMembersSection({VoidCallback? onClose}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            tr('group_members_title'),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_groupMembers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: Text(
+                tr('group_no_members'),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: _subtitleColor(context),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          )
+        else
+          ..._groupMembers.asMap().entries.map((entry) {
+            final index = entry.key;
+            final member = entry.value;
+            final memberName = member['name'] ?? 'Unknown';
+            final memberColor = _parseColor(member['color']);
+            final memberAvatar = member['image_url'] ?? member['avatar'];
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: memberColor,
+                    backgroundImage: memberAvatar != null
+                        ? NetworkImage(memberAvatar)
+                        : null,
+                    child: memberAvatar == null
+                        ? Text(
+                            memberName[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      memberName,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: _titleColor(context),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.remove_circle_outline,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 22,
+                    ),
+                    onPressed: () => _confirmKickMember(index, onClose: onClose),
+                    tooltip: tr('group_kick_member'),
+                  ),
+                ],
+              ),
+            );
+          }),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _navigateToAddMember(onClose: onClose),
+            icon: const Icon(Icons.person_add),
+            label: Text(tr('group_add_member')),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _navigateToAddMember({VoidCallback? onClose}) async {
+    final existingIds = _groupMembers
+        .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    final result = await Navigator.push<List<Map<String, dynamic>>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SelectContactScreen(
+          mode: SelectContactMode.addToGroup,
+          existingMemberIds: existingIds,
+          onContactSelected: (_) {},
+          onCancel: () => Navigator.pop(context),
+        ),
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && mounted) {
+      final currentIds = _groupMembers
+          .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+          .toSet();
+
+      for (final bot in result) {
+        final botId = bot['id'].toString();
+        if (!currentIds.contains(botId)) {
+          _groupMembers.add({
+            'bot_id': botId,
+            'id': botId,
+            'name': bot['name'] ?? 'Unknown',
+            'image_url': bot['image_url'],
+            'avatar': bot['avatar'],
+            'color': bot['color'],
+          });
+        }
+      }
+
+      await _localChatService.updateGroupMetadata(
+        widget.bot['id'].toString(),
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+      _syncMetadataToMessages(
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+
+      if (mounted) {
+        onClose?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('group_member_added'))),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmKickMember(int index, {VoidCallback? onClose}) async {
+    final member = _groupMembers[index];
+    final name = member['name'] ?? 'Unknown';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('group_confirm_kick_title')),
+        content: Text(
+          tr('group_confirm_kick_body').replaceAll('{name}', name),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('group_kick_confirm_no')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(tr('group_kick_confirm_yes')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final kickedId =
+          member['bot_id']?.toString() ?? member['id']?.toString();
+
+      _groupMembers.removeAt(index);
+
+      if (kickedId != null && _selectedBotId == kickedId) {
+        _selectedBotId = _groupMembers.isNotEmpty
+            ? (_groupMembers.first['bot_id']?.toString() ??
+                _groupMembers.first['id']?.toString())
+            : null;
+        await _saveSelectedBot(_selectedBotId ?? '');
+      }
+
+      await _localChatService.updateGroupMetadata(
+        widget.bot['id'].toString(),
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+      _syncMetadataToMessages(
+        name: _groupName,
+        bio: _groupBio,
+        members: _groupMembers,
+      );
+
+      if (mounted) {
+        onClose?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('group_member_removed'))),
+        );
+      }
+    }
   }
 
   void _showMessageOptions(int index, String content) {
@@ -2246,6 +2534,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
               if (canRegenerate) ...[
                 ListTile(
+                  tileColor: Colors.transparent,
                   leading: CircleAvatar(
                     backgroundColor: scheme.primaryContainer,
                     child: Icon(
@@ -2272,6 +2561,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 const Divider(height: 1),
               ],
               ListTile(
+                tileColor: Colors.transparent,
                 leading: CircleAvatar(
                   backgroundColor: scheme.secondaryContainer,
                   child: Icon(
@@ -2311,6 +2601,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
               const Divider(height: 1),
               ListTile(
+                tileColor: Colors.transparent,
                 leading: CircleAvatar(
                   backgroundColor: scheme.primaryContainer,
                   child: Icon(
@@ -2335,6 +2626,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
               const Divider(height: 1),
               ListTile(
+                tileColor: Colors.transparent,
                 leading: CircleAvatar(
                   backgroundColor: scheme.tertiaryContainer,
                   child: Icon(
@@ -2426,6 +2718,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  void _syncMetadataToMessages({
+    String? name,
+    String? bio,
+    List<Map<String, dynamic>>? members,
+  }) {
+    final idx = _messages.indexWhere(
+      (m) => m['role'] == 'system' && m['metadata'] != null,
+    );
+    if (idx < 0) return;
+    final oldMeta = _messages[idx]['metadata'];
+    final meta = Map<String, dynamic>.from(
+      oldMeta is Map ? Map<String, dynamic>.from(oldMeta) : <String, dynamic>{},
+    );
+    if (name != null) meta['name'] = name;
+    if (bio != null) {
+      meta['bio'] = bio;
+      meta['description'] = bio;
+    }
+    if (members != null) meta['members'] = members;
+    _messages[idx] = {..._messages[idx], 'metadata': meta};
+  }
+
   Future<void> _showEditGroupInfoDialog() async {
     if (!_isGroup) return;
 
@@ -2495,6 +2809,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       widget.bot['id'].toString(),
       name: newName,
       bio: newBio,
+      members: _groupMembers,
+    );
+    _syncMetadataToMessages(
+      name: newName,
+      bio: newBio,
+      members: _groupMembers,
     );
 
     if (!mounted || _isDisposed) return;
@@ -2505,10 +2825,77 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       widget.bot['name'] = newName;
       widget.bot['description'] = newBio;
     });
+    _groupInfoChanged = true;
 
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Group info updated.')));
+  }
+
+  Future<String?> _showDeleteBottomSheet() {
+    return showModalBottomSheet<String>(
+      context: context,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  tr('chat_delete_sheet_title'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_forever,
+                  color: Colors.red.shade400,
+                ),
+                title: Text(
+                  tr('chat_delete_option_all'),
+                  style: TextStyle(color: Colors.red.shade400),
+                ),
+                onTap: () => Navigator.pop(context, 'delete_all'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Colors.orange.shade400,
+                ),
+                title: Text(
+                  tr('chat_delete_option_chat_only'),
+                  style: TextStyle(color: Colors.orange.shade400),
+                ),
+                onTap: () => Navigator.pop(context, 'delete_chat_only'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.cancel_outlined,
+                  color: Colors.blue.shade400,
+                ),
+                title: Text(
+                  tr('chat_delete_option_cancel'),
+                  style: TextStyle(color: Colors.blue.shade400),
+                ),
+                onTap: () => Navigator.pop(context, 'cancel'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<Directory> _getDownloadDir() async {
@@ -2537,7 +2924,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       },
       child: Focus(
         autofocus: true,
-        child: Scaffold(
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            if (!mounted || _isDisposed) return;
+            if (_groupInfoChanged) {
+              Navigator.of(context).pop(<String, dynamic>{
+                'type': 'group_info_updated',
+                'id': widget.bot['id'].toString(),
+                'name': _groupName,
+                'bio': _groupBio,
+              });
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+          child: Scaffold(
           appBar: AppBar(
             backgroundColor: _pageBackground(context),
             elevation: 0,
@@ -2651,6 +3054,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                     if (!context.mounted) return;
 
+                    _summaryProgressText.value = '';
+
                     // Show persistent loading popup
                     showDialog(
                       context: context,
@@ -2667,14 +3072,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             children: [
                               const CircularProgressIndicator(),
                               const SizedBox(height: 16),
-                              Text(
-                                tr('chat_resummary_loading'),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
+                              ListenableBuilder(
+                                listenable: _summaryProgressText,
+                                builder: (context, _) {
+                                  final progress = _summaryProgressText.value;
+                                  return Text(
+                                    progress.isNotEmpty
+                                        ? '${tr('chat_resummary_loading')} ($progress)'
+                                        : tr('chat_resummary_loading'),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -2693,11 +3106,26 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       );
                     }
                   } else if (value == 'delete') {
-                    await _localChatService.deleteChat(widget.bot['id']);
-                    _safeSetState(() {
-                      _messages = [];
-                      _summaries.clear();
-                    });
+                    final result = await _showDeleteBottomSheet();
+                    if (result == 'delete_all') {
+                      await _localChatService.deleteChat(widget.bot['id']);
+                      if (!context.mounted) return;
+                      _safeSetState(() {
+                        _messages = [];
+                        _summaries.clear();
+                      });
+                      if (widget.isDesktopMode) {
+                        widget.onChatDeleted?.call();
+                      } else {
+                        Navigator.of(context).pop();
+                      }
+                    } else if (result == 'delete_chat_only') {
+                      await _localChatService.deleteChatOnly(widget.bot['id']);
+                      if (!context.mounted) return;
+                      _safeSetState(() {
+                        _messages = [];
+                      });
+                    }
                   }
                 },
                 itemBuilder: (BuildContext context) {
@@ -2808,7 +3236,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ),
                 ),
               Container(
-                color: _pageBackground(context),
+                decoration: _getWallpaperDecoration(context) ?? BoxDecoration(color: _pageBackground(context)),
                 child: Column(
                   children: [
                     if (_showSafetyBar) _buildSafetyBar(),
@@ -2826,67 +3254,71 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     Expanded(
                       child: Stack(
                         children: [
-                          ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) {
-                              final msg = _messages[index];
-                              final isUser = msg['role'] == 'user';
-                              final isSystem = msg['role'] == 'system';
+                          if (_isLoading && _messages.isEmpty)
+                            const ChatMessagesSkeleton()
+                          else
+                            ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final msg = _messages[index];
+                                final isUser = msg['role'] == 'user';
+                                final isSystem = msg['role'] == 'system';
 
-                              if (isSystem) {
-                                return Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: Text(
-                                      msg['content'],
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
-                                        fontSize: 12,
+                                if (isSystem) {
+                                  return Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Text(
+                                        msg['content'],
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  );
+                                }
+
+                                final timestamp = msg['timestamp'] != null
+                                    ? DateTime.parse(msg['timestamp'])
+                                    : null;
+
+                                final content =
+                                    msg['content']?.toString() ?? '';
+
+                                final bubble = isUser
+                                    ? _buildUserBubble(
+                                        content,
+                                        timestamp,
+                                        index,
+                                        status: msg['status']?.toString(),
+                                      )
+                                    : _buildBotBubble(
+                                        msg,
+                                        timestamp,
+                                        index,
+                                        visibleParts:
+                                            msg['visible_parts'] as int?,
+                                        isTypingNext:
+                                            msg['is_typing_next'] == true,
+                                      );
+
+                                return GestureDetector(
+                                  onLongPress: () =>
+                                      _showMessageOptions(index, content),
+                                  child: bubble,
                                 );
-                              }
-
-                              final timestamp = msg['timestamp'] != null
-                                  ? DateTime.parse(msg['timestamp'])
-                                  : null;
-
-                              final content = msg['content']?.toString() ?? '';
-
-                              final bubble = isUser
-                                  ? _buildUserBubble(
-                                      content,
-                                      timestamp,
-                                      index,
-                                      status: msg['status']?.toString(),
-                                    )
-                                  : _buildBotBubble(
-                                      msg,
-                                      timestamp,
-                                      index,
-                                      visibleParts:
-                                          msg['visible_parts'] as int?,
-                                      isTypingNext:
-                                          msg['is_typing_next'] == true,
-                                    );
-
-                              return GestureDetector(
-                                onLongPress: () =>
-                                    _showMessageOptions(index, content),
-                                child: bubble,
-                              );
-                            },
-                          ),
+                              },
+                            ),
                           if (_showScrollButton)
                             Positioned(
                               bottom: 16,
@@ -2959,6 +3391,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               if (_activeOverlay != null) _buildDesktopOverlay(),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -3036,8 +3469,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isDarkMode(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
 
+  Color _textOnWallpaper(BuildContext context, Color defaultColor) {
+    if (WallpaperService().type == 'none') return defaultColor;
+    return Colors.white;
+  }
+
+  Color _subtextOnWallpaper(BuildContext context, Color defaultColor) {
+    if (WallpaperService().type == 'none') return defaultColor;
+    return Colors.white70;
+  }
+
   Color _pageBackground(BuildContext context) =>
       Theme.of(context).scaffoldBackgroundColor;
+
+  BoxDecoration? _getWallpaperDecoration(BuildContext context) =>
+      WallpaperService().getBoxDecoration(context);
 
   Color _surfaceBackground(BuildContext context) =>
       Theme.of(context).colorScheme.surface;
@@ -3083,7 +3529,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Color _botBubbleBackground(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainerHighest;
+      _isDarkMode(context) ? AppTheme.botBubbleDark : AppTheme.botBubbleLight;
 
   Color _fieldBorderColor(BuildContext context) =>
       Theme.of(context).colorScheme.outlineVariant;
@@ -3234,12 +3680,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         return Icon(
           Icons.access_time,
           size: 12,
-          color: colorScheme.onSurfaceVariant,
+          color: Colors.white,
         );
       } else if (status == 'sent') {
-        return Icon(Icons.check, size: 14, color: colorScheme.onSurfaceVariant);
+        return Icon(Icons.check, size: 14, color: Colors.white);
       } else if (status == 'processing' || status == 'completed') {
-        return Icon(Icons.done_all, size: 14, color: colorScheme.primary);
+        return Icon(Icons.done_all, size: 14, color: Colors.white);
       }
       return const SizedBox.shrink();
     }
@@ -3252,21 +3698,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           if (timestamp != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 4, right: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _formatMessageTime(timestamp),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (status != null) ...[
-                    const SizedBox(width: 4),
-                    buildStatusIcon(),
-                  ],
-                ],
+              child: Text(
+                _formatMessageTime(timestamp),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _subtextOnWallpaper(context, colorScheme.onSurfaceVariant),
+                ),
               ),
             ),
           Align(
@@ -3315,6 +3752,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         listBullet: TextStyle(color: colorScheme.onPrimary),
                       ),
                     ),
+                    if (status != null) ...[
+                      const SizedBox(height: 4),
+                      buildStatusIcon(),
+                    ],
                   ],
                 ),
               ),
@@ -3375,7 +3816,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: _titleColor(context),
+                        color: _textOnWallpaper(context, _titleColor(context)),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -3384,7 +3825,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         _formatMessageTime(timestamp),
                         style: TextStyle(
                           fontSize: 11,
-                          color: colorScheme.onSurfaceVariant,
+                          color: _subtextOnWallpaper(context, colorScheme.onSurfaceVariant),
                         ),
                       ),
                   ],

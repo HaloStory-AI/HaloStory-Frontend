@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
@@ -7,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../select_contact_screen.dart';
-import '../chat_screen.dart';
 
 enum ChatSortType { newest, name, bond }
 
@@ -46,6 +46,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
+  static const String _syncNoticeDismissedKey = 'chat_sync_notice_dismissed';
   static const String _chatHeaderPopupFont = 'Roboto';
   static const List<ChatSortType> _sortOptions = [
     ChatSortType.newest,
@@ -198,9 +199,20 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     await prefs.setBool(_chatSortAscKey, _sortAscending);
   }
 
+  Future<void> _loadSyncNoticePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool(_syncNoticeDismissedKey) ?? false;
+    if (mounted) {
+      setState(() {
+        _showSyncNotice = !dismissed;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadSyncNoticePreference();
     _loadSortPreferencesAndInit();
 
     // Listen to real-time chat updates (new messages, deleted chats)
@@ -255,50 +267,64 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     List<Map<String, dynamic>> loadedChats = [];
 
     for (var meta in chatMetadata) {
-      final id = meta['id'].toString();
-      final history = await _localChatService.loadChat(id);
+      try {
+        final id = meta['id'].toString();
 
-      Map<String, dynamic>? bot;
-      bool isGroup = id.startsWith('group_');
+        Map<String, dynamic>? bot;
+        bool isGroup = id.startsWith('group_');
 
-      if (isGroup && history.isNotEmpty) {
-        // Try to get group name from system message metadata
-        final systemMsg = history.firstWhere(
-          (m) => m['role'] == 'system' && m['metadata'] != null,
-          orElse: () => <String, dynamic>{},
-        );
-        if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
-          final metadata = systemMsg['metadata'];
-          bot = {
-            'id': id,
-            'name': metadata['name'] ?? 'New Group',
-            'description': metadata['bio'] ?? metadata['description'] ?? '',
-            'avatar': null,
-            'color': '0xFF607D8B',
-            'isGroup': true,
-          };
+        if (isGroup) {
+          final history = await _localChatService.loadChat(id);
+          if (history.isNotEmpty) {
+            final systemMsg = history.firstWhere(
+              (m) => m['role'] == 'system' && m['metadata'] != null,
+              orElse: () => <String, dynamic>{},
+            );
+            if (systemMsg.isNotEmpty && systemMsg['metadata'] != null) {
+              final metadata = systemMsg['metadata'];
+              if (kDebugMode) {
+                print(
+                  'DEBUG: _loadActiveChats group $id -> name="${metadata['name']}" bio="${metadata['bio']}"',
+                );
+              }
+              bot = {
+                'id': id,
+                'name': metadata['name'] ?? 'New Group',
+                'description': metadata['bio'] ?? metadata['description'] ?? '',
+                'avatar': null,
+                'color': '0xFF607D8B',
+                'isGroup': true,
+              };
+            }
+          }
         }
-      }
 
-      if (bot == null) {
-        try {
-          bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
-        } catch (_) {
-          bot = await _botService.getBotById(id);
+        if (bot == null) {
+          try {
+            bot = _availableBots.firstWhere((b) => b['id'].toString() == id);
+          } catch (_) {
+            bot = await _botService.getBotById(id);
+          }
         }
-      }
 
-      bot ??= {'id': id, 'name': id, 'avatar': null, 'color': '0xFF607D8B'};
+        bot ??= {
+          'id': id,
+          'name': id,
+          'avatar': null,
+          'color': '0xFF607D8B',
+        };
 
-      if (history.isNotEmpty) {
         loadedChats.add({
           ...bot,
-          'lastMessage': history.last['content'] ?? '...',
           'time': _formatDateTime(meta['lastModified']),
           'provider': isGroup ? 'Group' : 'Global Config',
           'lastModified': meta['lastModified'],
           'isPinned': _pinnedChatIds.contains(id),
         });
+      } catch (e) {
+        if (kDebugMode) {
+          print('DEBUG: Error processing chat entry ${meta['id']}: $e');
+        }
       }
     }
 
@@ -654,15 +680,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                         onContactSelected: (chatData) {
                           widget.onChatSelected(chatData);
                           initData(); // Refresh list
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatDetailScreen(
-                                bot: chatData,
-                                provider: 'gemini',
-                              ),
-                            ),
-                          );
+                          Navigator.pop(context);
                         },
                         onCancel: () => Navigator.pop(context),
                       ),
@@ -828,10 +846,14 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _showSyncNotice = false;
-                    });
+                  onTap: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool(_syncNoticeDismissedKey, true);
+                    if (mounted) {
+                      setState(() {
+                        _showSyncNotice = false;
+                      });
+                    }
                   },
                   child: const Padding(
                     padding: EdgeInsets.only(left: 8.0),
@@ -1137,8 +1159,10 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          color: isSelected ? selectedChatBgColor : Colors.transparent,
           child: ListTile(
+            selected: isSelected,
+            tileColor: Colors.transparent,
+            selectedTileColor: selectedChatBgColor,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 8,
@@ -1266,20 +1290,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 ),
               ],
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                chat['lastMessage'],
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _secondaryTextColor(context),
-                  fontSize: 15,
-                ),
-              ),
-            ),
+
             trailing: isGroupChat
-                ? const SizedBox(width: 45)
+                ? const SizedBox.shrink()
                 : Container(
                     width: 45,
                     height: 45,

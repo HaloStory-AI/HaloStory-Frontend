@@ -8,9 +8,11 @@ import '../services/localization_service.dart';
 import '../theme/app_theme.dart';
 import 'desktop/desktop_sidebar.dart';
 import 'tabs/chat_tab.dart';
+import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
+import 'story_view_screen.dart';
 import 'select_contact_screen.dart';
 import 'profile_screen.dart';
 import 'admin_screen.dart';
@@ -42,6 +44,8 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   MiddlePanelState _middlePanelState = MiddlePanelState.tabs;
   // Removed _userProfile as it is no longer used for the avatar
   Map<String, dynamic>? _selectedBot;
+  List<Map<String, dynamic>>? _selectedStories;
+  int? _selectedStoryIndex;
   String? _defaultProvider;
   Widget? _middlePanelOverlay;
 
@@ -69,8 +73,27 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
 
   void _onChatSelected(Map<String, dynamic> bot) {
     setState(() {
+      _selectedStories = null;
+      _selectedStoryIndex = null;
       _selectedBot = bot;
       _initialChatMessage = null;
+    });
+  }
+
+  void _onStorySelected(List<Map<String, dynamic>> stories, int index) {
+    setState(() {
+      _selectedBot = null;
+      _selectedStories = stories;
+      _selectedStoryIndex = index;
+    });
+  }
+
+  void _onStoryReply(Map<String, dynamic> bot, String message) {
+    setState(() {
+      _selectedStories = null;
+      _selectedStoryIndex = null;
+      _selectedBot = bot;
+      _initialChatMessage = message;
     });
   }
 
@@ -310,6 +333,25 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   Widget _buildRightPanel() {
+    if (_selectedStories != null && _selectedStoryIndex != null) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+        ),
+        child: StoryViewScreen(
+          key: ValueKey('stories_$_selectedStoryIndex'),
+          stories: _selectedStories!,
+          initialIndex: _selectedStoryIndex!,
+          onClose: () => setState(() {
+            _selectedStories = null;
+            _selectedStoryIndex = null;
+          }),
+          onReply: _onStoryReply,
+        ),
+      );
+    }
+
     if (_selectedBot != null) {
       return ClipRRect(
         borderRadius: const BorderRadius.only(
@@ -322,6 +364,11 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           provider: _defaultProvider ?? 'gemini',
           isDesktopMode: true,
           initialMessage: _initialChatMessage,
+          onChatDeleted: () {
+            setState(() {
+              _selectedBot = null;
+            });
+          },
         ),
       );
     }
@@ -429,6 +476,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                       });
                     },
                   ),
+                  StoriesTab(onStorySelected: _onStorySelected),
                   const CalendarTab(),
                 ],
               ),
