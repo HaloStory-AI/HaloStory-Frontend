@@ -172,22 +172,14 @@ jobs:
           B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
           B2_BUCKET_ID: ${{ secrets.B2_BUCKET_ID }}
         run: |
-          # Helper: URL encode
-          function UrlEncode($s) {
-            return [System.Uri]::EscapeDataString($s)
-          }
-
           # Authorize
-          $pair = "$($env:B2_KEY_ID):$($env:B2_APP_KEY)"
-          $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
-          $b64 = [System.Convert]::ToBase64String($bytes)
-          $auth = Invoke-RestMethod -Uri "https://api.backblazeb2.com/b2api/v2/b2_authorize_account" -Headers @{Authorization = "Basic $b64"}
+          $auth = curl.exe -s -u "${env:B2_KEY_ID}:${env:B2_APP_KEY}" "https://api.backblazeb2.com/b2api/v2/b2_authorize_account" | ConvertFrom-Json
           $authToken = $auth.authorizationToken
           $apiUrl = $auth.apiUrl
 
           # Get upload URL
           $body = "{`"bucketId`": `"$env:B2_BUCKET_ID`"}"
-          $uploadInfo = Invoke-RestMethod -Uri "${apiUrl}/b2api/v2/b2_get_upload_url" -Method Post -Headers @{Authorization = $authToken; "Content-Type" = "application/json"} -Body $body
+          $uploadInfo = $body | curl.exe -s -X POST "${apiUrl}/b2api/v2/b2_get_upload_url" -H "Authorization: $authToken" -H "Content-Type: application/json" -d @- | ConvertFrom-Json
           $uploadUrl = $uploadInfo.uploadUrl
           $uploadToken = $uploadInfo.authorizationToken
 
@@ -197,7 +189,7 @@ jobs:
             $name = $_.Name
             Write-Host "Uploading $name ..."
             $sha1 = (Get-FileHash -Algorithm SHA1 $f).Hash.ToLower()
-            $encoded = UrlEncode($name)
+            $encoded = [System.Uri]::EscapeDataString($name)
 
             curl.exe -X POST `
               -H "Authorization: $uploadToken" `
