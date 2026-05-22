@@ -39,9 +39,6 @@ InfoBeforeFile=Readme.txt
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "id"; MessagesFile: "Languages\Indonesian.isl"
-Name: "ja"; MessagesFile: "compiler:Languages\Japanese.isl"
-Name: "zh"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
-Name: "ko"; MessagesFile: "compiler:Languages\Korean.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
