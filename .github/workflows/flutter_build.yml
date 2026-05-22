@@ -179,7 +179,10 @@ jobs:
 
           # Get upload URL
           $body = "{`"bucketId`": `"$env:B2_BUCKET_ID`"}"
-          $uploadInfo = $body | curl.exe -s -X POST "${apiUrl}/b2api/v2/b2_get_upload_url" -H "Authorization: $authToken" -H "Content-Type: application/json" -d @- | ConvertFrom-Json
+          $bodyFile = Join-Path $env:TEMP "b2_body.json"
+          Set-Content -Path $bodyFile -Value $body -Encoding Ascii -NoNewline
+          $uploadInfo = curl.exe -s -X POST "${apiUrl}/b2api/v2/b2_get_upload_url" -H "Authorization: $authToken" -H "Content-Type: application/json" -d "@$bodyFile" | ConvertFrom-Json
+          Remove-Item $bodyFile
           $uploadUrl = $uploadInfo.uploadUrl
           $uploadToken = $uploadInfo.authorizationToken
 
@@ -196,7 +199,7 @@ jobs:
               -H "X-Bz-File-Name: $encoded" `
               -H "Content-Type: application/octet-stream" `
               -H "X-Bz-Content-Sha1: $sha1" `
-              --data-binary "@$f" `
+              -T $f `
               $uploadUrl
             Write-Host ""
           }
