@@ -85,7 +85,7 @@ jobs:
             SHA1=$(sha1sum "$f" | cut -d' ' -f1)
             curl -X POST \
               -H "Authorization: ${UPLOAD_TOKEN}" \
-              -H "X-Bz-File-Name: $(echo "$f" | jq -sRr @uri)" \
+              -H "X-Bz-File-Name: $(jq -nr --arg v "$f" '$v|@uri')" \
               -H "Content-Type: application/vnd.android.package-archive" \
               -H "X-Bz-Content-Sha1: ${SHA1}" \
               --data-binary "@$f" \
@@ -172,39 +172,41 @@ jobs:
           B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
           B2_BUCKET_ID: ${{ secrets.B2_BUCKET_ID }}
         run: |
-          $installerDir = "$pwd\build\installer"
-          $files = Get-ChildItem -Path $installerDir -Filter "*.exe"
-          if ($files.Count -eq 0) {
-            Write-Host "No installer found"
-            exit 1
+          # Helper: URL encode
+          function UrlEncode($s) {
+            return [System.Uri]::EscapeDataString($s)
           }
 
-          # Authorize with Basic Auth
+          # Authorize
           $pair = "$($env:B2_KEY_ID):$($env:B2_APP_KEY)"
           $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
-          $base64 = [System.Convert]::ToBase64String($bytes)
-          $auth = Invoke-RestMethod -Uri "https://api.backblazeb2.com/b2api/v2/b2_authorize_account" -Headers @{Authorization = "Basic $base64"}
+          $b64 = [System.Convert]::ToBase64String($bytes)
+          $auth = Invoke-RestMethod -Uri "https://api.backblazeb2.com/b2api/v2/b2_authorize_account" -Headers @{Authorization = "Basic $b64"}
           $authToken = $auth.authorizationToken
           $apiUrl = $auth.apiUrl
 
           # Get upload URL
-          $uploadInfo = Invoke-RestMethod -Uri "${apiUrl}/b2api/v2/b2_get_upload_url" -Method Post -Headers @{Authorization = $authToken; "Content-Type" = "application/json"} -Body "{`"bucketId`": `"$env:B2_BUCKET_ID`"}"
+          $body = "{`"bucketId`": `"$env:B2_BUCKET_ID`"}"
+          $uploadInfo = Invoke-RestMethod -Uri "${apiUrl}/b2api/v2/b2_get_upload_url" -Method Post -Headers @{Authorization = $authToken; "Content-Type" = "application/json"} -Body $body
           $uploadUrl = $uploadInfo.uploadUrl
           $uploadToken = $uploadInfo.authorizationToken
 
-          foreach ($file in $files) {
-            Write-Host "Uploading $($file.Name)..."
-            $sha1 = (Get-FileHash -Algorithm SHA1 $file.FullName).Hash.ToLower()
-            $encodedName = [System.Uri]::EscapeDataString($file.Name)
+          $installerDir = Join-Path $pwd "build\installer"
+          Get-ChildItem -Path $installerDir -Filter "*.exe" | ForEach-Object {
+            $f = $_.FullName
+            $name = $_.Name
+            Write-Host "Uploading $name ..."
+            $sha1 = (Get-FileHash -Algorithm SHA1 $f).Hash.ToLower()
+            $encoded = UrlEncode($name)
 
-            $response = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers @{
-              Authorization = $uploadToken
-              "X-Bz-File-Name" = $encodedName
-              "Content-Type" = "application/octet-stream"
-              "X-Bz-Content-Sha1" = $sha1
-            } -InFile $file.FullName
-
-            Write-Host "  OK - FileId: $($response.fileId)"
+            curl.exe -X POST `
+              -H "Authorization: $uploadToken" `
+              -H "X-Bz-File-Name: $encoded" `
+              -H "Content-Type: application/octet-stream" `
+              -H "X-Bz-Content-Sha1: $sha1" `
+              --data-binary "@$f" `
+              $uploadUrl
+            Write-Host ""
           }
 
       - name: Upload Windows Installer Artifact
