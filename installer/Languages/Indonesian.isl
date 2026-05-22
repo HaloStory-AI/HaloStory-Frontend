@@ -4,7 +4,6 @@
 [LangOptions]
 LanguageName=Indonesian
 LanguageID=$0421
-Version=6.0+
 
 [Messages]
 ; Welcome page
