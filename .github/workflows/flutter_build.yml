@@ -46,11 +46,58 @@ jobs:
       - name: Build Android APK
         run: flutter build apk --release --split-per-abi
 
+      - name: Extract version
+        run: |
+          VER=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
+          echo "VERSION_NAME=$VER" >> $GITHUB_ENV
+
+      - name: Rename APKs
+        run: |
+          cd build/app/outputs/flutter-apk
+          for f in app-*-release.apk; do
+            cpu=$(echo "$f" | sed 's/app-\(.*\)-release\.apk/\1/')
+            mv "$f" "HaloStory_AI-V${VERSION_NAME}-$cpu.apk"
+          done
+          ls -la
+
+      - name: Upload APKs to B2
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
+          B2_BUCKET_ID: ${{ secrets.B2_BUCKET_ID }}
+        run: |
+          AUTH=$(curl -s -u "${B2_KEY_ID}:${B2_APP_KEY}" \
+            "https://api.backblazeb2.com/b2api/v2/b2_authorize_account")
+          AUTH_TOKEN=$(echo "$AUTH" | jq -r '.authorizationToken')
+          API_URL=$(echo "$AUTH" | jq -r '.apiUrl')
+
+          UPLOAD_INFO=$(curl -s -X POST "${API_URL}/b2api/v2/b2_get_upload_url" \
+            -H "Authorization: ${AUTH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"bucketId\": \"${B2_BUCKET_ID}\"}")
+          UPLOAD_URL=$(echo "$UPLOAD_INFO" | jq -r '.uploadUrl')
+          UPLOAD_TOKEN=$(echo "$UPLOAD_INFO" | jq -r '.authorizationToken')
+
+          cd build/app/outputs/flutter-apk
+          for f in HaloStory_AI-V*.apk; do
+            [ -f "$f" ] || continue
+            echo "Uploading $f ..."
+            SHA1=$(sha1sum "$f" | cut -d' ' -f1)
+            curl -X POST \
+              -H "Authorization: ${UPLOAD_TOKEN}" \
+              -H "X-Bz-File-Name: $(echo "$f" | jq -sRr @uri)" \
+              -H "Content-Type: application/vnd.android.package-archive" \
+              -H "X-Bz-Content-Sha1: ${SHA1}" \
+              --data-binary "@$f" \
+              "${UPLOAD_URL}"
+            echo ""
+          done
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Android-Release-APK
-          path: build/app/outputs/flutter-apk/app-*-release.apk
+          path: build/app/outputs/flutter-apk/HaloStory_AI-V*.apk
 
   build-linux:
     name: Build Linux Release
@@ -103,7 +150,70 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      - name: Upload Windows Artifact
+      - name: Extract version
+        id: version
+        shell: pwsh
+        run: |
+          $ver = (Select-String '^version: ' pubspec.yaml).Line -replace 'version: ',''
+          $ver = $ver -replace '\+.*$',''
+          Add-Content -Path $env:GITHUB_ENV -Value "VERSION_NAME=$ver"
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --confirm --limit-output
+
+      - name: Compile installer
+        shell: cmd
+        run: iscc /dAppVersion="%VERSION_NAME%" installer\setup.iss
+
+      - name: Upload Installer to B2
+        shell: pwsh
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
+          B2_BUCKET_ID: ${{ secrets.B2_BUCKET_ID }}
+        run: |
+          $installerDir = "$pwd\build\installer"
+          $files = Get-ChildItem -Path $installerDir -Filter "*.exe"
+          if ($files.Count -eq 0) {
+            Write-Host "No installer found"
+            exit 1
+          }
+
+          # Authorize with Basic Auth
+          $pair = "$($env:B2_KEY_ID):$($env:B2_APP_KEY)"
+          $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
+          $base64 = [System.Convert]::ToBase64String($bytes)
+          $auth = Invoke-RestMethod -Uri "https://api.backblazeb2.com/b2api/v2/b2_authorize_account" -Headers @{Authorization = "Basic $base64"}
+          $authToken = $auth.authorizationToken
+          $apiUrl = $auth.apiUrl
+
+          # Get upload URL
+          $uploadInfo = Invoke-RestMethod -Uri "${apiUrl}/b2api/v2/b2_get_upload_url" -Method Post -Headers @{Authorization = $authToken; "Content-Type" = "application/json"} -Body "{`"bucketId`": `"$env:B2_BUCKET_ID`"}"
+          $uploadUrl = $uploadInfo.uploadUrl
+          $uploadToken = $uploadInfo.authorizationToken
+
+          foreach ($file in $files) {
+            Write-Host "Uploading $($file.Name)..."
+            $sha1 = (Get-FileHash -Algorithm SHA1 $file.FullName).Hash.ToLower()
+            $encodedName = [System.Uri]::EscapeDataString($file.Name)
+
+            $response = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers @{
+              Authorization = $uploadToken
+              "X-Bz-File-Name" = $encodedName
+              "Content-Type" = "application/octet-stream"
+              "X-Bz-Content-Sha1" = $sha1
+            } -InFile $file.FullName
+
+            Write-Host "  OK - FileId: $($response.fileId)"
+          }
+
+      - name: Upload Windows Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-Installer
+          path: build/installer/HaloStory_AI_V*.exe
+
+      - name: Upload Windows Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Windows-Release
