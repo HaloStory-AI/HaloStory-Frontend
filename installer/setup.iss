@@ -34,7 +34,6 @@ PrivilegesRequired=admin
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 WizardStyle=modern
-ShowTasks=yes
 InfoBeforeFile=Readme.txt
 
 [Languages]
