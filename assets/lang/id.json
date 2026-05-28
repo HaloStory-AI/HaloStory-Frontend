@@ -341,5 +341,32 @@
   "chat_delete_sheet_title": "Apakah kamu ingin menghapus pesan dan memori karaktermu pada chat ini?",
   "chat_delete_option_cancel": "Gajadi, salah pencet",
   "chat_delete_option_chat_only": "Ya... mau hapus, cuman Chatnya saja, memorinya jangan :(",
-  "chat_delete_option_all": "Ya... Saya ingin... sayonara"
+  "chat_delete_option_all": "Ya... Saya ingin... sayonara",
+  "settings_local_backup_title": "Cadangan Lokal",
+  "settings_local_backup_desc": "Simpan cadangan sebagai file .hsai ke perangkat Anda",
+  "settings_btn_local_backup": "Simpan Cadangan (.hsai)",
+  "settings_btn_local_restore": "Pulihkan dari .hsai",
+  "settings_local_backup_success": "Cadangan berhasil disimpan!",
+  "settings_local_restore_success": "Cadangan berhasil dipulihkan! Memuat ulang...",
+  "settings_local_backup_confirm": "Simpan cadangan ke perangkat?",
+  "settings_local_restore_confirm": "Data saat ini akan ditimpa. Lanjutkan?",
+  "settings_tab_developer": "Mode Pengembang",
+
+  "dev_mode_switch_title": "Aktifkan Mode Pengembang",
+  "dev_mode_switch_on_subtitle": "Fitur pengembang sedang aktif",
+  "dev_mode_switch_off_subtitle": "Akses debug, log, dan alat konfigurasi",
+  "dev_mode_dialog_title": "Aktifkan Mode Pengembang?",
+  "dev_mode_warning": "Peringatan: Mode ini hanya untuk tujuan pengembangan dan debugging.",
+  "dev_mode_risks": "Mengaktifkan Mode Pengembang dapat:\n• Mengekspos konfigurasi sensitif\n• Melewati pemeriksaan keamanan normal\n• Menyebabkan perilaku aplikasi yang tidak terduga\n• Meningkatkan risiko keamanan data Anda",
+  "dev_mode_disclaimer": "Pengembang HaloStory tidak bertanggung jawab atas kehilangan data, pelanggaran keamanan, atau kerusakan yang mungkin terjadi saat Mode Pengembang aktif. Gunakan dengan risiko Anda sendiri.",
+  "dev_mode_agree": "Saya memahami risikonya dan setuju untuk melanjutkan",
+  "dev_mode_cancel": "Batal",
+  "dev_mode_proceed": "Lanjutkan",
+  "dev_mode_features_title": "Fitur Pengembang",
+  "dev_mode_features_placeholder": "Opsi pengembang tambahan akan muncul di sini.",
+
+  "dev_mode_copy_log_title": "Salin Log BYOK",
+  "dev_mode_copy_log": "Salin Log",
+  "dev_mode_copy_log_copied": "Log error disalin ke clipboard!",
+  "dev_mode_copy_log_toast": "Kamu mungkin perlu mengaktifkan Salin Log BYOK di Mode Pengembang di Setelan :)"
 }

@@ -340,5 +340,32 @@
   "chat_delete_sheet_title": "Delete this character's memories and messages?",
   "chat_delete_option_cancel": "Cancel, wrong tap!",
   "chat_delete_option_chat_only": "Yes... delete chat only, keep memories :(",
-  "chat_delete_option_all": "Yes... I want to... say goodbye"
+  "chat_delete_option_all": "Yes... I want to... say goodbye",
+  "settings_local_backup_title": "Local Backup",
+  "settings_local_backup_desc": "Save a backup as a .hsai file to your device",
+  "settings_btn_local_backup": "Save Backup (.hsai)",
+  "settings_btn_local_restore": "Restore from .hsai",
+  "settings_local_backup_success": "Backup saved successfully!",
+  "settings_local_restore_success": "Backup restored successfully! Restarting...",
+  "settings_local_backup_confirm": "Save backup to your device?",
+  "settings_local_restore_confirm": "Current data will be overwritten. Continue?",
+  "settings_tab_developer": "Developer Mode",
+
+  "dev_mode_switch_title": "Enable Developer Mode",
+  "dev_mode_switch_on_subtitle": "Developer features are active",
+  "dev_mode_switch_off_subtitle": "Access debug, logs, and configuration tools",
+  "dev_mode_dialog_title": "Enable Developer Mode?",
+  "dev_mode_warning": "Warning: This mode is intended for development and debugging purposes only.",
+  "dev_mode_risks": "Enabling Developer Mode may:\n• Expose sensitive configuration\n• Bypass normal safety checks\n• Cause unexpected app behavior\n• Increase security risks to your data",
+  "dev_mode_disclaimer": "The developer(s) of HaloStory are not responsible for any data loss, security breaches, or damages that may occur while Developer Mode is enabled. Use at your own risk.",
+  "dev_mode_agree": "I understand the risks and agree to proceed",
+  "dev_mode_cancel": "Cancel",
+  "dev_mode_proceed": "Proceed",
+  "dev_mode_features_title": "Developer Features",
+  "dev_mode_features_placeholder": "Additional developer options will appear here.",
+
+  "dev_mode_copy_log_title": "Copy BYOK Log",
+  "dev_mode_copy_log": "Copy Log",
+  "dev_mode_copy_log_copied": "Error log copied to clipboard!",
+  "dev_mode_copy_log_toast": "You might need to activate Copy BYOK Log in Developer Mode at Settings :)"
 }

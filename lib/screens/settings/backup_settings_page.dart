@@ -12,6 +12,7 @@ import '../../services/security_service.dart';
 import '../qr_host_screen.dart';
 import '../qr_scanner_screen.dart';
 import '../splash_screen.dart';
+import '../../services/local_backup_service.dart';
 
 class BackupSettingsPage extends StatefulWidget {
   const BackupSettingsPage({super.key});
@@ -220,6 +221,76 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 ),
               ),
             ),
+            // ── Local Backup Section ──
+            if (!kIsWeb) ...[
+              const SizedBox(height: 32),
+              Text(
+                tr('settings_local_backup_title'),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr('settings_local_backup_desc'),
+                style: TextStyle(color: textColor.withValues(alpha: 0.8)),
+              ),
+              const SizedBox(height: 24),
+              Card(
+                elevation: 0,
+                color: isDark
+                    ? colorScheme.surface
+                    : colorScheme.surfaceContainerHighest,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _localBackup,
+                          icon: const Icon(Icons.save_alt),
+                          label: Text(tr('settings_btn_local_backup')),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _localRestore,
+                          icon: const Icon(Icons.folder_open),
+                          label: Text(tr('settings_btn_local_restore')),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: colorScheme.primary),
+                            foregroundColor: colorScheme.primary,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 32),
 
             // ── Cloud Backup Section ──
@@ -562,6 +633,103 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
           ),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Restore Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // ── Local Backup / Restore ──
+
+  Future<void> _localBackup() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('settings_local_backup_title')),
+        content: Text(tr('settings_local_backup_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Backup'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final Map<String, dynamic> fullPayload = await _getBackupPayload();
+    final String plainJson = jsonEncode(fullPayload);
+    final String encryptedData = SecurityService.encryptData(plainJson);
+
+    final bool saved = await LocalBackupService.saveBackup(encryptedData);
+
+    if (!mounted) return;
+    if (saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('settings_local_backup_success')),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Future<void> _localRestore() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('settings_local_backup_title')),
+        content: Text(tr('settings_local_restore_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final String? encryptedData = await LocalBackupService.pickBackup();
+    if (encryptedData == null) return;
+
+    try {
+      final String plainJson = SecurityService.decryptData(encryptedData);
+      final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
+      await _processRestorePayload(fullPayload);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('settings_local_restore_success')),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const SplashScreen(),
+        ),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

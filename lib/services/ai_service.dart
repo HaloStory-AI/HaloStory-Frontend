@@ -456,6 +456,14 @@ class AIService {
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
       if (response.statusCode == 404) return {'status': 'not_found'};
+
+      // Preserve error payload from non-200 responses (e.g. BYOK provider errors)
+      try {
+        final body = jsonDecode(response.body);
+        return body is Map<String, dynamic> ? body : {'status': 'not_found'};
+      } catch (_) {
+        return {'status': 'not_found', 'raw_error': response.body};
+      }
     } catch (e) {
       if (kDebugMode) {
         print('DEBUG: AIService checkChatStatus Error: $e');

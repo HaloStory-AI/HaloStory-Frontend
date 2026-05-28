@@ -335,5 +335,32 @@
   "chat_delete_sheet_title": "이 캐릭터의 메시지와 기억을 삭제하시겠습니까?",
   "chat_delete_option_cancel": "취소, 잘못 눌렀어요!",
   "chat_delete_option_chat_only": "네... 채팅만 삭제하고 기억은 남겨주세요 :(",
-  "chat_delete_option_all": "네... 전부 삭제합니다"
+  "chat_delete_option_all": "네... 전부 삭제합니다",
+  "settings_local_backup_title": "로컬 백업",
+  "settings_local_backup_desc": ".hsai 파일로 기기에 백업 저장",
+  "settings_btn_local_backup": "백업 저장 (.hsai)",
+  "settings_btn_local_restore": ".hsai에서 복원",
+  "settings_local_backup_success": "백업이 저장되었습니다!",
+  "settings_local_restore_success": "백업이 복원되었습니다! 재시작 중...",
+  "settings_local_backup_confirm": "기기에 백업을 저장할까요?",
+  "settings_local_restore_confirm": "현재 데이터가 덮어쓰기됩니다. 계속할까요?",
+  "settings_tab_developer": "개발자 모드",
+
+  "dev_mode_switch_title": "개발자 모드 활성화",
+  "dev_mode_switch_on_subtitle": "개발자 기능이 활성화되었습니다",
+  "dev_mode_switch_off_subtitle": "디버그, 로그 및 설정 도구 액세스",
+  "dev_mode_dialog_title": "개발자 모드를 활성화하시겠습니까?",
+  "dev_mode_warning": "경고: 이 모드는 개발 및 디버깅 목적으로만 사용됩니다.",
+  "dev_mode_risks": "개발자 모드를 활성화하면:\n• 중요한 설정이 노출될 수 있습니다\n• 일반 보안 검사를 우회합니다\n• 예기치 않은 앱 동작이 발생할 수 있습니다\n• 데이터 보안 위험이 증가합니다",
+  "dev_mode_disclaimer": "HaloStory의 개발자는 개발자 모드가 활성화된 동안 발생하는 데이터 손실, 보안 침해 또는 손해에 대해 책임을 지지 않습니다. 본인의 책임 하에 사용하십시오.",
+  "dev_mode_agree": "위험을 이해했으며 계속 진행하는 데 동의합니다",
+  "dev_mode_cancel": "취소",
+  "dev_mode_proceed": "계속",
+  "dev_mode_features_title": "개발자 기능",
+  "dev_mode_features_placeholder": "추가 개발자 옵션이 여기에 표시됩니다.",
+
+  "dev_mode_copy_log_title": "BYOK 로그 복사",
+  "dev_mode_copy_log": "로그 복사",
+  "dev_mode_copy_log_copied": "오류 로그가 클립보드에 복사되었습니다!",
+  "dev_mode_copy_log_toast": "설정의 개발자 모드에서 BYOK 로그 복사를 활성화해야 할 수도 있습니다 :)"
 }
