@@ -156,9 +156,11 @@
   "register_full_name_hint": "Nama Lengkap",
   "register_confirm_password_hint": "Konfirmasi Password",
   "register_terms_agree": "Sensei buat akun dan pakai HaloStory berarti setuju ya sama ",
-  "register_terms_and": " dan ",
+  "register_terms_and": ", dan ",
+  "register_terms_comma": ", ",
   "register_terms_tos": "TOS",
   "register_terms_privacy": "kebijakan privasi",
+  "register_terms_sfw": "kebijakan SFW",
   "register_terms_suffix": " ya...",
   "register_password_min_length": "Password minimal 8 karakter",
   "register_passwords_not_match": "Password tidak cocok",
@@ -368,5 +370,16 @@
   "dev_mode_copy_log_title": "Salin Log BYOK",
   "dev_mode_copy_log": "Salin Log",
   "dev_mode_copy_log_copied": "Log error disalin ke clipboard!",
-  "dev_mode_copy_log_toast": "Kamu mungkin perlu mengaktifkan Salin Log BYOK di Mode Pengembang di Setelan :)"
+  "dev_mode_copy_log_toast": "Kamu mungkin perlu mengaktifkan Salin Log BYOK di Mode Pengembang di Setelan :)",
+
+  "ban_title": "Akun Dibanned",
+  "ban_permanent": "Permanent",
+  "ban_until": "Sampai",
+  "ban_reason_label": "Alasan",
+  "ban_duration_label": "Durasi",
+  "ban_contact_support": "Hubungi Dukungan",
+  "ban_footer": "Jika kamu yakin ini adalah kesalahan, silakan hubungi tim dukungan kami.",
+  "ban_default_reason": "Pelanggaran terhadap ketentuan layanan",
+  "ban_email_subject": "Banding Ban - Akun Dibanned",
+  "ban_email_body": "Tolong bantu saya meninjau ban saya."
 }

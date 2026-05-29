@@ -155,9 +155,11 @@
   "register_full_name_hint": "이름",
   "register_confirm_password_hint": "비밀번호 확인",
   "register_terms_agree": "계정을 생성하고 HaloStory을 사용함으로써, 선생님은 ",
-  "register_terms_and": " 및 ",
+  "register_terms_and": ", 및 ",
+  "register_terms_comma": ", ",
   "register_terms_tos": "서비스 약관",
   "register_terms_privacy": "개인정보 처리방침",
+  "register_terms_sfw": "SFW 정책",
   "register_terms_suffix": "에 동의하게 됩니다~",
   "register_password_min_length": "비밀번호는 최소 8자 이상이어야 해요, 선생님",
   "register_passwords_not_match": "비밀번호가 일치하지 않습니다",
@@ -362,5 +364,16 @@
   "dev_mode_copy_log_title": "BYOK 로그 복사",
   "dev_mode_copy_log": "로그 복사",
   "dev_mode_copy_log_copied": "오류 로그가 클립보드에 복사되었습니다!",
-  "dev_mode_copy_log_toast": "설정의 개발자 모드에서 BYOK 로그 복사를 활성화해야 할 수도 있습니다 :)"
+  "dev_mode_copy_log_toast": "설정의 개발자 모드에서 BYOK 로그 복사를 활성화해야 할 수도 있습니다 :)",
+
+  "ban_title": "계정이 차단됨",
+  "ban_permanent": "영구",
+  "ban_until": "까지",
+  "ban_reason_label": "사유",
+  "ban_duration_label": "기간",
+  "ban_contact_support": "고객 지원 문의",
+  "ban_footer": "이것이 실수라고 생각되면 지원 팀에 문의하세요.",
+  "ban_default_reason": "서비스 약관 위반",
+  "ban_email_subject": "차단 이의 제기 - 계정 차단",
+  "ban_email_body": "제 차단을 검토해 주시기 바랍니다."
 }
