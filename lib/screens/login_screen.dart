@@ -7,6 +7,7 @@ import 'setup_screen.dart';
 import 'verify_email_screen.dart';
 import 'forgot_password_screen.dart';
 import '../services/localization_service.dart';
+import 'banned_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -54,7 +55,12 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         (route) => false,
       );
-    } else if (mounted) {
+      } else if (result['banned'] == true) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const BannedScreen()),
+          (route) => false,
+        );
+      } else if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(result['message'] ?? tr('login_failed'))));

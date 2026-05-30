@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/ai_service.dart';
+import '../services/auth_service.dart';
+import '../services/ban_service.dart';
 import '../services/localization_service.dart';
 import '../theme/app_theme.dart';
 import 'desktop/desktop_sidebar.dart';
@@ -19,6 +21,7 @@ import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'app_info_screen.dart';
 import 'donation_screen.dart';
+import 'splash_screen.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({super.key});
@@ -194,9 +197,17 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              final navigator = Navigator.of(this.context);
               Navigator.pop(context);
-              // Implementation of actual logout usually goes here
+              final auth = AuthService();
+              await auth.logout();
+              BanService.clearBan();
+              if (!mounted) return;
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const SplashScreen()),
+                (route) => false,
+              );
             },
             child: const Text(
               'Logout',

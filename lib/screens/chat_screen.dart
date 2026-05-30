@@ -113,6 +113,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   String? _activeBotId;
   bool _hideItalics = false;
 
+  // Translate state
+  String? _translatedDescription;
+  bool _isTranslating = false;
+
   @override
   void initState() {
     super.initState();
@@ -1104,7 +1108,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ? response['status_code'] as int?
             : null;
         final dynamic rawError = response != null
-            ? response['raw_error']
+            ? response['raw_error'] ?? response
             : null;
         _addSystemError(
           aiTimestamp,
@@ -1936,7 +1940,46 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       'role': 'system',
       'content': errorMsg,
       'timestamp': timestamp,
+      if (rawError != null) 'raw_error': rawError,
     });
+  }
+
+  void _copyErrorLog(Map<String, dynamic> msg) async {
+    final errorText = msg['content']?.toString() ?? '';
+    final rawError = msg['raw_error'];
+    final prefs = await SharedPreferences.getInstance();
+    final devModeEnabled =
+        prefs.getBool('developer_mode_enabled') ?? false;
+    final copyLogEnabled =
+        prefs.getBool('dev_copy_byok_log') ?? false;
+
+    final String copyText;
+    if (rawError != null) {
+      copyText = const JsonEncoder.withIndent('  ')
+          .convert(rawError);
+    } else {
+      copyText = errorText;
+    }
+
+    if (devModeEnabled && copyLogEnabled) {
+      await Clipboard.setData(ClipboardData(text: copyText));
+      if (!mounted || _isDisposed) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('dev_mode_copy_log_copied')),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      if (!mounted || _isDisposed) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('dev_mode_copy_log_toast')),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   String _formatErrorPayload(int? statusCode, dynamic rawError) {
@@ -2034,7 +2077,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  String get _appLanguageCode => LocalizationService().currentLocale;
+
+  Future<String?> _translateText(String text) async {
+    final targetLang = _appLanguageCode;
+    if (targetLang == 'en') return null;
+
+    final encoded = Uri.encodeComponent(text);
+    try {
+      final response = await http.get(
+        Uri.parse(
+          'https://translate.googleapis.com/translate_a/single'
+          '?client=gtx&sl=en&tl=$targetLang&dt=t&q=$encoded',
+        ),
+      );
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body) as List;
+        return decoded[0][0][0] as String;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _showStudentBio() async {
+    _translatedDescription = null;
+    _isTranslating = false;
     if (widget.isDesktopMode) {
       if (await Navigator.maybePop(context)) {
         // If there's a popup (like more menu), close it first
@@ -2053,82 +2120,137 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildStudentBioContainer({bool isDesktop = false, VoidCallback? onClose}) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-      decoration: BoxDecoration(
-        color: _surfaceBackground(context),
-        borderRadius: isDesktop
-            ? BorderRadius.circular(24)
-            : BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        children: [
-          if (!isDesktop)
-            Container(
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor: _parseColor(widget.bot['color']),
-                    backgroundImage: widget.bot['image_url'] != null
-                        ? NetworkImage(widget.bot['image_url'])
-                        : null,
-                    child: widget.bot['image_url'] == null
-                        ? Text(
-                            widget.bot['name'][0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
+    return StatefulBuilder(
+      builder: (context, setSheetState) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          decoration: BoxDecoration(
+            color: _surfaceBackground(context),
+            borderRadius: isDesktop
+                ? BorderRadius.circular(24)
+                : BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              if (!isDesktop)
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.bot['name'],
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: _titleColor(context),
-                    ),
-                  ),
-                  if (_isBirthday(widget.bot['birthday']))
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        '🎂 Birthday Today!',
+                ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundColor: _parseColor(widget.bot['color']),
+                        backgroundImage: widget.bot['image_url'] != null
+                            ? NetworkImage(widget.bot['image_url'])
+                            : null,
+                        child: widget.bot['image_url'] == null
+                            ? Text(
+                                widget.bot['name'][0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.bot['name'],
                         style: TextStyle(
-                          color: Colors.pinkAccent,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: _titleColor(context),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.bot['description'] ?? tr('bio_no_description'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _subtitleColor(context),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                      if (_isBirthday(widget.bot['birthday']))
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            '🎂 Birthday Today!',
+                            style: TextStyle(
+                              color: Colors.pinkAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _translatedDescription ?? widget.bot['description'] ?? tr('bio_no_description'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: _subtitleColor(context),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      if (!_isGroup && widget.bot['description'] != null &&
+                          widget.bot['description'].toString().isNotEmpty &&
+                          _appLanguageCode != 'en')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: _translatedDescription == null
+                              ? OutlinedButton.icon(
+                                  onPressed: _isTranslating ? null : () async {
+                                    setSheetState(() => _isTranslating = true);
+                                    final result = await _translateText(
+                                      widget.bot['description'].toString(),
+                                    );
+                                    if (mounted) {
+                                      setSheetState(() {
+                                        _translatedDescription = result;
+                                        _isTranslating = false;
+                                      });
+                                    }
+                                  },
+                                  icon: _isTranslating
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.translate, size: 18),
+                                  label: Text(_isTranslating ? tr('system_notice_btn') : 'Translate'),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    foregroundColor: Theme.of(context).colorScheme.primary,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                )
+                              : TextButton.icon(
+                                  onPressed: () {
+                                    setSheetState(() {
+                                      _translatedDescription = null;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.refresh, size: 16),
+                                  label: const Text('Show Original'),
+                                ),
+                        ),
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 16),
                   if (_isGroup)
                     _buildGroupMembersSection(onClose: onClose)
                   else ...[
@@ -2274,6 +2396,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
         ],
       ),
+    );
+        },
     );
   }
 
@@ -3270,20 +3394,46 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 final isSystem = msg['role'] == 'system';
 
                                 if (isSystem) {
-                                  return Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                      ),
-                                      child: Text(
-                                        msg['content'],
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .error,
-                                          fontSize: 12,
+                                  final errorContent =
+                                      msg['content']?.toString() ?? '';
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            errorContent,
+                                            style: TextStyle(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error,
+                                              fontSize: 12,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        SizedBox(
+                                          width: 32,
+                                          height: 32,
+                                          child: IconButton(
+                                            padding: EdgeInsets.zero,
+                                            icon: Icon(
+                                              Icons.copy,
+                                              size: 14,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error,
+                                            ),
+                                            tooltip: tr('dev_mode_copy_log'),
+                                            onPressed: () => _copyErrorLog(
+                                              msg,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   );
                                 }

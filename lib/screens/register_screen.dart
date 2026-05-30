@@ -174,10 +174,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () => _launchURL(
-                                  "https://bluetalk.my-bini.my.id/terms",
+                                  "https://s.my-bini.my.id/hs-terms-of-service",
                                 ),
                             ),
-                            TextSpan(text: tr('register_terms_and')),
+                            TextSpan(text: tr('register_terms_comma')),
                             TextSpan(
                               text: tr('register_terms_privacy'),
                               style: const TextStyle(
@@ -187,7 +187,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () => _launchURL(
-                                  "https://bluetalk.my-bini.my.id/privacy",
+                                  "https://s.my-bini.my.id/hs-privacy-policy",
+                                ),
+                            ),
+                            TextSpan(text: tr('register_terms_and')),
+                            TextSpan(
+                              text: tr('register_terms_sfw'),
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () => _launchURL(
+                                  "https://s.my-bini.my.id/hs-sfw-policy",
                                 ),
                             ),
                             TextSpan(text: tr('register_terms_suffix')),

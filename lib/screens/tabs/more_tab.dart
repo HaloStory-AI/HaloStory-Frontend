@@ -8,6 +8,8 @@ import '../student_request_screen.dart';
 import '../donation_screen.dart';
 import '../settings_screen.dart';
 import '../app_info_screen.dart';
+import '../../services/ban_service.dart';
+import '../splash_screen.dart';
 
 class MoreTab extends StatefulWidget {
   const MoreTab({super.key});
@@ -70,7 +72,16 @@ class _MoreTabState extends State<MoreTab> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _auth.logout();
+              BanService.clearBan();
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const SplashScreen()),
+                (route) => false,
+              );
+            },
             child: const Text(
               'Logout',
               style: TextStyle(color: Colors.redAccent),

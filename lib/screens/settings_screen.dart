@@ -4,6 +4,7 @@ import 'settings/general_settings_page.dart';
 import 'settings/appearance_settings_page.dart';
 import 'settings/ai_engine_settings_page.dart';
 import 'settings/backup_settings_page.dart';
+import 'settings/developer_mode_page.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -66,6 +67,17 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const BackupSettingsPage()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SettingsCard(
+              icon: Icons.developer_mode,
+              title: tr('settings_tab_developer'),
+              subtitle: 'Debug, Logs, Config',
+              surfaceColor: surface,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DeveloperModePage()),
               ),
             ),
           ],
