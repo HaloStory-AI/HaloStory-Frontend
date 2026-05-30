@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 class ConfigService {
   static const String _configUrl =
       'https://api-bluetalk.my-bini.my.id/api/app/status';
-  static const String _upUrl = 'https://api-bluetalk.my-bini.my.id/up';
+  static const String _upUrl = 'https://api-hsaiapp.my-bini.my.id/up';
 
   static String? _baseUrl;
   static bool _isMaintenance = false;
