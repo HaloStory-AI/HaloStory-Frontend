@@ -22,7 +22,7 @@ import '../services/localization_service.dart';
 import '../services/wallpaper_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/skeleton_loader.dart';
-import 'select_contact_screen.dart';
+import 'student_bio_screen.dart';
 
 @Preview(name: 'Chat Detail Screen', size: Size(390, 844))
 Widget chatDetailScreenPreview() {
@@ -92,7 +92,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _systemNoteController = TextEditingController();
   bool _isSystemNoteOpen = false;
   bool _isCharacterMenuOpen = false;
-  String? _activeOverlay; // 'bio' or 'bond'
 
   // Bond state
   String _bondStatus = 'normal';
@@ -113,10 +112,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   String? _activeBotId;
   bool _hideItalics = false;
 
-  // Translate state
-  String? _translatedDescription;
-  bool _isTranslating = false;
-
   @override
   void initState() {
     super.initState();
@@ -129,7 +124,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _bondLevel = widget.bot['bond_hearts'] ?? 0;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
-    _syncBondStats();
     _loadSystemNote();
     _showBugNoticeIfNeeded();
     _loadSelectedBot();
@@ -1430,490 +1424,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  Future<void> _syncBondStats() async {
-    try {
-      final data = await _fetchBondStats();
-      if (data != null && mounted && !_isDisposed) {
-        _safeSetState(() {
-          _bondStatus = data['bond_status'] ?? _bondStatus;
-          _bondRelationship = data['relationship_label'] ?? _bondRelationship;
-          _bondLevel = (data['bond_level'] as int?) ?? _bondLevel;
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<Map<String, dynamic>?> _fetchBondStats() async {
-    final authService = AuthService();
-    final token = await authService.getToken();
-    if (token == null || !mounted || _isDisposed) {
-      return null;
-    }
-
-    final botId = widget.bot['id'];
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/bots/bond/$botId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-    } catch (_) {}
-
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> _fetchBondStatsFor(String botId) async {
-    final authService = AuthService();
-    final token = await authService.getToken();
-    if (token == null || !mounted || _isDisposed) {
-      return null;
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/bots/bond/$botId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-    } catch (_) {}
-
-    return null;
-  }
-
-  Future<List<Map<String, dynamic>>?> _fetchAllGroupBondStats() async {
-    if (_groupMembers.isEmpty) return [];
-    final List<Map<String, dynamic>> updated = [];
-    try {
-      for (final member in _groupMembers) {
-        final memberId =
-            member['bot_id']?.toString() ?? member['id']?.toString();
-        if (memberId == null) {
-          updated.add(member);
-          continue;
-        }
-        final data = await _fetchBondStatsFor(memberId);
-        if (data != null) {
-          updated.add({
-            ...member,
-            'bond_hearts': data['bond_hearts'] ?? member['bond_hearts'],
-            'xp': data['xp'] ?? member['xp'],
-            'xp_into_level': data['xp_into_level'] ?? member['xp_into_level'],
-            'progress_percent':
-                data['progress_percent'] ?? member['progress_percent'],
-          });
-        } else {
-          updated.add(member);
-        }
-      }
-
-      if (mounted && !_isDisposed) {
-        _safeSetState(() {
-          _groupMembers = List<Map<String, dynamic>>.from(updated);
-        });
-      }
-      return updated;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Widget _groupBondSkeleton() {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: _surfaceBackground(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SkeletonWidget(width: 160, height: 20),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView.separated(
-              itemCount: 4,
-              separatorBuilder: (context, index) => const Divider(),
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      const SkeletonWidget(
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            SkeletonWidget(width: 120, height: 14),
-                            SizedBox(height: 8),
-                            SkeletonWidget(width: 80, height: 12),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const SkeletonWidget(width: 40, height: 20),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showBondStats() async {
-    if (_isGroup) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        isScrollControlled: true,
-        builder: (_) {
-          return FutureBuilder<List<Map<String, dynamic>>?>(
-            future: _fetchAllGroupBondStats(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return _groupBondSkeleton();
-              }
-              return _buildGroupBondStats();
-            },
-          );
-        },
-      );
-      return;
-    }
-    if (widget.isDesktopMode) {
-      if (await Navigator.maybePop(context)) {
-        // If there's a popup (like more menu), close it first
-      }
-      setState(() => _activeOverlay = 'bond');
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return FutureBuilder<Map<String, dynamic>?>(
-          future: _fetchBondStats(),
-          builder: (context, snapshot) {
-            final bondData = snapshot.data;
-            return _buildBondStatsContainer(bondData);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildGroupBondStats() {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: _surfaceBackground(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Text(
-            'Group Bond Levels',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _groupMembers.length,
-              separatorBuilder: (context, index) => const Divider(),
-              itemBuilder: (context, index) {
-                final member = _groupMembers[index];
-                final hearts = member['bond_hearts'] ?? 0;
-                return ListTile(
-                  tileColor: Colors.transparent,
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: _parseColor(member['color']),
-                    backgroundImage: member['image_url'] != null
-                        ? NetworkImage(member['image_url'])
-                        : (member['avatar'] != null
-                              ? NetworkImage(member['avatar'])
-                              : null),
-                    child:
-                        (member['image_url'] == null &&
-                            member['avatar'] == null)
-                        ? Text(
-                            (member['name'] as String)[0].toUpperCase(),
-                            style: const TextStyle(color: Colors.white),
-                          )
-                        : null,
-                  ),
-                  title: Text(
-                    member['name'] ?? 'Unknown',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: _titleColor(context),
-                    ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.favorite,
-                        color: Color(0xFFFBB6CE),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$hearts',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBondStatsContainer(
-    Map<String, dynamic>? bondData, {
-    bool isDesktop = false,
-  }) {
-    final hearts = bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
-    final xp = bondData?['xp'] ?? 0;
-    final xpInto = bondData?['xp_into_level'] ?? 0;
-    final xpPer = bondData?['xp_per_level'] ?? 5;
-    final progress = bondData != null
-        ? (bondData['progress_percent'] as num) / 100.0
-        : 0.0;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(24, isDesktop ? 32 : 16, 24, 32),
-      decoration: BoxDecoration(
-        color: _surfaceBackground(context),
-        borderRadius: isDesktop
-            ? BorderRadius.circular(24)
-            : BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!isDesktop)
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: _parseColor(widget.bot['color']),
-                backgroundImage: widget.bot['image_url'] != null
-                    ? NetworkImage(widget.bot['image_url'])
-                    : null,
-                child: widget.bot['image_url'] == null
-                    ? Text(
-                        (widget.bot['name'] as String)[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.bot['name'],
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _titleColor(context),
-                    ),
-                  ),
-                  Text(
-                    'Total XP: $xp',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _subtitleColor(context),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _relationshipColor(
-                        _bondStatus,
-                      ).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _relationshipColor(
-                          _bondStatus,
-                        ).withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Text(
-                      _bondRelationship.isNotEmpty
-                          ? _bondRelationship
-                          : (bondData?['relationship_label'] ?? 'Orang Asing'),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _relationshipColor(_bondStatus),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(
-                    Icons.favorite,
-                    color: Color(0xFFFBB6CE),
-                    size: 72,
-                  ),
-                  Text(
-                    '$hearts',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bond Level',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _subtitleColor(context),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    'Lv. $hearts',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Progress to Lv. ${hearts + 1}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _subtitleColor(context),
-                    ),
-                  ),
-                  Text(
-                    '$xpInto / $xpPer XP',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _subtitleColor(context),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progress.clamp(0.0, 1.0),
-                  minHeight: 12,
-                  backgroundColor: Colors.pink.shade50,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFFFB6F9D),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   void _addSystemError(String timestamp, {int? statusCode, dynamic rawError}) {
     String errorMsg =
@@ -2077,554 +1587,110 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  String get _appLanguageCode => LocalizationService().currentLocale;
-
-  Future<String?> _translateText(String text) async {
-    final targetLang = _appLanguageCode;
-    if (targetLang == 'en') return null;
-
-    final encoded = Uri.encodeComponent(text);
-    try {
-      final response = await http.get(
-        Uri.parse(
-          'https://translate.googleapis.com/translate_a/single'
-          '?client=gtx&sl=en&tl=$targetLang&dt=t&q=$encoded',
-        ),
-      );
-      if (response.statusCode == 200) {
-        final decoded = json.decode(response.body) as List;
-        return decoded[0][0][0] as String;
-      }
-    } catch (_) {}
-    return null;
-  }
-
   Future<void> _showStudentBio() async {
-    _translatedDescription = null;
-    _isTranslating = false;
     if (widget.isDesktopMode) {
       if (await Navigator.maybePop(context)) {
         // If there's a popup (like more menu), close it first
       }
-      setState(() => _activeOverlay = 'bio');
-      return;
     }
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _buildStudentBioContainer(
-        onClose: () => Navigator.pop(sheetContext),
-      ),
-    );
-  }
-
-  Widget _buildStudentBioContainer({bool isDesktop = false, VoidCallback? onClose}) {
-    return StatefulBuilder(
-      builder: (context, setSheetState) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          decoration: BoxDecoration(
-            color: _surfaceBackground(context),
-            borderRadius: isDesktop
-                ? BorderRadius.circular(24)
-                : BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            children: [
-              if (!isDesktop)
-                Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).dividerColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 60,
-                        backgroundColor: _parseColor(widget.bot['color']),
-                        backgroundImage: widget.bot['image_url'] != null
-                            ? NetworkImage(widget.bot['image_url'])
-                            : null,
-                        child: widget.bot['image_url'] == null
-                            ? Text(
-                                widget.bot['name'][0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        widget.bot['name'],
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: _titleColor(context),
-                        ),
-                      ),
-                      if (_isBirthday(widget.bot['birthday']))
-                        const Padding(
-                          padding: EdgeInsets.only(top: 4),
-                          child: Text(
-                            '🎂 Birthday Today!',
-                            style: TextStyle(
-                              color: Colors.pinkAccent,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _translatedDescription ?? widget.bot['description'] ?? tr('bio_no_description'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: _subtitleColor(context),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      if (!_isGroup && widget.bot['description'] != null &&
-                          widget.bot['description'].toString().isNotEmpty &&
-                          _appLanguageCode != 'en')
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: _translatedDescription == null
-                              ? OutlinedButton.icon(
-                                  onPressed: _isTranslating ? null : () async {
-                                    setSheetState(() => _isTranslating = true);
-                                    final result = await _translateText(
-                                      widget.bot['description'].toString(),
-                                    );
-                                    if (mounted) {
-                                      setSheetState(() {
-                                        _translatedDescription = result;
-                                        _isTranslating = false;
-                                      });
-                                    }
-                                  },
-                                  icon: _isTranslating
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.translate, size: 18),
-                                  label: Text(_isTranslating ? tr('system_notice_btn') : 'Translate'),
-                                  style: OutlinedButton.styleFrom(
-                                    side: BorderSide(
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
-                                    foregroundColor: Theme.of(context).colorScheme.primary,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                )
-                              : TextButton.icon(
-                                  onPressed: () {
-                                    setSheetState(() {
-                                      _translatedDescription = null;
-                                    });
-                                  },
-                                  icon: const Icon(Icons.refresh, size: 16),
-                                  label: const Text('Show Original'),
-                                ),
-                        ),
-                      const SizedBox(height: 24),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                  if (_isGroup)
-                    _buildGroupMembersSection(onClose: onClose)
-                  else ...[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        tr('personality_title_label'),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Builder(
-                        builder: (context) {
-                          final pData = widget.bot['personality'] ?? '';
-                          if (pData.trim().isEmpty) {
-                            return Text(
-                              tr('bio_no_personality'),
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: _subtitleColor(context),
-                              ),
-                            );
-                          }
-
-                          Map<String, String> parseBioAttributes(
-                            String personality,
-                          ) {
-                            Map<String, String> result = {
-                              'Nickname': '*Unknown*',
-                              'Age': '*Unknown*',
-                              'Nationality': '*Unknown*',
-                              'Height': '*Unknown*',
-                              'Weight': '*Unknown*',
-                              'Like': '*Unknown*',
-                              'Dislike': '*Unknown*',
-                            };
-
-                            String? findMatch(String pattern) {
-                              final regExp = RegExp(
-                                pattern,
-                                caseSensitive: false,
-                                multiLine: true,
-                              );
-                              final match = regExp.firstMatch(personality);
-                              if (match != null && match.groupCount >= 1) {
-                                String val = match.group(1)!.trim();
-                                val = val
-                                    .replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '')
-                                    .trim();
-                                if (val.endsWith(',')) {
-                                  val = val.substring(0, val.length - 1).trim();
-                                }
-                                return val;
-                              }
-                              return null;
-                            }
-
-                            result['Nickname'] =
-                                findMatch(
-                                  r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
-                                ) ??
-                                '*Unknown*';
-                            result['Age'] =
-                                findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-                            result['Nationality'] =
-                                findMatch(
-                                  r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
-                                ) ??
-                                '*Unknown*';
-                            result['Height'] =
-                                findMatch(r'Height\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-                            result['Weight'] =
-                                findMatch(r'Weight\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-                            result['Like'] =
-                                findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-                            result['Dislike'] =
-                                findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ??
-                                '*Unknown*';
-
-                            return result;
-                          }
-
-                          final attrs = parseBioAttributes(pData);
-
-                          Widget buildBioRow(String label, String value) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 90,
-                                    child: Text(
-                                      label,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: _subtitleColor(context),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      value,
-                                      style: TextStyle(
-                                        color: _titleColor(context),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return Column(
-                            children: [
-                              buildBioRow('Nickname', attrs['Nickname']!),
-                              buildBioRow('Age', attrs['Age']!),
-                              buildBioRow('Nationality', attrs['Nationality']!),
-                              buildBioRow('Height', attrs['Height']!),
-                              buildBioRow('Weight', attrs['Weight']!),
-                              buildBioRow('Like', attrs['Like']!),
-                              buildBioRow('Dislike', attrs['Dislike']!),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-        },
-    );
-  }
-
-  Widget _buildGroupMembersSection({VoidCallback? onClose}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            tr('group_members_title'),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_groupMembers.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Center(
-              child: Text(
-                tr('group_no_members'),
-                style: TextStyle(
-                  fontSize: 15,
-                  color: _subtitleColor(context),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          )
-        else
-          ..._groupMembers.asMap().entries.map((entry) {
-            final index = entry.key;
-            final member = entry.value;
-            final memberName = member['name'] ?? 'Unknown';
-            final memberColor = _parseColor(member['color']);
-            final memberAvatar = member['image_url'] ?? member['avatar'];
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: memberColor,
-                    backgroundImage: memberAvatar != null
-                        ? NetworkImage(memberAvatar)
-                        : null,
-                    child: memberAvatar == null
-                        ? Text(
-                            memberName[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      memberName,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: _titleColor(context),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.remove_circle_outline,
-                      color: Theme.of(context).colorScheme.error,
-                      size: 22,
-                    ),
-                    onPressed: () => _confirmKickMember(index, onClose: onClose),
-                    tooltip: tr('group_kick_member'),
-                  ),
-                ],
-              ),
-            );
-          }),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _navigateToAddMember(onClose: onClose),
-            icon: const Icon(Icons.person_add),
-            label: Text(tr('group_add_member')),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _navigateToAddMember({VoidCallback? onClose}) async {
-    final existingIds = _groupMembers
-        .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
-        .whereType<String>()
-        .toSet();
-
-    final result = await Navigator.push<List<Map<String, dynamic>>>(
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SelectContactScreen(
-          mode: SelectContactMode.addToGroup,
-          existingMemberIds: existingIds,
-          onContactSelected: (_) {},
-          onCancel: () => Navigator.pop(context),
+        builder: (_) => StudentBioScreen(
+          bot: widget.bot,
+          isGroup: _isGroup,
+          groupMembers: _groupMembers,
+          groupName: _groupName,
+          groupBio: _groupBio,
+          botId: widget.bot['id'].toString(),
+          onKickMember: _handleKickMemberFromBio,
+          onAddMembers: _handleAddMembersFromBio,
+          onEditGroupInfo: _handleEditGroupInfoFromBio,
         ),
       ),
     );
-
-    if (result != null && result.isNotEmpty && mounted) {
-      final currentIds = _groupMembers
-          .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
-          .toSet();
-
-      for (final bot in result) {
-        final botId = bot['id'].toString();
-        if (!currentIds.contains(botId)) {
-          _groupMembers.add({
-            'bot_id': botId,
-            'id': botId,
-            'name': bot['name'] ?? 'Unknown',
-            'image_url': bot['image_url'],
-            'avatar': bot['avatar'],
-            'color': bot['color'],
-          });
-        }
-      }
-
-      await _localChatService.updateGroupMetadata(
-        widget.bot['id'].toString(),
-        name: _groupName,
-        bio: _groupBio,
-        members: _groupMembers,
-      );
-      _syncMetadataToMessages(
-        name: _groupName,
-        bio: _groupBio,
-        members: _groupMembers,
-      );
-
-      if (mounted) {
-        onClose?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr('group_member_added'))),
-        );
-      }
-    }
   }
 
-  Future<void> _confirmKickMember(int index, {VoidCallback? onClose}) async {
+  void _handleKickMemberFromBio(int index) {
     final member = _groupMembers[index];
-    final name = member['name'] ?? 'Unknown';
+    final kickedId = member['bot_id']?.toString() ?? member['id']?.toString();
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('group_confirm_kick_title')),
-        content: Text(
-          tr('group_confirm_kick_body').replaceAll('{name}', name),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('group_kick_confirm_no')),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(tr('group_kick_confirm_yes')),
-          ),
-        ],
-      ),
+    _groupMembers.removeAt(index);
+
+    if (kickedId != null && _selectedBotId == kickedId) {
+      _selectedBotId = _groupMembers.isNotEmpty
+          ? (_groupMembers.first['bot_id']?.toString() ??
+              _groupMembers.first['id']?.toString())
+          : null;
+      _saveSelectedBot(_selectedBotId ?? '');
+    }
+
+    _localChatService.updateGroupMetadata(
+      widget.bot['id'].toString(),
+      name: _groupName,
+      bio: _groupBio,
+      members: _groupMembers,
     );
+    _syncMetadataToMessages(
+      name: _groupName,
+      bio: _groupBio,
+      members: _groupMembers,
+    );
+  }
 
-    if (confirm == true && mounted) {
-      final kickedId =
-          member['bot_id']?.toString() ?? member['id']?.toString();
+  void _handleAddMembersFromBio(List<Map<String, dynamic>> bots) {
+    final currentIds = _groupMembers
+        .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+        .toSet();
 
-      _groupMembers.removeAt(index);
-
-      if (kickedId != null && _selectedBotId == kickedId) {
-        _selectedBotId = _groupMembers.isNotEmpty
-            ? (_groupMembers.first['bot_id']?.toString() ??
-                _groupMembers.first['id']?.toString())
-            : null;
-        await _saveSelectedBot(_selectedBotId ?? '');
-      }
-
-      await _localChatService.updateGroupMetadata(
-        widget.bot['id'].toString(),
-        name: _groupName,
-        bio: _groupBio,
-        members: _groupMembers,
-      );
-      _syncMetadataToMessages(
-        name: _groupName,
-        bio: _groupBio,
-        members: _groupMembers,
-      );
-
-      if (mounted) {
-        onClose?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr('group_member_removed'))),
-        );
+    for (final bot in bots) {
+      final botId = bot['id'].toString();
+      if (!currentIds.contains(botId)) {
+        _groupMembers.add({
+          'bot_id': botId,
+          'id': botId,
+          'name': bot['name'] ?? 'Unknown',
+          'image_url': bot['image_url'],
+          'avatar': bot['avatar'],
+          'color': bot['color'],
+        });
       }
     }
+
+    _localChatService.updateGroupMetadata(
+      widget.bot['id'].toString(),
+      name: _groupName,
+      bio: _groupBio,
+      members: _groupMembers,
+    );
+    _syncMetadataToMessages(
+      name: _groupName,
+      bio: _groupBio,
+      members: _groupMembers,
+    );
+    _groupInfoChanged = true;
+  }
+
+  void _handleEditGroupInfoFromBio(String name, String bio) {
+    _localChatService.updateGroupMetadata(
+      widget.bot['id'].toString(),
+      name: name,
+      bio: bio,
+      members: _groupMembers,
+    );
+    _syncMetadataToMessages(
+      name: name,
+      bio: bio,
+      members: _groupMembers,
+    );
+
+    _safeSetState(() {
+      _groupName = name;
+      _groupBio = bio;
+      widget.bot['name'] = name;
+      widget.bot['description'] = bio;
+    });
+    _groupInfoChanged = true;
   }
 
   void _showMessageOptions(int index, String content) {
@@ -3124,36 +2190,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       ],
                     ),
                   ),
-                  SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: GestureDetector(
-                      onTap: _showBondStats,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const Icon(
-                            Icons.favorite,
-                            color: Color(0xFFE88FAA),
-                            size: 40,
-                          ),
-                          const Icon(
-                            Icons.favorite,
-                            color: Color(0xFFF9C3D4),
-                            size: 36,
-                          ),
-                          if (!_isGroup)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Text(
-                                '$_bondLevel',
-                                style: _bondCountHeaderStyle(context),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -3538,68 +2574,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ],
                 ),
               ),
-              if (_activeOverlay != null) _buildDesktopOverlay(),
             ],
           ),
         ),
         ),
       ),
-    );
-  }
-
-  Widget _buildDesktopOverlay() {
-    final isBio = _activeOverlay == 'bio';
-
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.4),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450, maxHeight: 650),
-            child: Container(
-              margin: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: _surfaceBackground(context),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  if (isBio) _buildBioContent() else _buildBondContent(),
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: IconButton(
-                      onPressed: () => setState(() => _activeOverlay = null),
-                      icon: Icon(Icons.close, color: _subtitleColor(context)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBioContent() {
-    return _buildStudentBioContainer(isDesktop: true);
-  }
-
-  Widget _buildBondContent() {
-    return FutureBuilder<Map<String, dynamic>?>(
-      future: _fetchBondStats(),
-      builder: (context, snapshot) {
-        final bondData = snapshot.data;
-        return _buildBondStatsContainer(bondData, isDesktop: true);
-      },
     );
   }
 
@@ -3646,37 +2625,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Color _subtitleColor(BuildContext context) =>
       Theme.of(context).colorScheme.onSurfaceVariant;
-
-  Color _relationshipColor(String status) {
-    return switch (status) {
-      'enemy' => Colors.red.shade400,
-      'married' => Colors.purple.shade400,
-      'lover' => const Color(0xFFFB6F9D),
-      'rejected' => Colors.grey.shade500,
-      'stuck' => Colors.orange.shade400,
-      _ => Colors.blue.shade400,
-    };
-  }
-
-  TextStyle _bondCountHeaderStyle(BuildContext context) {
-    final isDark = _isDarkMode(context);
-    final colorScheme = Theme.of(context).colorScheme;
-    final shadowColor = isDark
-        ? Colors.black.withValues(alpha: 0.45)
-        : Colors.white;
-
-    return TextStyle(
-      color: colorScheme.primary,
-      fontWeight: FontWeight.w800,
-      fontSize: 12,
-      shadows: [
-        Shadow(color: shadowColor, offset: const Offset(1, 0)),
-        Shadow(color: shadowColor, offset: const Offset(-1, 0)),
-        Shadow(color: shadowColor, offset: const Offset(0, 1)),
-        Shadow(color: shadowColor, offset: const Offset(0, -1)),
-      ],
-    );
-  }
 
   Color _botBubbleBackground(BuildContext context) =>
       _isDarkMode(context) ? AppTheme.botBubbleDark : AppTheme.botBubbleLight;
