@@ -10,6 +10,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
 import 'welcome_screen.dart';
+import 'pin_screen.dart';
 import 'verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -149,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     final results = await Future.wait([
       _authService.isLoggedIn(),
-      _botService.getBots(),
+      _botService.getBots(type: 'all'),
       kIsWeb ? Future.value(false) : SecurityService.isDeviceCompromised(),
       Future.delayed(Duration(seconds: kIsWeb ? 1 : 2)),
     ]);
@@ -177,14 +178,25 @@ class _SplashScreenState extends State<SplashScreen>
         if (!mounted) return;
       }
 
-      if (isSetupCompleted) {
+      final bool isAppLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+
+      if (isAppLockEnabled) {
+        final pinTarget = isSetupCompleted ? const HomeScreen() : const SetupScreen();
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (_) => PinScreen(target: pinTarget),
+          ),
         );
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SetupScreen()),
-        );
+        if (isSetupCompleted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const SetupScreen()),
+          );
+        }
       }
     } else {
       if (BanService.isBanned) {

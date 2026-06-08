@@ -5,6 +5,7 @@ import 'settings/appearance_settings_page.dart';
 import 'settings/ai_engine_settings_page.dart';
 import 'settings/backup_settings_page.dart';
 import 'settings/developer_mode_page.dart';
+import 'settings/privacy_settings_page.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -67,6 +68,17 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const BackupSettingsPage()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SettingsCard(
+              icon: Icons.privacy_tip,
+              title: tr('settings_tab_privacy'),
+              subtitle: 'Data, Permissions, Policy',
+              surfaceColor: surface,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PrivacySettingsPage()),
               ),
             ),
             const SizedBox(height: 12),

@@ -25,11 +25,12 @@ class BotService {
     String? type,
     String? category,
   }) async {
+    final effectiveType = type ?? 'all';
     final now = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
 
-    // Only use cache for 'Main' type with no category (default)
-    bool isDefault = (type == null || type == 'Main') && category == null;
+    // Only use cache for 'Main' or 'all' type with no category (default)
+    bool isDefault = (effectiveType == 'Main' || effectiveType == 'all') && category == null;
 
     if (!isDefault) {
       return await _performFetch(type: type, category: category);
@@ -70,13 +71,13 @@ class BotService {
       }
     }
     // 3. API Fetch (Sync)
-    return await _fetchAndCacheBots();
+    return await _fetchAndCacheBots(type: effectiveType);
   }
 
-  Future<List<Map<String, dynamic>>> _fetchAndCacheBots() async {
+  Future<List<Map<String, dynamic>>> _fetchAndCacheBots({String? type}) async {
     if (_pendingFetch != null) return _pendingFetch!;
 
-    _pendingFetch = _performFetch();
+    _pendingFetch = _performFetch(type: type);
     try {
       return await _pendingFetch!;
     } finally {
@@ -140,8 +141,8 @@ class BotService {
         }
         // --- END ---
 
-        // Only update global cache if fetching default 'Main' bots
-        if ((type == null || type == 'Main') && category == null) {
+        // Only update global cache if fetching default bots
+        if ((type == null || type == 'Main' || type == 'all') && category == null) {
           _cachedBots = result;
           _lastBotsFetch = now;
           await prefs.setString(_botsCacheKey, jsonEncode(_cachedBots));
@@ -158,7 +159,7 @@ class BotService {
       }
     }
 
-    return (type == null || type == 'Main') ? (_cachedBots ?? []) : [];
+    return (type == null || type == 'Main' || type == 'all') ? (_cachedBots ?? []) : [];
   }
 
   Future<List<Map<String, dynamic>>> getEventCategories() async {
