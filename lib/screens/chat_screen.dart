@@ -14,7 +14,6 @@ import '../services/local_chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../constants.dart';
-
 import '../services/localization_service.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/chat/bond_explosion_effect.dart';
