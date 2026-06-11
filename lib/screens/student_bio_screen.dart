@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../services/auth_service.dart';
 import '../services/localization_service.dart';
+import '../widgets/chat/edit_group_info_dialog.dart';
 import 'select_contact_screen.dart';
 
 class StudentBioScreen extends StatefulWidget {
@@ -317,81 +318,19 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Future<void> _showEditGroupInfoDialog() async {
-    final nameController = TextEditingController(
-      text: _localGroupName.isNotEmpty
+    final result = await showEditGroupInfoDialog(
+      context: context,
+      initialName: _localGroupName.isNotEmpty
           ? _localGroupName
           : widget.bot['name'] ?? '',
+      initialBio: _localGroupBio,
     );
-    final bioController = TextEditingController(text: _localGroupBio);
-
-    final bool? shouldSave = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Edit Group Info'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Group name',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: bioController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Group bio',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldSave != true) return;
-
-    final newName = nameController.text.trim();
-    final newBio = bioController.text.trim();
-
-    if (newName.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Group name cannot be empty.')),
-      );
-      return;
-    }
-
-    widget.onEditGroupInfo?.call(newName, newBio);
+    if (result == null) return;
+    widget.onEditGroupInfo?.call(result.name, result.bio);
     setState(() {
-      _localGroupName = newName;
-      _localGroupBio = newBio;
+      _localGroupName = result.name;
+      _localGroupBio = result.bio;
     });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Group info updated.')),
-      );
-    }
   }
 
   @override

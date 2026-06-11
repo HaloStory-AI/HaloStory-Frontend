@@ -26,6 +26,9 @@ import '../widgets/chat/bot_message_bubble.dart';
 import '../widgets/chat/typing_indicator.dart';
 import '../widgets/chat/compact_character_menu.dart';
 import '../widgets/chat/system_note_area.dart';
+import '../widgets/chat/chat_input_area.dart';
+import '../widgets/chat/edit_message_dialog.dart';
+import '../widgets/chat/edit_group_info_dialog.dart';
 import '../utils/chat_helpers.dart';
 import 'student_bio_screen.dart';
 
@@ -1775,98 +1778,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _messages[idx] = {..._messages[idx], 'metadata': meta};
   }
 
-  Future<void> _showEditGroupInfoDialog() async {
-    if (!_isGroup) return;
-
-    final nameController = TextEditingController(
-      text: _groupName.isNotEmpty ? _groupName : widget.bot['name'] ?? '',
-    );
-    final bioController = TextEditingController(text: _groupBio);
-
-    final bool? shouldSave = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Edit Group Info'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Group name',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: bioController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Group bio',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldSave != true) return;
-
-    final newName = nameController.text.trim();
-    final newBio = bioController.text.trim();
-
-    if (newName.isEmpty) {
-      if (!mounted || _isDisposed) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Group name cannot be empty.')),
-      );
-      return;
-    }
-
-    await _localChatService.updateGroupMetadata(
-      widget.bot['id'].toString(),
-      name: newName,
-      bio: newBio,
-      members: _groupMembers,
-    );
-    _syncMetadataToMessages(
-      name: newName,
-      bio: newBio,
-      members: _groupMembers,
-    );
-
-    if (!mounted || _isDisposed) return;
-
-    _safeSetState(() {
-      _groupName = newName;
-      _groupBio = newBio;
-      widget.bot['name'] = newName;
-      widget.bot['description'] = newBio;
-    });
-    _groupInfoChanged = true;
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Group info updated.')));
-  }
-
   Future<Directory> _getDownloadDir() async {
     Directory? baseDir;
     if (Platform.isAndroid) {
@@ -1977,7 +1888,37 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                 icon: Icon(Icons.more_vert, color: subtitleColor(context)),
                 onSelected: (value) async {
                   if (value == 'edit_group_info') {
-                    await _showEditGroupInfoDialog();
+                    final result = await showEditGroupInfoDialog(
+                      context: context,
+                      initialName: _groupName.isNotEmpty
+                          ? _groupName
+                          : widget.bot['name'] ?? '',
+                      initialBio: _groupBio,
+                    );
+                    if (result == null) return;
+                    await _localChatService.updateGroupMetadata(
+                      widget.bot['id'].toString(),
+                      name: result.name,
+                      bio: result.bio,
+                      members: _groupMembers,
+                    );
+                    _syncMetadataToMessages(
+                      name: result.name,
+                      bio: result.bio,
+                      members: _groupMembers,
+                    );
+                    if (!mounted || _isDisposed) return;
+                    _safeSetState(() {
+                      _groupName = result.name;
+                      _groupBio = result.bio;
+                      widget.bot['name'] = result.name;
+                      widget.bot['description'] = result.bio;
+                    });
+                    _groupInfoChanged = true;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Group info updated.')),
+                    );
                   } else if (value == 'export_txt') {
                     await _exportChat('txt');
                   } else if (value == 'export_json') {
@@ -2363,7 +2304,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                                           );
                                         },
                                         onEdit: () =>
-                                            _showEditMessageDialog(index),
+                                            showEditMessageDialog(
+                                              context: context,
+                                              initialContent:
+                                                  _messages[index]
+                                                      ['content'],
+                                              onSave: (newContent) async {
+                                                _safeSetState(() {
+                                                  _messages[index]
+                                                          ['content'] =
+                                                      newContent;
+                                                });
+                                                await _localChatService
+                                                    .saveChat(
+                                                  widget.bot['id'],
+                                                  _messages,
+                                                );
+                                              },
+                                            ),
                                       ),
                                   child: bubble,
                                 );
@@ -2449,7 +2407,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       onClose: () =>
                           _safeSetState(() => _isSystemNoteOpen = false),
                     ),
-                    _buildInputArea(),
+                    ChatInputArea(
+                      isGroup: _isGroup,
+                      leadingAvatar: _buildLeftInputIcon(),
+                      onToggleCharacterMenu: () => _safeSetState(
+                          () => _isCharacterMenuOpen = !_isCharacterMenuOpen),
+                      messageController: _messageController,
+                      hintText: _isGroup
+                          ? 'Chatting with ${_selectedBotId == 'random' ? 'someone' : _groupMembers.firstWhere((m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId, orElse: () => {'name': widget.bot['name']})['name']}'
+                          : '${tr('tab_chat')} ${widget.bot['name']}',
+                      isSendEnabled:
+                          !_isTypingEffectActive && !_isSummarizing,
+                      onSend: _sendMessage,
+                      isSystemNoteOpen: _isSystemNoteOpen,
+                      onToggleSystemNote: () => _safeSetState(
+                          () => _isSystemNoteOpen = !_isSystemNoteOpen),
+                    ),
                   ],
                 ),
               ),
@@ -2580,182 +2553,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
               ),
             )
           : null,
-    );
-  }
-
-  Widget _buildInputArea() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
-          decoration: BoxDecoration(color: colorScheme.surfaceContainer),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (_isGroup) ...[
-                      Container(
-                        margin: const EdgeInsets.only(left: 4),
-                        decoration: const BoxDecoration(shape: BoxShape.circle),
-                        child: IconButton(
-                          onPressed: () {
-                            _safeSetState(() {
-                              _isCharacterMenuOpen = !_isCharacterMenuOpen;
-                            });
-                          },
-                          icon: _buildLeftInputIcon(),
-                          iconSize: 34,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 34,
-                            minHeight: 34,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                    ] else ...[
-                      SystemNoteIconButton(
-                        isOpen: _isSystemNoteOpen,
-                        onToggle: () => _safeSetState(
-                            () => _isSystemNoteOpen = !_isSystemNoteOpen),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: colorScheme.surfaceContainerHighest,
-                          hintText: _isGroup
-                              ? 'Chatting with ${_selectedBotId == 'random' ? 'someone' : _groupMembers.firstWhere((m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId, orElse: () => {'name': widget.bot['name']})['name']}'
-                              : '${tr('tab_chat')} ${widget.bot['name']}',
-                          hintStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.7,
-                            ),
-                            fontSize: 14,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                        ),
-                        onSubmitted: (_) {
-                          if (!_isTypingEffectActive && !_isSummarizing) {
-                            _sendMessage();
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    if (_isGroup) ...[
-                      SystemNoteIconButton(
-                        isOpen: _isSystemNoteOpen,
-                        onToggle: () => _safeSetState(
-                            () => _isSystemNoteOpen = !_isSystemNoteOpen),
-                      )
-                    ],
-                    GestureDetector(
-                      onTap: (_isTypingEffectActive || _isSummarizing)
-                          ? null
-                          : _sendMessage,
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 4),
-                        padding: const EdgeInsets.all(6),
-                        child: Icon(
-                          Icons.send,
-                          color: (_isTypingEffectActive || _isSummarizing)
-                              ? colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.5,
-                                )
-                              : colorScheme.primary,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  tr('chat_fictional_disclaimer'),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: subtitleColor(context),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showEditMessageDialog(int index) {
-    final TextEditingController editController = TextEditingController(
-      text: _messages[index]['content'],
-    );
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(tr('chat_edit_message')),
-        content: TextField(
-          controller: editController,
-          maxLines: 10,
-          minLines: 1,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(tr('btn_skip')),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              _safeSetState(() {
-                _messages[index]['content'] = editController.text;
-              });
-              await _localChatService.saveChat(widget.bot['id'], _messages);
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-              }
-            },
-            child: Text(tr('settings_save_btn')),
-          ),
-        ],
-      ),
     );
   }
 
