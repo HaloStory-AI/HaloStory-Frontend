@@ -45,7 +45,8 @@ lib/
 │   ├── home_screen.dart        # Tab container (mobile)
 │   ├── desktop_home_screen.dart
 │   ├── pin_screen.dart         # 6-digit PIN entry (SHA-256 hashed)
-│   ├── chat_screen.dart        # Chat detail (messages, bond, AI)
+│   ├── chat_screen.dart        # Chat detail (messages, AI) — opens StudentBioScreen via Navigator.push
+│   ├── student_bio_screen.dart # Full-screen bio: avatar, description, bond, group members, translate
 │   ├── select_contact_screen.dart
 │   ├── settings_screen.dart    # Settings hub → sub-pages
 │   ├── settings/               # Sub-pages: privacy, backup, AI engine, appearance, general, developer
@@ -85,6 +86,14 @@ lib/
 - Bearer token in headers
 - PIN stored as SHA-256 hash, never plain text
 
+### StudentBioScreen (`lib/screens/student_bio_screen.dart`)
+- Full-screen bio page opened via `Navigator.push` from chat header tap
+- Fetches its own bond data via API (`_loadBondData`)
+- Single chat: inline bond card (hearts, Lv, XP progress)
+- Group chat: bond hearts next to each member name
+- Translate button: always shown for single chats with description (Google Translate API)
+- Group ops (kick, add, edit info) callback to parent chat_screen
+
 ## App Init Flow (`splash_screen.dart`)
 
 ```
@@ -107,3 +116,4 @@ Background: `main.dart` runs 2-min periodic timer for server ping + ban check.
 - Bot data cached aggressively (memory + SharedPreferences)
 - PIN: SHA-256 hash stored in SharedPreferences
 - API base URL: hardcoded dev URL in debug mode, remote config via `ConfigService` in release
+- Translate button: always visible for single chat description, regardless of app language

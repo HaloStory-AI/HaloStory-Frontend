@@ -22,6 +22,8 @@ import '../services/localization_service.dart';
 import '../services/wallpaper_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/chat/dot_animation.dart';
+import '../widgets/chat/bond_explosion_effect.dart';
 import 'student_bio_screen.dart';
 
 @Preview(name: 'Chat Detail Screen', size: Size(390, 844))
@@ -2389,7 +2391,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             children: [
               if (_showExplosion)
                 Positioned.fill(
-                  child: _BondExplosionEffect(
+                  child: BondExplosionEffect(
                     onFinished: () {
                       _safeSetState(() => _showExplosion = false);
                     },
@@ -2750,11 +2752,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _DotAnim(delay: 0),
+                    DotAnim(delay: 0),
                     SizedBox(width: 4),
-                    _DotAnim(delay: 0.2),
+                    DotAnim(delay: 0.2),
                     SizedBox(width: 4),
-                    _DotAnim(delay: 0.4),
+                    DotAnim(delay: 0.4),
                   ],
                 ),
               ),
@@ -3028,11 +3030,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _DotAnim(delay: 0),
+                          DotAnim(delay: 0),
                           SizedBox(width: 4),
-                          _DotAnim(delay: 0.2),
+                          DotAnim(delay: 0.2),
                           SizedBox(width: 4),
-                          _DotAnim(delay: 0.4),
+                          DotAnim(delay: 0.4),
                         ],
                       ),
                     ),
@@ -3510,193 +3512,4 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Visual Effect: Bond Explosion (Particle Hearts)
-// ─────────────────────────────────────────────────────────────────────────────
-class _BondExplosionEffect extends StatefulWidget {
-  final VoidCallback onFinished;
-  const _BondExplosionEffect({required this.onFinished});
 
-  @override
-  State<_BondExplosionEffect> createState() => _BondExplosionEffectState();
-}
-
-class _BondExplosionEffectState extends State<_BondExplosionEffect>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  final List<_Particle> _particles = [];
-  final int _count = 50;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    );
-
-    final random = math.Random();
-    for (int i = 0; i < _count; i++) {
-      _particles.add(_Particle(random));
-    }
-
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
-
-    _controller.forward().then((_) => widget.onFinished());
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: CustomPaint(
-        painter: _ParticlePainter(_particles, _controller.value),
-        child: Container(),
-      ),
-    );
-  }
-}
-
-class _Particle {
-  late double x, y;
-  late double vx, vy;
-  late double size;
-  late Color color;
-
-  _Particle(math.Random rand) {
-    x = 0.5;
-    y = 0.4; // Explode from slightly above center (near avatar area)
-    final angle = rand.nextDouble() * 2 * math.pi;
-    final speed = 0.05 + rand.nextDouble() * 0.15;
-    vx = math.cos(angle) * speed;
-    vy = math.sin(angle) * speed;
-    size = 12.0 + rand.nextDouble() * 20.0;
-    color = rand.nextBool() ? Colors.pinkAccent : Colors.redAccent;
-  }
-}
-
-class _ParticlePainter extends CustomPainter {
-  final List<_Particle> particles;
-  final double progress;
-  _ParticlePainter(this.particles, this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-    for (var p in particles) {
-      final t = progress;
-      final dx = size.width * (p.x + p.vx * t);
-      final dy = size.height * (p.y + p.vy * t - 0.15 * t * t);
-
-      final fade = (1.0 - t).clamp(0.0, 1.0);
-      paint.color = p.color.withValues(alpha: fade);
-
-      final heartSize = p.size * (0.5 + t);
-      _drawHeart(canvas, Offset(dx, dy), heartSize, paint);
-    }
-  }
-
-  void _drawHeart(Canvas canvas, Offset center, double size, Paint paint) {
-    final path = Path();
-    final width = size;
-    final height = size;
-
-    path.moveTo(center.dx, center.dy + height * 0.35);
-    path.cubicTo(
-      center.dx + width * 0.1,
-      center.dy,
-      center.dx + width * 0.5,
-      center.dy,
-      center.dx + width * 0.5,
-      center.dy + height * 0.35,
-    );
-    path.cubicTo(
-      center.dx + width * 0.5,
-      center.dy + height * 0.6,
-      center.dx + width * 0.25,
-      center.dy + height * 0.85,
-      center.dx,
-      center.dy + height,
-    );
-    path.cubicTo(
-      center.dx - width * 0.25,
-      center.dy + height * 0.85,
-      center.dx - width * 0.5,
-      center.dy + height * 0.6,
-      center.dx - width * 0.5,
-      center.dy + height * 0.35,
-    );
-    path.cubicTo(
-      center.dx - width * 0.5,
-      center.dy,
-      center.dx - width * 0.1,
-      center.dy,
-      center.dx,
-      center.dy + height * 0.35,
-    );
-    path.close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class _DotAnim extends StatefulWidget {
-  final double delay;
-  const _DotAnim({required this.delay});
-
-  @override
-  State<_DotAnim> createState() => _DotAnimState();
-}
-
-class _DotAnimState extends State<_DotAnim>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _animation = Tween<double>(
-      begin: 0.3,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-
-    Future.delayed(Duration(milliseconds: (widget.delay * 1000).toInt()), () {
-      if (mounted) _controller.repeat(reverse: true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return FadeTransition(
-      opacity: _animation,
-      child: Container(
-        width: 6,
-        height: 6,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-    );
-  }
-}
