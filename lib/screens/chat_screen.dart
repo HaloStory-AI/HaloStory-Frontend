@@ -24,6 +24,8 @@ import '../widgets/chat/message_options_sheet.dart';
 import '../widgets/chat/user_message_bubble.dart';
 import '../widgets/chat/bot_message_bubble.dart';
 import '../widgets/chat/typing_indicator.dart';
+import '../widgets/chat/compact_character_menu.dart';
+import '../widgets/chat/system_note_area.dart';
 import '../utils/chat_helpers.dart';
 import 'student_bio_screen.dart';
 
@@ -2424,7 +2426,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                             child: AnimatedOpacity(
                               duration: const Duration(milliseconds: 200),
                               opacity: _isCharacterMenuOpen ? 1.0 : 0.0,
-                              child: _buildCompactCharacterMenu(),
+                              child: CompactCharacterMenu(
+                                groupMembers: _groupMembers,
+                                selectedBotId: _selectedBotId,
+                                onSelected: (id) {
+                                  _saveSelectedBot(id!);
+                                  _safeSetState(
+                                      () => _isCharacterMenuOpen = false);
+                                },
+                              ),
                             ),
                           ),
                         ],
@@ -2432,7 +2442,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                     ),
                     if (_isLoading)
                       _buildTypingIndicatorWidget(),
-                    _buildSystemNoteArea(),
+                    SystemNoteArea(
+                      isOpen: _isSystemNoteOpen,
+                      controller: _systemNoteController,
+                      onChanged: (_) => _saveSystemNote(),
+                      onClose: () =>
+                          _safeSetState(() => _isSystemNoteOpen = false),
+                    ),
                     _buildInputArea(),
                   ],
                 ),
@@ -2516,68 +2532,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     );
   }
 
-  Widget _buildSystemNoteArea() {
-    if (!_isSystemNoteOpen) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      decoration: BoxDecoration(
-        color: surfaceBackground(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: fieldBorderColor(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  tr('chat_system_note'),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    _safeSetState(() {
-                      _isSystemNoteOpen = false;
-                    });
-                  },
-                  child: Icon(
-                    Icons.close,
-                    color: subtitleColor(context),
-                    size: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextField(
-            controller: _systemNoteController,
-            maxLines: 3,
-            minLines: 1,
-            style: TextStyle(color: titleColor(context), fontSize: 13),
-            onChanged: (_) => _saveSystemNote(),
-            decoration: InputDecoration(
-              hintText: tr('chat_system_note_hint'),
-              hintStyle: TextStyle(color: hintColor(context), fontSize: 12),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildLeftInputIcon() {
     if (_isGroup && _selectedBotId == 'random') {
       return CircleAvatar(
@@ -2629,117 +2583,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     );
   }
 
-  Widget _buildCompactCharacterMenu() {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.5,
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: surfaceBackground(context),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ..._groupMembers.map((member) {
-              final memberId =
-                  member['bot_id']?.toString() ?? member['id']?.toString();
-              final isSelected = _selectedBotId == memberId;
-              final color = parseColor(member['color']);
-
-              return GestureDetector(
-                onTap: () {
-                  _saveSelectedBot(memberId!);
-                  _safeSetState(() => _isCharacterMenuOpen = false);
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? color : Colors.transparent,
-                      width: 2.5,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: color,
-                    backgroundImage: member['image_url'] != null
-                        ? NetworkImage(member['image_url'])
-                        : (member['avatar'] != null
-                              ? NetworkImage(member['avatar'])
-                              : null),
-                    child:
-                        (member['image_url'] == null &&
-                            member['avatar'] == null)
-                        ? Text(
-                            (member['name'] as String)[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-              );
-            }),
-            GestureDetector(
-              onTap: () {
-                _saveSelectedBot('random');
-                _safeSetState(() => _isCharacterMenuOpen = false);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _selectedBotId == 'random'
-                        ? Colors.orange
-                        : Colors.transparent,
-                    width: 2.5,
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: _selectedBotId == 'random'
-                      ? Colors.orange.withValues(alpha: 0.1)
-                      : Colors.transparent,
-                  child: Icon(
-                    Icons.shuffle,
-                    size: 22,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSystemNoteIconButton() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return IconButton(
-      onPressed: () =>
-          _safeSetState(() => _isSystemNoteOpen = !_isSystemNoteOpen),
-      icon: Icon(
-        _isSystemNoteOpen ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined,
-        color: _isSystemNoteOpen
-            ? colorScheme.primary
-            : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-      ),
-      iconSize: 22,
-      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-      padding: const EdgeInsets.all(4),
-    );
-  }
-
   Widget _buildInputArea() {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
@@ -2776,7 +2619,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       ),
                       const SizedBox(width: 4),
                     ] else ...[
-                      _buildSystemNoteIconButton(),
+                      SystemNoteIconButton(
+                        isOpen: _isSystemNoteOpen,
+                        onToggle: () => _safeSetState(
+                            () => _isSystemNoteOpen = !_isSystemNoteOpen),
+                      ),
                       const SizedBox(width: 4),
                     ],
                     Expanded(
@@ -2830,7 +2677,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    if (_isGroup) ...[_buildSystemNoteIconButton()],
+                    if (_isGroup) ...[
+                      SystemNoteIconButton(
+                        isOpen: _isSystemNoteOpen,
+                        onToggle: () => _safeSetState(
+                            () => _isSystemNoteOpen = !_isSystemNoteOpen),
+                      )
+                    ],
                     GestureDetector(
                       onTap: (_isTypingEffectActive || _isSummarizing)
                           ? null
