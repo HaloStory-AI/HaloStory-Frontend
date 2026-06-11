@@ -64,3 +64,11 @@ mixin ChatHelpers {
     return '${DateFormat('MMMM d').format(dt)} at ${DateFormat('h:mm a').format(dt)}';
   }
 }
+
+String filterItalics(String text, bool enabled) {
+  if (!enabled) return text;
+  String filtered = text
+      .replaceAll(RegExp(r'\*(?!\*)[^*]+\*'), '')
+      .replaceAll(RegExp(r'_(?!_)[^_]+_'), '');
+  return filtered.trim();
+}

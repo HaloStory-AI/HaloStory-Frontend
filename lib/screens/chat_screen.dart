@@ -12,18 +12,18 @@ import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:markdown/markdown.dart' as md;
 import 'package:intl/intl.dart';
 import '../constants.dart';
 
 import '../services/localization_service.dart';
 import '../widgets/skeleton_loader.dart';
-import '../widgets/chat/dot_animation.dart';
 import '../widgets/chat/bond_explosion_effect.dart';
 import '../widgets/chat/safety_bar.dart';
 import '../widgets/chat/delete_bottom_sheet.dart';
 import '../widgets/chat/message_options_sheet.dart';
+import '../widgets/chat/user_message_bubble.dart';
+import '../widgets/chat/bot_message_bubble.dart';
+import '../widgets/chat/typing_indicator.dart';
 import '../utils/chat_helpers.dart';
 import 'student_bio_screen.dart';
 
@@ -172,18 +172,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _safeSetState(() {
       _hideItalics = value;
     });
-  }
-
-  String _filterItalics(String text) {
-    if (!_hideItalics) return text;
-    // Remove text wrapped in single asterisks or underscores.
-    // Uses non-greedy matches to avoid over-matching.
-    String filtered = text
-        .replaceAll(RegExp(r'\*(?!\*)[^*]+\*'), '')
-        .replaceAll(RegExp(r'_(?!_)[^_]+_'), '');
-
-    // Clean up empty lines or double spaces left behind
-    return filtered.trim();
   }
 
   @override
@@ -2276,21 +2264,51 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                                     msg['content']?.toString() ?? '';
 
                                 final bubble = isUser
-                                    ? _buildUserBubble(
-                                        content,
-                                        timestamp,
-                                        index,
+                                    ? UserMessageBubble(
+                                        content: filterItalics(
+                                          content,
+                                          _hideItalics,
+                                        ),
+                                        timestampStr:
+                                            formatMessageTime(timestamp),
                                         status: msg['status']?.toString(),
-                                      )
-                                    : _buildBotBubble(
-                                        msg,
-                                        timestamp,
-                                        index,
-                                        visibleParts:
-                                            msg['visible_parts'] as int?,
-                                        isTypingNext:
-                                            msg['is_typing_next'] == true,
-                                      );
+                                        maxWidth: MediaQuery.of(context)
+                                                .size
+                                                .width *
+                                             0.7,
+                                       )
+                                     : BotMessageBubble(
+                                         content:
+                                             msg['content']?.toString() ?? '',
+                                         timestampStr:
+                                             formatMessageTime(timestamp),
+                                         visibleParts:
+                                             msg['visible_parts'] as int?,
+                                         isTypingNext:
+                                             msg['is_typing_next'] == true,
+                                         hideItalics: _hideItalics,
+                                         maxWidth: MediaQuery.of(context)
+                                                 .size
+                                                 .width *
+                                             0.65,
+                                         botName: _resolveBotName(
+                                                 msg['bot_id']) ??
+                                             widget.bot['name'],
+                                         botAvatarUrl:
+                                             _resolveBotAvatar(msg['bot_id']),
+                                         botColor:
+                                             _resolveBotColor(msg['bot_id']),
+                                         titleTextColor: textOnWallpaper(
+                                             context,
+                                             titleColor(context)),
+                                         timestampColor: subtextOnWallpaper(
+                                             context,
+                                             Theme.of(context)
+                                                 .colorScheme
+                                                 .onSurfaceVariant),
+                                         bubbleBgColor:
+                                             botBubbleBackground(context),
+                                       );
 
                                 return GestureDetector(
                                   onLongPress: () =>
@@ -2412,7 +2430,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                         ],
                       ),
                     ),
-                    if (_isLoading) _buildTypingIndicator(),
+                    if (_isLoading)
+                      _buildTypingIndicatorWidget(),
                     _buildSystemNoteArea(),
                     _buildInputArea(),
                   ],
@@ -2469,8 +2488,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     return parseColor(widget.bot['color']);
   }
 
-  Widget _buildTypingIndicator() {
-    // Prefer to show the author of the message that's currently typing
+  Widget _buildTypingIndicatorWidget() {
     Map<String, dynamic>? typingMsg;
     for (var i = _messages.length - 1; i >= 0; i--) {
       final m = _messages[i];
@@ -2484,348 +2502,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
         ? typingMsg['bot_id']?.toString()
         : (_isLoading ? _activeBotId : _selectedBotId);
 
-    final displayName = _resolveBotName(effectiveBotId) ?? widget.bot['name'];
+    final displayName =
+        _resolveBotName(effectiveBotId) ?? widget.bot['name'];
     final avatarUrl = _resolveBotAvatar(effectiveBotId);
     final bgColor = _resolveBotColor(effectiveBotId);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: bgColor,
-            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl == null
-                ? Text(
-                    displayName[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                displayName,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: titleColor(context),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: botBubbleBackground(context),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    topRight: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DotAnim(delay: 0),
-                    SizedBox(width: 4),
-                    DotAnim(delay: 0.2),
-                    SizedBox(width: 4),
-                    DotAnim(delay: 0.4),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUserBubble(
-    String content,
-    DateTime? timestamp,
-    int index, {
-    String? status,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    Widget buildStatusIcon() {
-      if (status == 'sending') {
-        return Icon(
-          Icons.access_time,
-          size: 12,
-          color: Colors.white,
-        );
-      } else if (status == 'sent') {
-        return Icon(Icons.check, size: 14, color: Colors.white);
-      } else if (status == 'processing' || status == 'completed') {
-        return Icon(Icons.done_all, size: 14, color: Colors.white);
-      }
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (timestamp != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4, right: 4),
-              child: Text(
-                formatMessageTime(timestamp),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: subtextOnWallpaper(context, colorScheme.onSurfaceVariant),
-                ),
-              ),
-            ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(0),
-                ),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.7,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    MarkdownBody(
-                      data: _filterItalics(content),
-                      selectable: false,
-                      extensionSet: md.ExtensionSet(
-                        md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                        <md.InlineSyntax>[
-                          md.EmojiSyntax(),
-                          ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-                        ],
-                      ),
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                          color: colorScheme.onPrimary,
-                          fontSize: 14,
-                        ),
-                        strong: TextStyle(
-                          color: colorScheme.onPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        em: TextStyle(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.86),
-                          fontStyle: FontStyle.italic,
-                        ),
-                        listBullet: TextStyle(color: colorScheme.onPrimary),
-                      ),
-                    ),
-                    if (status != null) ...[
-                      const SizedBox(height: 4),
-                      buildStatusIcon(),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBotBubble(
-    Map<String, dynamic> msg,
-    DateTime? timestamp,
-    int index, {
-    int? visibleParts,
-    bool isTypingNext = false,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final content = msg['content']?.toString() ?? '';
-    final parts = content
-        .split('\n\n')
-        .where((s) => s.trim().isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return const SizedBox.shrink();
-
-    final partsToRender = visibleParts != null
-        ? parts.take(visibleParts).toList()
-        : parts;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: _resolveBotColor(msg['bot_id']),
-            backgroundImage: _resolveBotAvatar(msg['bot_id']) != null
-                ? NetworkImage(_resolveBotAvatar(msg['bot_id'])!)
-                : null,
-            child: _resolveBotAvatar(msg['bot_id']) == null
-                ? Text(
-                    (_resolveBotName(msg['bot_id']) ?? widget.bot['name'])[0]
-                        .toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      _resolveBotName(msg['bot_id']) ?? widget.bot['name'],
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: textOnWallpaper(context, titleColor(context)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (timestamp != null)
-                      Text(
-                        formatMessageTime(timestamp),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: subtextOnWallpaper(context, colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ...partsToRender.asMap().entries.map((entry) {
-                  int idx = entry.key;
-                  String part = entry.value;
-                  bool isFirst = idx == 0;
-
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      bottom: idx == partsToRender.length - 1 ? 0 : 4,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: botBubbleBackground(context),
-                        borderRadius: BorderRadius.only(
-                          topLeft: isFirst
-                              ? const Radius.circular(2)
-                              : const Radius.circular(12),
-                          topRight: const Radius.circular(12),
-                          bottomLeft: const Radius.circular(12),
-                          bottomRight: const Radius.circular(12),
-                        ),
-                      ),
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.65,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          MarkdownBody(
-                            data: _filterItalics(part),
-                            selectable: false,
-                            extensionSet: md.ExtensionSet(
-                              md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                              <md.InlineSyntax>[
-                                md.EmojiSyntax(),
-                                ...md
-                                    .ExtensionSet
-                                    .gitHubFlavored
-                                    .inlineSyntaxes,
-                              ],
-                            ),
-                            styleSheet: MarkdownStyleSheet(
-                              p: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontSize: 14,
-                                height: 1.4,
-                              ),
-                              strong: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              em: TextStyle(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.86,
-                                ),
-                                fontStyle: FontStyle.italic,
-                              ),
-                              code: TextStyle(
-                                color: colorScheme.primary,
-                                backgroundColor: colorScheme.surfaceContainer,
-                                fontSize: 14,
-                              ),
-                              codeblockDecoration: BoxDecoration(
-                                color: colorScheme.surfaceContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              listBullet: TextStyle(
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-                if (isTypingNext)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: botBubbleBackground(context),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          topRight: Radius.circular(12),
-                          bottomLeft: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          DotAnim(delay: 0),
-                          SizedBox(width: 4),
-                          DotAnim(delay: 0.2),
-                          SizedBox(width: 4),
-                          DotAnim(delay: 0.4),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return TypingIndicator(
+      botName: displayName,
+      botAvatarUrl: avatarUrl,
+      botColor: bgColor,
+      titleColor: titleColor(context),
+      bubbleBgColor: botBubbleBackground(context),
     );
   }
 
