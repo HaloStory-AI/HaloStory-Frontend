@@ -14,6 +14,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
   String _selectedProvider = 'System';
   bool _aiReasoningEnabled = false;
   bool _realtimeDateTimeEnabled = false;
+  bool _bondDisabled = false;
   final List<String> _providers = ['System', 'BYOK'];
 
   @override
@@ -35,6 +36,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
       }
       _aiReasoningEnabled = prefs.getBool('ai_reasoning_enabled') ?? false;
       _realtimeDateTimeEnabled = prefs.getBool('realtime_date_time_enabled') ?? false;
+      _bondDisabled = prefs.getBool('bond_disabled') ?? false;
     });
   }
 
@@ -43,6 +45,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
     await prefs.setString('default_provider', _selectedProvider);
     await prefs.setBool('ai_reasoning_enabled', _aiReasoningEnabled);
     await prefs.setBool('realtime_date_time_enabled', _realtimeDateTimeEnabled);
+    await prefs.setBool('bond_disabled', _bondDisabled);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -157,6 +160,33 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
                 activeThumbColor: colorScheme.primary,
                 onChanged: (bool value) {
                   setState(() => _realtimeDateTimeEnabled = value);
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Section: Disable Bond System ──
+            Container(
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SwitchListTile(
+                title: Text(
+                  tr('settings_bond_disabled_title'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
+                subtitle: Text(
+                  tr('settings_bond_disabled_desc'),
+                  style: TextStyle(color: textColor.withValues(alpha: 0.7)),
+                ),
+                value: _bondDisabled,
+                activeThumbColor: colorScheme.primary,
+                onChanged: (bool value) {
+                  setState(() => _bondDisabled = value);
                 },
               ),
             ),

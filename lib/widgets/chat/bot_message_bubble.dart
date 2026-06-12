@@ -70,26 +70,13 @@ class BotMessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      botName,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: titleTextColor,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (timestampStr != null)
-                      Text(
-                        timestampStr!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: timestampColor,
-                        ),
-                      ),
-                  ],
+                Text(
+                  botName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: titleTextColor,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 ...partsToRender.asMap().entries.map((entry) {
@@ -161,6 +148,21 @@ class BotMessageBubble extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (timestampStr != null &&
+                              idx == partsToRender.length - 1)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  timestampStr!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: timestampColor,
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),

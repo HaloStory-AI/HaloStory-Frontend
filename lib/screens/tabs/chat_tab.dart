@@ -39,6 +39,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   // padahal disini katanya isn't used
   // but it's used here.
   bool _isLoadingChats = true;
+  bool _bondDisabled = false;
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
   bool _showSyncNotice = true;
@@ -255,6 +256,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadActiveChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    _bondDisabled = prefs.getBool('bond_disabled') ?? false;
     final chatMetadata = await _localChatService.getAllChatMetadata();
     final pinnedIds = await _localChatService.getPinnedChats();
 
@@ -1268,7 +1271,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
             title: Row(
               children: [
                 Text(
-                  chat['name'],
+                  (chat['name'] as String).length > 15
+                      ? '${(chat['name'] as String).substring(0, 15)}...'
+                      : chat['name'],
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -1293,33 +1298,35 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
             trailing: isGroupChat
                 ? const SizedBox.shrink()
-                : Container(
-                    width: 45,
-                    height: 45,
-                    margin: const EdgeInsets.only(left: 8),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(
-                          Icons.favorite,
-                          color: Color(0xFFE462B5),
-                          size: 43,
+                : _bondDisabled
+                    ? const SizedBox.shrink()
+                    : Container(
+                        width: 45,
+                        height: 45,
+                        margin: const EdgeInsets.only(left: 8),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Icon(
+                              Icons.favorite,
+                              color: Color(0xFFE462B5),
+                              size: 43,
+                            ),
+                            const Icon(
+                              Icons.favorite,
+                              color: Color(0xFFF3B7D1),
+                              size: 39,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                bondLevel,
+                                style: _bondCountStyle(context),
+                              ),
+                            ),
+                          ],
                         ),
-                        const Icon(
-                          Icons.favorite,
-                          color: Color(0xFFF3B7D1),
-                          size: 39,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            bondLevel,
-                            style: _bondCountStyle(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
             onTap: () async {
               if (_selectedChatIds.isNotEmpty) {
                 _toggleChatSelection(chatId);

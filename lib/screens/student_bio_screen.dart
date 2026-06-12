@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../services/auth_service.dart';
 import '../services/localization_service.dart';
@@ -48,6 +49,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   // Bond state
   Map<String, dynamic>? _bondData;
   bool _isBondLoading = true;
+  bool _bondDisabled = false;
 
   @override
   void initState() {
@@ -55,7 +57,17 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     _localMembers = List<Map<String, dynamic>>.from(widget.groupMembers);
     _localGroupName = widget.groupName;
     _localGroupBio = widget.groupBio;
+    _loadBondSetting();
     _loadBondData();
+  }
+
+  Future<void> _loadBondSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _bondDisabled = prefs.getBool('bond_disabled') ?? false;
+      });
+    }
   }
 
   String get _appLanguageCode => LocalizationService().currentLocale;
@@ -478,7 +490,10 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
             if (widget.isGroup)
               _buildGroupMembersSection()
             else ...[
-              if (!_isBondLoading) _buildSingleBondCard(),
+              if (!_isBondLoading)
+                _bondDisabled
+                    ? _buildBondDisabledPlaceholder()
+                    : _buildSingleBondCard(),
               if (!_isBondLoading) const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -617,6 +632,39 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
                 backgroundColor: Colors.pink.shade50,
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   Color(0xFFFB6F9D),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBondDisabledPlaceholder() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.favorite_border,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              size: 32,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                tr('bond_disabled_placeholder'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -768,6 +816,28 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               ),
             ),
           ),
+          if (_bondDisabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.favorite_border,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    tr('bond_disabled_placeholder'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
           if (_localMembers.isEmpty)
             Padding(
@@ -823,7 +893,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
                         ),
                       ),
                     ),
-                    if (!_isBondLoading)
+                    if (!_isBondLoading && !_bondDisabled)
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: Row(

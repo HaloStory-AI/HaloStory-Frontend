@@ -26,6 +26,8 @@ class AIService {
     List<String>? botIds,
     String? language,
     String? summary,
+    bool bondDisabled = false,
+    bool isGroup = false,
   }) async {
     final token = await _authService.getToken();
     if (token == null) return null;
@@ -89,6 +91,8 @@ class AIService {
           actualLanguage,
           advancedParams,
           summary,
+          bondDisabled,
+          isGroup,
         );
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
@@ -108,6 +112,8 @@ class AIService {
           baseUrl,
           advancedParams,
           summary,
+          bondDisabled,
+          isGroup,
         );
       } else if (mode == 'BYOM') {
         final endpoint =
@@ -217,6 +223,8 @@ class AIService {
     String? language,
     Map<String, dynamic> advancedParams,
     String? summary,
+    bool bondDisabled,
+    bool isGroup,
   ) async {
     final response = await http.post(
       Uri.parse(AppConstants.chatSystemUrl),
@@ -231,6 +239,8 @@ class AIService {
         'bot_ids': botIds,
         'language': language,
         'summary': summary,
+        if (bondDisabled) 'isdisabledbond': true,
+        if (isGroup) 'is_group': true,
         ...advancedParams,
       }),
     );
@@ -264,6 +274,8 @@ class AIService {
     String baseUrl,
     Map<String, dynamic> advancedParams,
     String? summary,
+    bool bondDisabled,
+    bool isGroup,
   ) async {
     // Dynamic endpoint for BYOK
     final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
@@ -284,6 +296,8 @@ class AIService {
         'model': model,
         'base_url': baseUrl,
         'summary': summary,
+        if (bondDisabled) 'isdisabledbond': true,
+        if (isGroup) 'is_group': true,
         ...advancedParams,
       }),
     );

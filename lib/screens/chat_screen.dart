@@ -920,14 +920,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     String language = prefs.getString('app_language') ?? 'Indonesian';
 
     final bool realtimeDateTime = prefs.getBool('realtime_date_time_enabled') ?? false;
+    final bool bondDisabled = prefs.getBool('bond_disabled') ?? false;
     if (realtimeDateTime) {
       final timeTag = DateFormat("'[this message sent at 'dd/MM/yyyy HH:mm:ss']'").format(DateTime.now());
       final List<Map<String, String>> injected = [];
       for (final msg in aiMessages) {
-        injected.add(msg);
         if (msg['role'] == 'user' && msg['content'] != '[Continue]') {
           injected.add({'role': 'user', 'content': timeTag});
         }
+        injected.add(msg);
       }
       aiMessages = injected;
     }
@@ -957,6 +958,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
             : null,
         language: language,
         summary: summaryPrompt,
+        bondDisabled: bondDisabled,
+        isGroup: _isGroup,
       );
 
       if (!mounted || _isDisposed) return;
@@ -1054,6 +1057,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     bool shouldStartTyping = false;
     int partsLength = 0;
 
+    final prefsBond = await SharedPreferences.getInstance();
+    final bondNowDisabled = prefsBond.getBool('bond_disabled') ?? false;
+
     _safeSetState(() {
       _isLoading = false;
       _activeBotId = null;
@@ -1107,7 +1113,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       }
 
       // Update bond state from response
-      if (response != null) {
+      if (response != null && !bondNowDisabled) {
         _bondStatus = response['bond_status'] ?? _bondStatus;
         _bondRelationship = response['relationship_label'] ?? _bondRelationship;
         _bondLevel = (response['bond_level'] as int?) ?? _bondLevel;
@@ -1123,12 +1129,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     }
     _scrollToBottom();
 
-    if (_pendingBondEvent != null) {
+    if (_pendingBondEvent != null && !bondNowDisabled) {
       final evt = _pendingBondEvent!;
       _pendingBondEvent = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_isDisposed) _handleBondEvent(evt);
       });
+    } else {
+      _pendingBondEvent = null;
     }
   }
 
@@ -1854,11 +1862,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                         Row(
                           children: [
                             Text(
-                              _isGroup
-                                  ? (_groupName.isNotEmpty
-                                        ? _groupName
-                                        : widget.bot['name'])
-                                  : widget.bot['name'],
+                              () {
+                                final raw = _isGroup
+                                    ? (_groupName.isNotEmpty
+                                          ? _groupName
+                                          : widget.bot['name'])
+                                    : widget.bot['name'];
+                                return raw.length > 15
+                                    ? '${raw.substring(0, 15)}...'
+                                    : raw;
+                              }(),
                               style: TextStyle(
                                 color: titleColor(context),
                                 fontSize: 16,
@@ -2413,8 +2426,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                           () => _isCharacterMenuOpen = !_isCharacterMenuOpen),
                       messageController: _messageController,
                       hintText: _isGroup
-                          ? 'Chatting with ${_selectedBotId == 'random' ? 'someone' : _groupMembers.firstWhere((m) => (m['bot_id']?.toString() ?? m['id']?.toString()) == _selectedBotId, orElse: () => {'name': widget.bot['name']})['name']}'
-                          : '${tr('tab_chat')} ${widget.bot['name']}',
+                          ? () {
+                              final memberName = _selectedBotId == 'random'
+                                  ? 'someone'
+                                  : _groupMembers.firstWhere(
+                                      (m) => (m['bot_id']?.toString() ??
+                                              m['id']?.toString()) ==
+                                          _selectedBotId,
+                                      orElse: () => {
+                                        'name': widget.bot['name']
+                                      })['name'];
+                              final truncated = memberName.length > 15
+                                  ? '${memberName.substring(0, 15)}...'
+                                  : memberName;
+                              return 'Chatting with $truncated';
+                            }()
+                          : '${tr('tab_chat')} ${(widget.bot['name'] as String).length > 15 ? '${(widget.bot['name'] as String).substring(0, 15)}...' : widget.bot['name']}',
                       isSendEnabled:
                           !_isTypingEffectActive && !_isSummarizing,
                       onSend: _sendMessage,

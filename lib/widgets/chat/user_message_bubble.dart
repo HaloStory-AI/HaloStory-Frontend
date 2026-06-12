@@ -33,74 +33,68 @@ class UserMessageBubble extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (timestampStr != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4, right: 4),
-              child: Text(
-                timestampStr!,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(0),
-                ),
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    MarkdownBody(
-                      data: content,
-                      selectable: false,
-                      extensionSet: md.ExtensionSet(
-                        md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                        <md.InlineSyntax>[
-                          md.EmojiSyntax(),
-                          ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-                        ],
-                      ),
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                          color: colorScheme.onPrimary,
-                          fontSize: 14,
-                        ),
-                        strong: TextStyle(
-                          color: colorScheme.onPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        em: TextStyle(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.86),
-                          fontStyle: FontStyle.italic,
-                        ),
-                        listBullet: TextStyle(color: colorScheme.onPrimary),
-                      ),
-                    ),
-                    if (status != null) ...[
-                      const SizedBox(height: 4),
-                      _buildStatusIcon(),
-                    ],
-                  ],
-                ),
-              ),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.primary,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+              bottomLeft: Radius.circular(12),
+              bottomRight: Radius.circular(0),
             ),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              MarkdownBody(
+                data: content,
+                selectable: false,
+                extensionSet: md.ExtensionSet(
+                  md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                  <md.InlineSyntax>[
+                    md.EmojiSyntax(),
+                    ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                  ],
+                ),
+                styleSheet: MarkdownStyleSheet(
+                  p: TextStyle(
+                    color: colorScheme.onPrimary,
+                    fontSize: 14,
+                  ),
+                  strong: TextStyle(
+                    color: colorScheme.onPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  em: TextStyle(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.86),
+                    fontStyle: FontStyle.italic,
+                  ),
+                  listBullet: TextStyle(color: colorScheme.onPrimary),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (timestampStr != null)
+                    Text(
+                      timestampStr!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onPrimary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  if (timestampStr != null) const SizedBox(width: 4),
+                  if (status != null) _buildStatusIcon(),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
