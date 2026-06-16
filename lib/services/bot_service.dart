@@ -223,6 +223,35 @@ class BotService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getCalendarBots() async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/v1/calendar'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      } else if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getCalendarBots Error: $e');
+      }
+    }
+    return [];
+  }
+
   Future<Map<String, dynamic>?> getBotById(String botId) async {
     if (_knownBots != null && _knownBots!.containsKey(botId)) {
       return _knownBots![botId];

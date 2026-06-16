@@ -163,6 +163,12 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (isLoggedIn) {
+      if (_authService.validationHadNetworkError) {
+        if (!mounted) return;
+        _showNoInternetBottomSheet();
+        return;
+      }
+
       if (!_authService.isEmailVerified) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),

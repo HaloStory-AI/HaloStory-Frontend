@@ -27,7 +27,7 @@ class _CalendarTabState extends State<CalendarTab>
   }
 
   Future<void> _loadBots() async {
-    final bots = await _botService.getBots();
+    final bots = await _botService.getCalendarBots();
     if (mounted) {
       setState(() {
         _allBots = bots;

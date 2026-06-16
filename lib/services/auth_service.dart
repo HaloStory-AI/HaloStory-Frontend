@@ -255,8 +255,12 @@ class AuthService {
     await prefs.remove(_loginDateKey);
   }
 
+  bool _validationHadNetworkError = false;
+  bool get validationHadNetworkError => _validationHadNetworkError;
+
   // Validate token against the server - used on app start
   Future<bool> validateTokenWithServer(String token) async {
+    _validationHadNetworkError = false;
     try {
       final response = await http
           .get(
@@ -297,6 +301,7 @@ class AuthService {
       }
       return false;
     } catch (e) {
+      _validationHadNetworkError = true;
       // Network error: don't clear token (server might be temporarily down)
       // Return true so the user can still access cached content
       if (kDebugMode) {
