@@ -110,6 +110,8 @@
   "tab_chat_empty_title": "まだチャットがないよ",
   "tab_chat_empty_subtitle": "AI生徒との新しい会話を始めてみよう、先生！",
   "tab_chat_new_chat": "新しいチャット",
+  "tab_chat_single_chat": "単独チャット",
+  "tab_chat_group_chat": "グループチャット",
   "sort_newest": "最新順",
   "sort_name": "名前順",
   "tab_create_manual_title": "手動ストーリーを作る",

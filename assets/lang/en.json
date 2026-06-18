@@ -110,6 +110,8 @@
   "tab_chat_empty_title": "No Chats Yet",
   "tab_chat_empty_subtitle": "Start a new conversation with an AI student, Sensei!",
   "tab_chat_new_chat": "New Chat",
+  "tab_chat_single_chat": "Single Chat",
+  "tab_chat_group_chat": "Group Chat",
   "sort_newest": "Newest",
   "sort_name": "Name",
   "tab_create_manual_title": "Create a Manual Story",

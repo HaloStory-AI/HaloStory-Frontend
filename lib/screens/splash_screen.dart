@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/localization_service.dart';
 import '../services/auth_service.dart';
-import '../services/bot_service.dart';
 import '../services/config_service.dart';
 import '../services/security_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -39,7 +38,6 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<Offset> _textSlide;
 
   final AuthService _authService = AuthService();
-  final BotService _botService = BotService();
 
   @override
   void initState() {
@@ -150,13 +148,12 @@ class _SplashScreenState extends State<SplashScreen>
 
     final results = await Future.wait([
       _authService.isLoggedIn(),
-      _botService.getBots(type: 'all'),
       kIsWeb ? Future.value(false) : SecurityService.isDeviceCompromised(),
       Future.delayed(Duration(seconds: kIsWeb ? 1 : 2)),
     ]);
 
     final bool isLoggedIn = results[0] as bool;
-    final bool isCompromised = results[2] as bool;
+    final bool isCompromised = results[1] as bool;
     final prefs = await SharedPreferences.getInstance();
     final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
 

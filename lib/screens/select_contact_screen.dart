@@ -4,9 +4,8 @@ import '../../services/local_chat_service.dart';
 import '../../services/localization_service.dart';
 import '../../widgets/skeleton_loader.dart';
 import 'student_request_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-enum SelectContactMode { newChat, addToGroup }
+enum SelectContactMode { newChat, addToGroup, singleChat }
 
 class SelectContactScreen extends StatefulWidget {
   final Function(Map<String, dynamic> chatData) onContactSelected;
@@ -31,51 +30,23 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
   final LocalChatService _localChatService = LocalChatService();
 
   List<Map<String, dynamic>> _availableBots = [];
-  List<Map<String, dynamic>> _eventCategories = [];
-  List<Map<String, dynamic>> _eventBots = [];
 
   final Set<String> _selectedBotIds = {};
 
   String _searchQuery = '';
-  String? _selectedCategoryId;
 
   bool _isLoadingBots = true;
-  bool _isLoadingEventBots = false;
-  bool _isLoadingEventCategories = false;
-  
-  bool _showTutorial = false;
-
   @override
   void initState() {
     super.initState();
-    _checkTutorialStatus();
     _loadAvailableBots();
-    _loadEventCategories();
-  }
-
-  Future<void> _checkTutorialStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeen = prefs.getBool('has_seen_chat_tutorial') ?? false;
-    if (!hasSeen && mounted) {
-      setState(() {
-        _showTutorial = true;
-      });
-    }
-  }
-
-  Future<void> _dismissTutorial() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_seen_chat_tutorial', true);
-    if (mounted) {
-      setState(() {
-        _showTutorial = false;
-      });
-    }
   }
 
   Future<void> _loadAvailableBots() async {
     setState(() => _isLoadingBots = true);
-    final bots = await _botService.getBots(forceRefresh: true);
+    final bots = widget.mode == SelectContactMode.singleChat
+        ? await _botService.getBots(forceRefresh: true)
+        : await _botService.getRecruitedBots();
     if (mounted) {
       setState(() {
         _availableBots = bots;
@@ -84,37 +55,11 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
     }
   }
 
-  Future<void> _loadEventCategories() async {
-    if (_eventCategories.isNotEmpty || _isLoadingEventCategories) return;
-    setState(() => _isLoadingEventCategories = true);
-    final cats = await _botService.getEventCategories();
-    if (mounted) {
-      setState(() {
-        _eventCategories = cats;
-        _isLoadingEventCategories = false;
-      });
-    }
-  }
-
-  Future<void> _loadEventBots(String? categoryId) async {
-    setState(() {
-      _selectedCategoryId = categoryId;
-      _isLoadingEventBots = categoryId != null;
-    });
-    if (categoryId == null) {
-      setState(() => _eventBots = []);
+  void _toggleSelection(String id) {
+    if (widget.mode == SelectContactMode.singleChat) {
+      _singleChatSelect(id);
       return;
     }
-    final bots = await _botService.getBots(type: 'Event', category: categoryId);
-    if (mounted) {
-      setState(() {
-        _eventBots = bots;
-        _isLoadingEventBots = false;
-      });
-    }
-  }
-
-  void _toggleSelection(String id) {
     setState(() {
       if (_selectedBotIds.contains(id)) {
         _selectedBotIds.remove(id);
@@ -127,13 +72,27 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
     });
   }
 
+  Future<void> _singleChatSelect(String id) async {
+    final bot = _availableBots.firstWhere(
+      (b) => b['id'].toString() == id,
+      orElse: () => {
+        'id': id,
+        'name': id,
+        'avatar': null,
+        'color': '0xFF607D8B',
+      },
+    );
+    await _botService.recruitBot(id);
+    widget.onContactSelected(bot);
+  }
+
   Future<void> _handleProceed() async {
     if (_selectedBotIds.isEmpty) return;
 
     if (widget.mode == SelectContactMode.addToGroup) {
       final List<Map<String, dynamic>> selectedBots = [];
       for (final id in _selectedBotIds) {
-        final bot = [..._availableBots, ..._eventBots].firstWhere(
+        final bot = _availableBots.firstWhere(
           (b) => b['id'].toString() == id,
           orElse: () => {
             'id': id,
@@ -151,7 +110,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
     if (_selectedBotIds.length == 1) {
       // Single chat
       final id = _selectedBotIds.first;
-      final bot = [..._availableBots, ..._eventBots].firstWhere(
+      final bot = _availableBots.firstWhere(
         (b) => b['id'].toString() == id,
         orElse: () => {
           'id': id,
@@ -171,7 +130,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
         final List<Map<String, dynamic>> members = [];
 
         for (final id in _selectedBotIds) {
-          final bot = [..._availableBots, ..._eventBots].firstWhere(
+          final bot = _availableBots.firstWhere(
             (b) => b['id'].toString() == id,
             orElse: () => {
               'id': id,
@@ -377,13 +336,15 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          trailing: Checkbox(
-            value: isSelected,
-            onChanged: (_) => _toggleSelection(id),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
+          trailing: widget.mode == SelectContactMode.singleChat
+              ? null
+              : Checkbox(
+                  value: isSelected,
+                  onChanged: (_) => _toggleSelection(id),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
         );
       },
     );
@@ -427,218 +388,77 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
     );
   }
 
-  Widget _buildTutorialBubble() {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.info_outline, color: cs.onPrimaryContainer),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  tr('tutorial_chat_title'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: cs.onPrimaryContainer,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            tr('tutorial_single_chat'),
-            style: TextStyle(color: cs.onPrimaryContainer, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            tr('tutorial_group_chat'),
-            style: TextStyle(color: cs.onPrimaryContainer, fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: _dismissTutorial,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(tr('tutorial_got_it')),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
-          title: Text(
-            _selectedBotIds.isEmpty
-                ? 'Select Contact'
-                : 'Selected (${_selectedBotIds.length})',
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: widget.mode == SelectContactMode.addToGroup
-                ? () => Navigator.pop(context)
-                : widget.onCancel,
-          ),
-          bottom: TabBar(
-            labelColor: cs.primary,
-            unselectedLabelColor: cs.onSurfaceVariant,
-            indicatorColor: cs.primary,
-            tabs: const [
-              Tab(text: 'Main'),
-              Tab(text: 'Event'),
-            ],
-          ),
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(
+          _selectedBotIds.isEmpty
+              ? 'Select Contact'
+              : 'Selected (${_selectedBotIds.length})',
         ),
-        body: Column(
-          children: [
-            if (_showTutorial) _buildTutorialBubble(),
-            Expanded(
-              child: TabBarView(
-                children: [
-            // Main Tab
-            Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        onChanged: (v) => setState(() => _searchQuery = v),
-                        decoration: InputDecoration(
-                          hintText: tr('search_hint'),
-                          prefixIcon: Icon(Icons.search, color: cs.primary),
-                          filled: true,
-                          fillColor: cs.surfaceContainerHighest,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 0,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSuggestStudentRow(),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _buildBotList(
-                    _availableBots.where((bot) {
-                      if (widget.mode == SelectContactMode.addToGroup &&
-                          widget.existingMemberIds
-                              .contains(bot['id'].toString())) {
-                        return false;
-                      }
-                      final name = (bot['name'] ?? '').toString().toLowerCase();
-                      final id = (bot['id'] ?? '').toString().toLowerCase();
-                      final query = _searchQuery.toLowerCase();
-                      return name.contains(query) || id.contains(query);
-                    }).toList(),
-                    _isLoadingBots,
-                  ),
-                ),
-              ],
-            ),
-            // Event Tab
-            Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: _isLoadingEventCategories
-                            ? const SizedBox(
-                                height: 48,
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  isExpanded: true,
-                                  hint: const Text('Pilih Kategori'),
-                                  value: _selectedCategoryId,
-                                  items: _eventCategories.map((cat) {
-                                    return DropdownMenuItem<String>(
-                                      value: cat['name'],
-                                      child: Text(cat['name']),
-                                    );
-                                  }).toList(),
-                                  onChanged: (v) => _loadEventBots(v),
-                                ),
-                              ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSuggestStudentRow(),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _buildBotList(_eventBots, _isLoadingEventBots),
-                ),
-              ],
-            ),
-          ],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.mode == SelectContactMode.addToGroup
+              ? () => Navigator.pop(context)
+              : widget.onCancel,
         ),
       ),
-    ],
-  ),
-  floatingActionButton: _selectedBotIds.isNotEmpty
-            ? FloatingActionButton(
-                onPressed: _handleProceed,
-                child: const Icon(Icons.arrow_forward),
-              )
-            : null,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: tr('search_hint'),
+                    prefixIcon: Icon(Icons.search, color: cs.primary),
+                    filled: true,
+                    fillColor: cs.surfaceContainerHighest,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildSuggestStudentRow(),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _buildBotList(
+              _availableBots.where((bot) {
+                if (widget.mode == SelectContactMode.addToGroup &&
+                    widget.existingMemberIds
+                        .contains(bot['id'].toString())) {
+                  return false;
+                }
+                final name = (bot['name'] ?? '').toString().toLowerCase();
+                final id = (bot['id'] ?? '').toString().toLowerCase();
+                final query = _searchQuery.toLowerCase();
+                return name.contains(query) || id.contains(query);
+              }).toList(),
+              _isLoadingBots,
+            ),
+          ),
+        ],
       ),
+      floatingActionButton: _selectedBotIds.isNotEmpty
+          ? FloatingActionButton(
+              onPressed: _handleProceed,
+              child: const Icon(Icons.arrow_forward),
+            )
+          : null,
     );
   }
 }

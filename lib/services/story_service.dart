@@ -7,10 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import 'auth_service.dart';
-import 'bot_service.dart';
 
 class StoryService {
-  final BotService _botService = BotService();
   final AuthService _authService = AuthService();
 
   static const String _seenPrefix = 'story_seen_';
@@ -37,18 +35,8 @@ class StoryService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final allBots = await _botService.getBots(type: 'all');
-        final botMap = {for (var b in allBots) b['id']: b};
+        final freshStories = List<Map<String, dynamic>>.from(data);
 
-        final freshStories = data.map((item) {
-          final bot = botMap[item['bot_id']];
-          return <String, dynamic>{
-            ...Map<String, dynamic>.from(item),
-            'bot_avatar': bot?['image_url'],
-          };
-        }).toList();
-
-        // Sort by latest story timestamp per bot
         Map<String, DateTime> botLatestMap = {};
         for (var s in freshStories) {
           final dt = DateTime.parse(s['created_at']);
@@ -73,12 +61,12 @@ class StoryService {
         return freshStories;
       }
     } catch (e) {
-      print('DEBUG: getStoriesV2 Error: $e');
+      print('DEBUG: getStories Error: $e');
     }
     return _cachedStories ?? [];
   }
 
-  //
+
 
   Future<void> markAsSeen(String storyId) async {
     final prefs = await SharedPreferences.getInstance();

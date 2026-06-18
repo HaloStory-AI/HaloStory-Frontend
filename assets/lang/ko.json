@@ -110,6 +110,8 @@
   "tab_chat_empty_title": "채팅 내역 없음",
   "tab_chat_empty_subtitle": "AI 학생과 새로운 대화를 시작해 보세요, 선생님!",
   "tab_chat_new_chat": "새 채팅",
+  "tab_chat_single_chat": "1:1 채팅",
+  "tab_chat_group_chat": "그룹 채팅",
   "sort_newest": "최신순",
   "sort_name": "이름순",
   "tab_create_manual_title": "직접 스토리 만들기",

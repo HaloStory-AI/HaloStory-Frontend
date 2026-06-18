@@ -252,6 +252,68 @@ class BotService {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> getChatTabBots() async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}/v1/bot-tab'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final result = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+
+        // Update _knownBots so getBotById can resolve bonded bots
+        _knownBots ??= {};
+        for (var bot in result) {
+          _knownBots![bot['id'].toString()] = Map<String, dynamic>.from(bot);
+        }
+
+        return result;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getChatTabBots Error: $e');
+      }
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getRecruitedBots() async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}/v1/recruited-bots'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getRecruitedBots Error: $e');
+      }
+    }
+    return [];
+  }
+
   Future<Map<String, dynamic>?> getBotById(String botId) async {
     if (_knownBots != null && _knownBots!.containsKey(botId)) {
       return _knownBots![botId];

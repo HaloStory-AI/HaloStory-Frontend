@@ -1831,7 +1831,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
           appBar: AppBar(
             backgroundColor: pageBackground(context),
             elevation: 0,
-            automaticallyImplyLeading: !widget.isDesktopMode,
+            automaticallyImplyLeading: false,
+            leading: widget.isDesktopMode
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
             leadingWidth: widget.isDesktopMode ? 16 : 40,
             title: GestureDetector(
               onTap: _showStudentBio,

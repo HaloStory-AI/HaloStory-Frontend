@@ -110,6 +110,8 @@
   "tab_chat_empty_title": "暂无聊天记录",
   "tab_chat_empty_subtitle": "快去和 AI 学生开启新对话吧，老师！",
   "tab_chat_new_chat": "新聊天",
+  "tab_chat_single_chat": "单人聊天",
+  "tab_chat_group_chat": "群组聊天",
   "sort_newest": "最新",
   "sort_name": "姓名",
   "tab_create_manual_title": "手动创建故事",

@@ -277,18 +277,13 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
     final botId = story['bot_id'] as String;
     final botName = story['bot_name'] as String;
 
-    // Fetch full bot data
-    final allBots = await _botService.getBots();
-    final bot = allBots.firstWhere(
-      (b) => b['id'] == botId,
-      orElse: () => {
-        'id': botId,
-        'name': botName,
-        'image_url': story['bot_avatar'],
-        'color': '0xFF135ACF',
-        'description': '',
-      },
-    );
+    final bot = (await _botService.getBotById(botId)) ?? {
+      'id': botId,
+      'name': botName,
+      'image_url': story['bot_avatar'],
+      'color': '0xFF135ACF',
+      'description': '',
+    };
 
     if (!mounted) return;
 
