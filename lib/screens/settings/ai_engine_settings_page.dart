@@ -10,7 +10,9 @@ import '../../services/ai_service.dart';
 import '../../services/auth_service.dart';
 
 class AIEngineSettingsPage extends StatefulWidget {
-  const AIEngineSettingsPage({super.key});
+  final bool isDesktop;
+
+  const AIEngineSettingsPage({super.key, this.isDesktop = false});
 
   @override
   State<AIEngineSettingsPage> createState() => _AIEngineSettingsPageState();
@@ -19,7 +21,6 @@ class AIEngineSettingsPage extends StatefulWidget {
 class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
   String _selectedProvider = 'System';
   String _byokProvider = 'gemini';
-  final List<String> _providers = ['System', 'BYOK'];
 
   final Map<String, String> _byokProvidersList = {
     'gemini': 'Google Gemini',
@@ -170,15 +171,16 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr('settings_tab_ai'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: widget.isDesktop
+          ? null
+          : AppBar(
+              title: Text(
+                tr('settings_tab_ai'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -195,44 +197,8 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
             const SizedBox(height: 8),
             _buildHelpLink(),
             const SizedBox(height: 12),
-
-            // ── Provider Choice Chips ──
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _providers.map((p) {
-                  final isSelected = _selectedProvider == p;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(p),
-                      selected: isSelected,
-                      selectedColor: colorScheme.primary,
-                      backgroundColor: colorScheme.surfaceContainer,
-                      side: BorderSide(
-                        color: colorScheme.outline.withValues(alpha: 0.5),
-                      ),
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? (isDark ? Colors.black : Colors.white)
-                            : colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _selectedProvider = p);
-                        }
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 30),
-
-            // ── Provider Config ──
             if (_selectedProvider == 'BYOK') ..._buildBYOKFields(),
-            if (_selectedProvider == 'System')
+            if (_selectedProvider != 'BYOK')
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(40),
@@ -595,12 +561,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
 
   Widget _buildHelpLink() {
     final colorScheme = Theme.of(context).colorScheme;
-    String helpUrl =
-        'https://docs.my-bini.my.id/books/bluetalk/page/model-configuration';
-
-    if (_selectedProvider == 'BYOK') {
-      helpUrl = 'https://s.my-bini.my.id/byok';
-    }
+    const String helpUrl = 'https://s.my-bini.my.id/byok';
 
     return Align(
       alignment: Alignment.centerLeft,

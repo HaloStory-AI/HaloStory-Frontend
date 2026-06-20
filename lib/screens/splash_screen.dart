@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/localization_service.dart';
 import '../services/auth_service.dart';
-import '../services/bot_service.dart';
 import '../services/config_service.dart';
 import '../services/security_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
 import 'welcome_screen.dart';
+import 'pin_screen.dart';
 import 'verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -38,7 +38,6 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<Offset> _textSlide;
 
   final AuthService _authService = AuthService();
-  final BotService _botService = BotService();
 
   @override
   void initState() {
@@ -135,6 +134,11 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
+    if (ConfigService.hasMinorUpdate) {
+      if (!mounted) return;
+      await _showMinorUpdateDialog();
+    }
+
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
       final hasSeenWebNotice = prefs.getBool('web_notice_shown_session') ?? false;
@@ -149,19 +153,24 @@ class _SplashScreenState extends State<SplashScreen>
 
     final results = await Future.wait([
       _authService.isLoggedIn(),
-      _botService.getBots(),
       kIsWeb ? Future.value(false) : SecurityService.isDeviceCompromised(),
       Future.delayed(Duration(seconds: kIsWeb ? 1 : 2)),
     ]);
 
     final bool isLoggedIn = results[0] as bool;
-    final bool isCompromised = results[2] as bool;
+    final bool isCompromised = results[1] as bool;
     final prefs = await SharedPreferences.getInstance();
     final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
 
     if (!mounted) return;
 
     if (isLoggedIn) {
+      if (_authService.validationHadNetworkError) {
+        if (!mounted) return;
+        _showNoInternetBottomSheet();
+        return;
+      }
+
       if (!_authService.isEmailVerified) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
@@ -177,14 +186,25 @@ class _SplashScreenState extends State<SplashScreen>
         if (!mounted) return;
       }
 
-      if (isSetupCompleted) {
+      final bool isAppLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+
+      if (isAppLockEnabled) {
+        final pinTarget = isSetupCompleted ? const HomeScreen() : const SetupScreen();
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (_) => PinScreen(target: pinTarget),
+          ),
         );
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SetupScreen()),
-        );
+        if (isSetupCompleted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const SetupScreen()),
+          );
+        }
       }
     } else {
       if (BanService.isBanned) {
@@ -328,6 +348,63 @@ class _SplashScreenState extends State<SplashScreen>
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('permissions_requested', true);
+  }
+
+  Future<void> _showMinorUpdateDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            tr('update_title'),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('update_desc'), style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 12),
+              Text(
+                "${tr('update_version')}: v${ConfigService.remoteVersion}",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('btn_cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => launchUrl(
+                Uri.parse('https://bluetalk.my-bini.my.id/download'),
+                mode: LaunchMode.externalApplication,
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+              ),
+              child: Text(
+                tr('update_btn'),
+                style: TextStyle(color: colorScheme.onPrimary),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showUpdateDialog() {

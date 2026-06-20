@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../widgets/skeleton_loader.dart';
@@ -20,31 +19,11 @@ class _StoriesTabState extends State<StoriesTab> {
   bool _isLoading = true;
   bool _isReloading = false;
   List<Map<String, dynamic>> _stories = [];
-  Timer? _cooldownTimer;
-  int _remainingSeconds = 0;
 
   @override
   void initState() {
     super.initState();
     _loadData();
-    _startCooldownListener();
-  }
-
-  @override
-  void dispose() {
-    _cooldownTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startCooldownListener() {
-    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final seconds = _storyService.getReloadCooldownSeconds();
-      if (mounted && seconds != _remainingSeconds) {
-        setState(() {
-          _remainingSeconds = seconds;
-        });
-      }
-    });
   }
 
   Future<void> _loadData({bool force = false}) async {
@@ -55,7 +34,7 @@ class _StoriesTabState extends State<StoriesTab> {
     }
 
     try {
-      final stories = await _storyService.getStories(forceRefresh: force);
+      final stories = await _storyService.getStories();
 
       // Check seen status for each
       List<Map<String, dynamic>> enrichedStories = [];
@@ -91,12 +70,6 @@ class _StoriesTabState extends State<StoriesTab> {
     return botIds;
   }
 
-  String _formatCooldown(int seconds) {
-    int mins = seconds ~/ 60;
-    int secs = seconds % 60;
-    return "$mins:${secs.toString().padLeft(2, '0')}";
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -124,11 +97,11 @@ class _StoriesTabState extends State<StoriesTab> {
                     ),
                   ),
                   TextButton(
-                    onPressed: (_isReloading || _remainingSeconds > 0)
+                    onPressed: _isReloading
                         ? null
                         : () => _loadData(force: true),
                     style: TextButton.styleFrom(
-                      backgroundColor: (_isReloading || _remainingSeconds > 0)
+                      backgroundColor: _isReloading
                           ? Colors.grey[200]
                           : const Color(0xFFF0F0F0),
                       shape: RoundedRectangleBorder(
@@ -150,13 +123,11 @@ class _StoriesTabState extends State<StoriesTab> {
                           ),
                         if (_isReloading) const SizedBox(width: 8),
                         Text(
-                          _remainingSeconds > 0
-                              ? '${tr('btn_reload_in')} ${_formatCooldown(_remainingSeconds)}'
-                              : _isReloading
+                          _isReloading
                               ? tr('loading')
                               : tr('btn_reload_stories'),
                           style: TextStyle(
-                            color: (_isReloading || _remainingSeconds > 0)
+                            color: _isReloading
                                 ? Colors.grey
                                 : Colors.black87,
                             fontSize: 13,

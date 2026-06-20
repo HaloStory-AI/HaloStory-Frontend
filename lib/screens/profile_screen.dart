@@ -42,6 +42,128 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Color _secondaryTextColor(BuildContext context) =>
       Theme.of(context).colorScheme.onSurfaceVariant;
 
+  void _showEditPersonaDialog(String? currentPersona) {
+    final personaController = TextEditingController(text: currentPersona ?? '');
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            top: 24,
+            left: 24,
+            right: 24,
+          ),
+          decoration: BoxDecoration(
+            color: _surfaceColor(context),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr('profile_persona_edit'),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: _primaryColor(context),
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: personaController,
+                maxLines: 3,
+                maxLength: 500,
+                decoration: InputDecoration(
+                  labelText: tr('profile_persona_hint'),
+                  prefixIcon: const Icon(Icons.face_outlined),
+                  filled: true,
+                  fillColor: _surfaceAltColor(context),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final navigator = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+
+                          setDialogState(() => isLoading = true);
+                          final result = await _authService.updatePersona(
+                            personaController.text.trim(),
+                          );
+
+                          if (!context.mounted) return;
+                          setDialogState(() => isLoading = false);
+
+                          if (result['success']) {
+                            navigator.pop();
+                            _refreshProfile();
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(tr('profile_update_success')),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          } else {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  tr('profile_update_failed') +
+                                      result['message'],
+                                ),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(tr('profile_persona_save')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showChangeNameDialog(String currentName) {
     final nameController = TextEditingController(text: currentName);
     bool isLoading = false;
@@ -567,6 +689,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.calendar_today_outlined,
                     tr('profile_joined'),
                     user['created_at_human'] ?? 'Recently',
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  Text(
+                    tr('profile_persona'),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _primaryColor(context),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  ListTile(
+                    leading: Icon(
+                      Icons.face_outlined,
+                      color: _primaryColor(context),
+                    ),
+                    title: Text(tr('profile_persona_edit')),
+                    subtitle: Text(
+                      (user['persona'] != null &&
+                              (user['persona'] as String).isNotEmpty)
+                          ? user['persona']
+                          : tr('profile_persona_empty'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.edit),
+                    onTap: () => _showEditPersonaDialog(
+                      user['persona'] as String?,
+                    ),
                   ),
 
                   const SizedBox(height: 30),

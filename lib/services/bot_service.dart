@@ -25,11 +25,12 @@ class BotService {
     String? type,
     String? category,
   }) async {
+    final effectiveType = type ?? 'all';
     final now = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
 
-    // Only use cache for 'Main' type with no category (default)
-    bool isDefault = (type == null || type == 'Main') && category == null;
+    // Only use cache for 'Main' or 'all' type with no category (default)
+    bool isDefault = (effectiveType == 'Main' || effectiveType == 'all') && category == null;
 
     if (!isDefault) {
       return await _performFetch(type: type, category: category);
@@ -70,13 +71,13 @@ class BotService {
       }
     }
     // 3. API Fetch (Sync)
-    return await _fetchAndCacheBots();
+    return await _fetchAndCacheBots(type: effectiveType);
   }
 
-  Future<List<Map<String, dynamic>>> _fetchAndCacheBots() async {
+  Future<List<Map<String, dynamic>>> _fetchAndCacheBots({String? type}) async {
     if (_pendingFetch != null) return _pendingFetch!;
 
-    _pendingFetch = _performFetch();
+    _pendingFetch = _performFetch(type: type);
     try {
       return await _pendingFetch!;
     } finally {
@@ -140,8 +141,8 @@ class BotService {
         }
         // --- END ---
 
-        // Only update global cache if fetching default 'Main' bots
-        if ((type == null || type == 'Main') && category == null) {
+        // Only update global cache if fetching default bots
+        if ((type == null || type == 'Main' || type == 'all') && category == null) {
           _cachedBots = result;
           _lastBotsFetch = now;
           await prefs.setString(_botsCacheKey, jsonEncode(_cachedBots));
@@ -158,7 +159,7 @@ class BotService {
       }
     }
 
-    return (type == null || type == 'Main') ? (_cachedBots ?? []) : [];
+    return (type == null || type == 'Main' || type == 'all') ? (_cachedBots ?? []) : [];
   }
 
   Future<List<Map<String, dynamic>>> getEventCategories() async {
@@ -182,6 +183,57 @@ class BotService {
     } catch (e) {
       if (kDebugMode) {
         print('DEBUG: getEventCategories Error: $e');
+      }
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getCategories() async {
+    final token = await _authService.getToken();
+    if (token == null) return {};
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/v1/categories'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getCategories Error: $e');
+      }
+    }
+    return {};
+  }
+
+  Future<List<Map<String, dynamic>>> getBotsByCategory(String slug) async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/v1/category/$slug'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getBotsByCategory Error: $e');
       }
     }
     return [];
@@ -220,6 +272,97 @@ class BotService {
       }
       return false;
     }
+  }
+
+  Future<List<Map<String, dynamic>>> getCalendarBots() async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/v1/calendar'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      } else if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getCalendarBots Error: $e');
+      }
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getChatTabBots() async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}/v1/bot-tab'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final result = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+
+        // Update _knownBots so getBotById can resolve bonded bots
+        _knownBots ??= {};
+        for (var bot in result) {
+          _knownBots![bot['id'].toString()] = Map<String, dynamic>.from(bot);
+        }
+
+        return result;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getChatTabBots Error: $e');
+      }
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getRecruitedBots() async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}/v1/recruited-bots'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getRecruitedBots Error: $e');
+      }
+    }
+    return [];
   }
 
   Future<Map<String, dynamic>?> getBotById(String botId) async {

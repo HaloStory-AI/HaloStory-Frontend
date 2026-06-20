@@ -15,7 +15,9 @@ import '../splash_screen.dart';
 import '../../services/local_backup_service.dart';
 
 class BackupSettingsPage extends StatefulWidget {
-  const BackupSettingsPage({super.key});
+  final bool isDesktop;
+
+  const BackupSettingsPage({super.key, this.isDesktop = false});
 
   @override
   State<BackupSettingsPage> createState() => _BackupSettingsPageState();
@@ -32,12 +34,14 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     final Color textColor = colorScheme.onSurface;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr('settings_tab_backup'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: widget.isDesktop
+          ? null
+          : AppBar(
+              title: Text(
+                tr('settings_tab_backup'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -364,6 +368,44 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     );
   }
 
+  // ── Helper ──
+
+  Future<T> _runWithLoadingOverlay<T>({
+    required Future<T> Function() task,
+    required String message,
+  }) async {
+    final loading = showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            margin: const EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  Text(message, textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      return await task();
+    } finally {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      await loading;
+    }
+  }
+
   // ── Backup / Restore Methods ──
 
   Future<Map<String, dynamic>> _getBackupPayload() async {
@@ -484,44 +526,43 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
     if (confirm != true) return;
 
-    final Map<String, dynamic> fullPayload = await _getBackupPayload();
-    final String plainJson = jsonEncode(fullPayload);
-    final String encryptedJson = SecurityService.encryptData(plainJson);
+    String? errorMsg;
 
-    final token = await _authService.getToken();
-    try {
-      final response = await http.post(
-        Uri.parse('${AppConstants.apiUrl}/user/backup'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'data': encryptedJson}),
-      );
+    await _runWithLoadingOverlay(
+      message: tr('settings_backup_loading'),
+      task: () async {
+        try {
+          final fullPayload = await _getBackupPayload();
+          final plainJson = jsonEncode(fullPayload);
+          final encryptedJson = SecurityService.encryptData(plainJson);
+          final token = await _authService.getToken();
 
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('settings_backup_success')),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Backup failed: ${response.statusCode}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
-    }
+          final response = await http.post(
+            Uri.parse('${AppConstants.apiUrl}/user/backup'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'data': encryptedJson}),
+          );
+
+          if (response.statusCode != 200) {
+            errorMsg = 'Backup failed: ${response.statusCode}';
+          }
+        } catch (e) {
+          errorMsg = 'Error: $e';
+        }
+      },
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorMsg ?? tr('settings_backup_success')),
+        backgroundColor: errorMsg == null ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   Future<void> _restoreData() async {
@@ -545,99 +586,111 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
     if (confirm != true) return;
 
-    final token = await _authService.getToken();
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.apiUrl}/user/restore'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+    bool success = false;
+    String? errorMsg;
+    bool hasData = false;
 
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseBody = jsonDecode(response.body);
-        if (responseBody['success'] == true && responseBody['data'] != null) {
-          final String encryptedData = responseBody['data'];
-          final String plainJson =
-              SecurityService.decryptData(encryptedData);
-          final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
+    await _runWithLoadingOverlay(
+      message: tr('settings_restore_loading'),
+      task: () async {
+        try {
+          final token = await _authService.getToken();
+          final response = await http.get(
+            Uri.parse('${AppConstants.apiUrl}/user/restore'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
 
-          if (fullPayload.containsKey('settings')) {
-            final Map<String, dynamic> settings = fullPayload['settings'];
-            final prefs = await SharedPreferences.getInstance();
-            for (var entry in settings.entries) {
-              final k = entry.key;
-              final v = entry.value;
-              if (v is double) {
-                await prefs.setDouble(k, v);
-              } else if (v is int) {
-                await prefs.setInt(k, v);
-              } else if (v is String) {
-                await prefs.setString(k, v);
-              } else if (v is bool) {
-                await prefs.setBool(k, v);
+          if (response.statusCode == 200) {
+            final Map<String, dynamic> responseBody = jsonDecode(response.body);
+            if (responseBody['success'] == true && responseBody['data'] != null) {
+              hasData = true;
+              final String encryptedData = responseBody['data'];
+              final String plainJson =
+                  SecurityService.decryptData(encryptedData);
+              final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
+
+              if (fullPayload.containsKey('settings')) {
+                final Map<String, dynamic> settings = fullPayload['settings'];
+                final prefs = await SharedPreferences.getInstance();
+                for (var entry in settings.entries) {
+                  final k = entry.key;
+                  final v = entry.value;
+                  if (v is double) {
+                    await prefs.setDouble(k, v);
+                  } else if (v is int) {
+                    await prefs.setInt(k, v);
+                  } else if (v is String) {
+                    await prefs.setString(k, v);
+                  } else if (v is bool) {
+                    await prefs.setBool(k, v);
+                  }
+                }
               }
+
+              if (fullPayload.containsKey('chats')) {
+                final Map<String, dynamic> chats = fullPayload['chats'];
+                final chatService = LocalChatService();
+                for (var entry in chats.entries) {
+                  final id = entry.key;
+                  final messages =
+                      List<Map<String, dynamic>>.from(entry.value);
+                  await chatService.saveChat(id, messages);
+                }
+              }
+
+              if (fullPayload.containsKey('summaries')) {
+                final Map<String, dynamic> summaries = fullPayload['summaries'];
+                final chatService = LocalChatService();
+                for (var entry in summaries.entries) {
+                  final id = entry.key;
+                  final summaryMap = Map<String, dynamic>.from(entry.value);
+                  final properSummaries = summaryMap.map(
+                    (k, v) => MapEntry(int.parse(k), v.toString()),
+                  );
+                  await chatService.saveSummaries(id, properSummaries);
+                }
+              }
+
+              success = true;
+            } else {
+              errorMsg = tr('settings_restore_fail');
             }
+          } else {
+            errorMsg = tr('settings_restore_fail');
           }
-
-          if (fullPayload.containsKey('chats')) {
-            final Map<String, dynamic> chats = fullPayload['chats'];
-            final chatService = LocalChatService();
-            for (var entry in chats.entries) {
-              final id = entry.key;
-              final messages =
-                  List<Map<String, dynamic>>.from(entry.value);
-              await chatService.saveChat(id, messages);
-            }
-          }
-
-          if (fullPayload.containsKey('summaries')) {
-            final Map<String, dynamic> summaries = fullPayload['summaries'];
-            final chatService = LocalChatService();
-            for (var entry in summaries.entries) {
-              final id = entry.key;
-              final summaryMap = Map<String, dynamic>.from(entry.value);
-              final properSummaries = summaryMap.map(
-                (k, v) => MapEntry(int.parse(k), v.toString()),
-              );
-              await chatService.saveSummaries(id, properSummaries);
-            }
-          }
-
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(tr('settings_restore_success')),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-
-          await Future.delayed(const Duration(seconds: 2));
-          if (!mounted) return;
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const SplashScreen(),
-            ),
-            (route) => false,
-          );
+        } catch (e) {
+          errorMsg = 'Restore Error: $e';
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('settings_restore_fail')),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
+      },
+    );
+
+    if (!mounted) return;
+
+    if (success && hasData) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Restore Error: $e'),
+          content: Text(tr('settings_restore_success')),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const SplashScreen(),
+        ),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg ?? tr('settings_restore_fail')),
           backgroundColor: Colors.red,
         ),
       );
@@ -667,11 +720,22 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
     if (confirm != true) return;
 
-    final Map<String, dynamic> fullPayload = await _getBackupPayload();
-    final String plainJson = jsonEncode(fullPayload);
-    final String encryptedData = SecurityService.encryptData(plainJson);
+    bool saved = false;
 
-    final bool saved = await LocalBackupService.saveBackup(encryptedData);
+    await _runWithLoadingOverlay(
+      message: tr('settings_local_backup_loading'),
+      task: () async {
+        try {
+          final fullPayload = await _getBackupPayload();
+          final plainJson = jsonEncode(fullPayload);
+          final encryptedData = SecurityService.encryptData(plainJson);
+
+          saved = await LocalBackupService.saveBackup(encryptedData);
+        } catch (e) {
+          // ignore
+        }
+      },
+    );
 
     if (!mounted) return;
     if (saved) {
@@ -708,12 +772,26 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     final String? encryptedData = await LocalBackupService.pickBackup();
     if (encryptedData == null) return;
 
-    try {
-      final String plainJson = SecurityService.decryptData(encryptedData);
-      final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
-      await _processRestorePayload(fullPayload);
+    bool success = false;
+    String? errorMsg;
 
-      if (!mounted) return;
+    await _runWithLoadingOverlay(
+      message: tr('settings_local_restore_loading'),
+      task: () async {
+        try {
+          final plainJson = SecurityService.decryptData(encryptedData);
+          final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
+          await _processRestorePayload(fullPayload);
+          success = true;
+        } catch (e) {
+          errorMsg = 'Restore Error: $e';
+        }
+      },
+    );
+
+    if (!mounted) return;
+
+    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('settings_local_restore_success')),
@@ -730,11 +808,10 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
         ),
         (route) => false,
       );
-    } catch (e) {
-      if (!mounted) return;
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Restore Error: $e'),
+          content: Text(errorMsg ?? 'Restore failed'),
           backgroundColor: Colors.red,
         ),
       );

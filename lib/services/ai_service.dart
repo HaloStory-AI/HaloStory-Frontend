@@ -26,6 +26,9 @@ class AIService {
     List<String>? botIds,
     String? language,
     String? summary,
+    String? persona,
+    bool bondDisabled = false,
+    bool isGroup = false,
   }) async {
     final token = await _authService.getToken();
     if (token == null) return null;
@@ -33,6 +36,11 @@ class AIService {
     final actualLanguage =
         language ?? LocalizationService().currentLanguageName;
     final prefs = await SharedPreferences.getInstance();
+
+    // Load user persona: prefer per-chat override, fallback to global profile
+    final userProfile = await _authService.getUserProfile();
+    final globalPersona = userProfile?['persona'] as String?;
+    final userPersona = persona ?? globalPersona;
 
     // Normalize provider for legacy support if needed
     final mode = normalizeProvider(provider);
@@ -89,6 +97,9 @@ class AIService {
           actualLanguage,
           advancedParams,
           summary,
+          bondDisabled,
+          isGroup,
+          userPersona,
         );
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
@@ -108,6 +119,9 @@ class AIService {
           baseUrl,
           advancedParams,
           summary,
+          bondDisabled,
+          isGroup,
+          userPersona,
         );
       } else if (mode == 'BYOM') {
         final endpoint =
@@ -217,6 +231,9 @@ class AIService {
     String? language,
     Map<String, dynamic> advancedParams,
     String? summary,
+    bool bondDisabled,
+    bool isGroup,
+    String? userPersona,
   ) async {
     final response = await http.post(
       Uri.parse(AppConstants.chatSystemUrl),
@@ -231,6 +248,10 @@ class AIService {
         'bot_ids': botIds,
         'language': language,
         'summary': summary,
+        if (bondDisabled) 'isdisabledbond': true,
+        if (isGroup) 'is_group': true,
+        if (userPersona != null && userPersona.isNotEmpty)
+          'user_persona': userPersona,
         ...advancedParams,
       }),
     );
@@ -264,6 +285,9 @@ class AIService {
     String baseUrl,
     Map<String, dynamic> advancedParams,
     String? summary,
+    bool bondDisabled,
+    bool isGroup,
+    String? userPersona,
   ) async {
     // Dynamic endpoint for BYOK
     final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
@@ -284,6 +308,10 @@ class AIService {
         'model': model,
         'base_url': baseUrl,
         'summary': summary,
+        if (bondDisabled) 'isdisabledbond': true,
+        if (isGroup) 'is_group': true,
+        if (userPersona != null && userPersona.isNotEmpty)
+          'user_persona': userPersona,
         ...advancedParams,
       }),
     );

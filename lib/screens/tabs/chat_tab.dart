@@ -39,6 +39,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   // padahal disini katanya isn't used
   // but it's used here.
   bool _isLoadingChats = true;
+  bool _bondDisabled = false;
+  bool _isFabOpen = false;
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
   bool _showSyncNotice = true;
@@ -246,7 +248,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadAvailableBots({bool force = false}) async {
-    final bots = await _botService.getBots(forceRefresh: force);
+    final bots = await _botService.getChatTabBots();
     if (mounted) {
       setState(() {
         _availableBots = bots;
@@ -255,6 +257,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadActiveChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    _bondDisabled = prefs.getBool('bond_disabled') ?? false;
     final chatMetadata = await _localChatService.getAllChatMetadata();
     final pinnedIds = await _localChatService.getPinnedChats();
 
@@ -644,67 +648,130 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     final colorScheme = Theme.of(context).colorScheme;
     const slant = 0.174533;
 
-    return SizedBox(
-      width: 50,
-      height: 46,
-      child: Transform(
-        transform: Matrix4.skewX(-slant),
-        alignment: Alignment.center,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [
-                BoxShadow(
-                  color: _isDark(context)
-                      ? Colors.black.withValues(alpha: 0.6)
-                      : Colors.black.withValues(alpha: 0.24),
-                  blurRadius: 0,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 3),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (_isFabOpen) ...[
+          _buildFabAction(
+            icon: Icons.person_add_rounded,
+            label: tr('tab_chat_single_chat'),
+            onTap: () {
+              setState(() => _isFabOpen = false);
+              _openSelectContact(mode: SelectContactMode.singleChat);
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildFabAction(
+            icon: Icons.group_add_rounded,
+            label: tr('tab_chat_group_chat'),
+            onTap: () {
+              setState(() => _isFabOpen = false);
+              _openSelectContact();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        SizedBox(
+          width: 50,
+          height: 46,
+          child: Transform(
+            transform: Matrix4.skewX(-slant),
+            alignment: Alignment.center,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _isDark(context)
+                          ? Colors.black.withValues(alpha: 0.6)
+                          : Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 0,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () {
-                if (widget.onAddContact != null) {
-                  widget.onAddContact!();
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SelectContactScreen(
-                        onContactSelected: (chatData) {
-                          widget.onChatSelected(chatData);
-                          initData(); // Refresh list
-                          Navigator.pop(context);
-                        },
-                        onCancel: () => Navigator.pop(context),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => setState(() => _isFabOpen = !_isFabOpen),
+                  child: Transform(
+                    transform: Matrix4.skewX(slant),
+                    alignment: Alignment.center,
+                    child: Center(
+                      child: Icon(
+                        _isFabOpen ? Icons.close_rounded : Icons.add_rounded,
+                        color: colorScheme.onPrimary,
+                        size: 28,
                       ),
                     ),
-                  );
-                }
-              },
-              child: Transform(
-                transform: Matrix4.skewX(slant),
-                alignment: Alignment.center,
-                child: Center(
-                  child: Icon(
-                    Icons.add_rounded,
-                    color: colorScheme.onPrimary,
-                    size: 28,
                   ),
                 ),
               ),
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildFabAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(12),
+      color: colorScheme.surfaceContainerHighest,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+
+  void _openSelectContact({SelectContactMode mode = SelectContactMode.newChat}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SelectContactScreen(
+          mode: mode,
+          onContactSelected: (chatData) {
+            widget.onChatSelected(chatData);
+            initData();
+            Navigator.pop(context);
+          },
+          onCancel: () => Navigator.pop(context),
+        ),
+      ),
+    );
+  }
+
+
 
   Widget _buildParallelogramControl({
     required BuildContext context,
@@ -1083,7 +1150,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
           color: _chatSeparatorColor(context),
         ),
         Expanded(
-          child: Container(
+          child: Material(
             color: Theme.of(context).scaffoldBackgroundColor,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
@@ -1268,7 +1335,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
             title: Row(
               children: [
                 Text(
-                  chat['name'],
+                  (chat['name'] as String).length > 15
+                      ? '${(chat['name'] as String).substring(0, 15)}...'
+                      : chat['name'],
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -1293,33 +1362,35 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
             trailing: isGroupChat
                 ? const SizedBox.shrink()
-                : Container(
-                    width: 45,
-                    height: 45,
-                    margin: const EdgeInsets.only(left: 8),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(
-                          Icons.favorite,
-                          color: Color(0xFFE462B5),
-                          size: 43,
+                : _bondDisabled
+                    ? const SizedBox.shrink()
+                    : Container(
+                        width: 45,
+                        height: 45,
+                        margin: const EdgeInsets.only(left: 8),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Icon(
+                              Icons.favorite,
+                              color: Color(0xFFE462B5),
+                              size: 43,
+                            ),
+                            const Icon(
+                              Icons.favorite,
+                              color: Color(0xFFF3B7D1),
+                              size: 39,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                bondLevel,
+                                style: _bondCountStyle(context),
+                              ),
+                            ),
+                          ],
                         ),
-                        const Icon(
-                          Icons.favorite,
-                          color: Color(0xFFF3B7D1),
-                          size: 39,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            bondLevel,
-                            style: _bondCountStyle(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
             onTap: () async {
               if (_selectedChatIds.isNotEmpty) {
                 _toggleChatSelection(chatId);

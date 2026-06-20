@@ -255,8 +255,12 @@ class AuthService {
     await prefs.remove(_loginDateKey);
   }
 
+  bool _validationHadNetworkError = false;
+  bool get validationHadNetworkError => _validationHadNetworkError;
+
   // Validate token against the server - used on app start
   Future<bool> validateTokenWithServer(String token) async {
+    _validationHadNetworkError = false;
     try {
       final response = await http
           .get(
@@ -297,6 +301,7 @@ class AuthService {
       }
       return false;
     } catch (e) {
+      _validationHadNetworkError = true;
       // Network error: don't clear token (server might be temporarily down)
       // Return true so the user can still access cached content
       if (kDebugMode) {
@@ -438,6 +443,37 @@ class AuthService {
         return {
           'success': false,
           'message': data['message'] ?? 'Failed to update username',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error occurred'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePersona(String persona) async {
+    final token = await getToken();
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/user/update-persona'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'persona': persona}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
+        return {'success': true, 'message': 'Persona updated successfully'};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to update persona',
         };
       }
     } catch (e) {
