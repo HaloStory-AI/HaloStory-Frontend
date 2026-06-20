@@ -129,65 +129,87 @@ class _PinScreenState extends State<PinScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(flex: 2),
-            Icon(
-              Icons.lock_outline,
-              size: 64,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              tr('pin_title'),
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
+        child: Focus(
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            final key = event.logicalKey;
+
+            final label = key.keyLabel;
+            if (label.length == 1 &&
+                label.codeUnitAt(0) >= 48 &&
+                label.codeUnitAt(0) <= 57) {
+              _onKeyPress(label);
+              return KeyEventResult.handled;
+            }
+            if (key == LogicalKeyboardKey.backspace ||
+                key == LogicalKeyboardKey.delete) {
+              _onDelete();
+              return KeyEventResult.handled;
+            }
+
+            return KeyEventResult.ignored;
+          },
+          child: Column(
+            children: [
+              const Spacer(flex: 2),
+              Icon(
+                Icons.lock_outline,
+                size: 64,
+                color: colorScheme.primary,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr('pin_subtitle'),
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onSurfaceVariant,
+              const SizedBox(height: 24),
+              Text(
+                tr('pin_title'),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
               ),
-            ),
-            const SizedBox(height: 32),
-            _PinDots(
-              length: _pinLength,
-              filled: _input.length,
-              isError: _isError,
-            ),
-            if (_isError) ...[
               const SizedBox(height: 8),
               Text(
-                _errorMessage,
+                tr('pin_subtitle'),
                 style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.error,
-                ),
-              ),
-            ],
-            const Spacer(flex: 2),
-            _Numpad(
-              onDigit: _onKeyPress,
-              onDelete: _onDelete,
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: _onForgotPin,
-              child: Text(
-                tr('pin_forgot'),
-                style: TextStyle(
+                  fontSize: 14,
                   color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 32),
+              _PinDots(
+                length: _pinLength,
+                filled: _input.length,
+                isError: _isError,
+              ),
+              if (_isError) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.error,
+                  ),
+                ),
+              ],
+              const Spacer(flex: 2),
+              _Numpad(
+                onDigit: _onKeyPress,
+                onDelete: _onDelete,
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: _onForgotPin,
+                child: Text(
+                  tr('pin_forgot'),
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );

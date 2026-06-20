@@ -4,7 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/localization_service.dart';
 
 class DeveloperModePage extends StatefulWidget {
-  const DeveloperModePage({super.key});
+  final bool isDesktop;
+
+  const DeveloperModePage({super.key, this.isDesktop = false});
 
   @override
   State<DeveloperModePage> createState() => _DeveloperModePageState();
@@ -162,12 +164,14 @@ class _DeveloperModePageState extends State<DeveloperModePage> {
         : colorScheme.surfaceContainer;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr('settings_tab_developer'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: widget.isDesktop
+          ? null
+          : AppBar(
+              title: Text(
+                tr('settings_tab_developer'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())

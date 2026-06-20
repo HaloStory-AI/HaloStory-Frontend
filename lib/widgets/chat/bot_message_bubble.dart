@@ -88,82 +88,84 @@ class BotMessageBubble extends StatelessWidget {
                     padding: EdgeInsets.only(
                       bottom: idx == partsToRender.length - 1 ? 0 : 4,
                     ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: bubbleBgColor,
-                        borderRadius: BorderRadius.only(
-                          topLeft: isFirst
-                              ? const Radius.circular(2)
-                              : const Radius.circular(12),
-                          topRight: const Radius.circular(12),
-                          bottomLeft: const Radius.circular(12),
-                          bottomRight: const Radius.circular(12),
+                    child: IntrinsicWidth( // <-- PERUBAHAN DI SINI
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
                         ),
-                      ),
-                      constraints: BoxConstraints(maxWidth: maxWidth),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          MarkdownBody(
-                            data: filterItalics(part, hideItalics),
-                            selectable: false,
-                            extensionSet: md.ExtensionSet(
-                              md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                              <md.InlineSyntax>[
-                                md.EmojiSyntax(),
-                                ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-                              ],
-                            ),
-                            styleSheet: MarkdownStyleSheet(
-                              p: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontSize: 14,
-                                height: 1.4,
-                              ),
-                              strong: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              em: TextStyle(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.86,
-                                ),
-                                fontStyle: FontStyle.italic,
-                              ),
-                              code: TextStyle(
-                                color: colorScheme.primary,
-                                backgroundColor: colorScheme.surfaceContainer,
-                                fontSize: 14,
-                              ),
-                              codeblockDecoration: BoxDecoration(
-                                color: colorScheme.surfaceContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              listBullet: TextStyle(
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
+                        decoration: BoxDecoration(
+                          color: bubbleBgColor,
+                          borderRadius: BorderRadius.only(
+                            topLeft: isFirst
+                                ? const Radius.circular(2)
+                                : const Radius.circular(12),
+                            topRight: const Radius.circular(12),
+                            bottomLeft: const Radius.circular(12),
+                            bottomRight: const Radius.circular(12),
                           ),
-                          if (timestampStr != null &&
-                              idx == partsToRender.length - 1)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  timestampStr!,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: timestampColor,
+                        ),
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            MarkdownBody(
+                              data: filterItalics(part, hideItalics),
+                              selectable: false,
+                              extensionSet: md.ExtensionSet(
+                                md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                                <md.InlineSyntax>[
+                                  md.EmojiSyntax(),
+                                  ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                                ],
+                              ),
+                              styleSheet: MarkdownStyleSheet(
+                                p: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                                strong: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                em: TextStyle(
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.86,
+                                  ),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                code: TextStyle(
+                                  color: colorScheme.primary,
+                                  backgroundColor: colorScheme.surfaceContainer,
+                                  fontSize: 14,
+                                ),
+                                codeblockDecoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                listBullet: TextStyle(
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            if (timestampStr != null &&
+                                idx == partsToRender.length - 1)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    timestampStr!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: timestampColor,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -178,7 +180,7 @@ class BotMessageBubble extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: bubbleBgColor,
-                        borderRadius: BorderRadius.only(
+                        borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(12),
                           topRight: Radius.circular(12),
                           bottomLeft: Radius.circular(12),

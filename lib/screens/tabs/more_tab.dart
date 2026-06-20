@@ -77,7 +77,7 @@ class _MoreTabState extends State<MoreTab> {
               await _auth.logout();
               BanService.clearBan();
               if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
+              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const SplashScreen()),
                 (route) => false,
               );

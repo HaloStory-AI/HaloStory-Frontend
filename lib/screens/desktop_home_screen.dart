@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/ai_service.dart';
-import '../services/auth_service.dart';
-import '../services/ban_service.dart';
 import '../services/localization_service.dart';
 import '../theme/app_theme.dart';
 import 'desktop/desktop_sidebar.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
+import 'tabs/more_tab.dart';
 import 'settings_screen.dart';
+import '../widgets/settings_panel.dart';
+import '../widgets/overlay_panel.dart';
 import 'chat_screen.dart';
 import 'story_view_screen.dart';
 import 'select_contact_screen.dart';
@@ -21,7 +21,6 @@ import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'app_info_screen.dart';
 import 'donation_screen.dart';
-import 'splash_screen.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({super.key});
@@ -45,6 +44,7 @@ enum MiddlePanelState {
 class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   int _currentIndex = 0;
   MiddlePanelState _middlePanelState = MiddlePanelState.tabs;
+  final GlobalKey<NavigatorState> _moreTabNavKey = GlobalKey<NavigatorState>();
   // Removed _userProfile as it is no longer used for the avatar
   Map<String, dynamic>? _selectedBot;
   List<Map<String, dynamic>>? _selectedStories;
@@ -53,6 +53,13 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   Widget? _middlePanelOverlay;
 
   String? _initialChatMessage;
+
+  Widget? _currentSettingsPage;
+  String? _currentSettingsTitle;
+
+  Widget? _panel4Content;
+  String? _panel4Title;
+  bool _panel4Visible = false;
 
   @override
   void initState() {
@@ -80,6 +87,9 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
       _selectedStoryIndex = null;
       _selectedBot = bot;
       _initialChatMessage = null;
+      _panel4Visible = false;
+      _panel4Content = null;
+      _panel4Title = null;
     });
   }
 
@@ -101,30 +111,28 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
 
-  void _openSettings() {
+  void _onOpenSettingsPage(Widget page, String title) {
     setState(() {
-      _middlePanelOverlay = null; // Close any overlay
-      _middlePanelState = MiddlePanelState.settings;
+      _currentSettingsPage = page;
+      _currentSettingsTitle = title;
     });
   }
 
-  void _handleMoreOptions(String option) {
-    if (option == 'disclaimer') _showDisclaimerOverlay();
-    if (option == 'donation') _showDonationOverlay();
-    if (option == 'contributor' || option == 'suggest' || option == 'help') {
-      launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-    }
-    if (option == 'info') {
-      _showInfoOverlay();
-    }
-    switch (option) {
-      case 'admin':
-        setState(() {
-          _middlePanelOverlay = null;
-          _middlePanelState = MiddlePanelState.admin;
-        });
-        break;
-    }
+  void _openPanel4(Widget child, String title) {
+    setState(() {
+      _panel4Content = null;
+      _panel4Title = title;
+      _panel4Content = child;
+      _panel4Visible = true;
+    });
+  }
+
+  void _closePanel4() {
+    setState(() {
+      _panel4Visible = false;
+      _panel4Content = null;
+      _panel4Title = null;
+    });
   }
 
   void _openProfile() {
@@ -142,81 +150,10 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     });
   }
 
-  void _showDonationOverlay() {
-    setState(() {
-      _middlePanelOverlay = null;
-      _middlePanelState = MiddlePanelState.donation;
-    });
-  }
-
-  void _showInfoOverlay() {
-    setState(() {
-      _middlePanelOverlay = _buildLocalOverlay(
-        title: tr('sidebar_info'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircleAvatar(
-              radius: 40,
-              backgroundImage: AssetImage('assets/icon/avatar.png'),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('app_name'),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '${tr('app_info_version')} 0.7.0',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(tr('welcome_made_by'), textAlign: TextAlign.center),
-          ],
-        ),
-      );
-    });
-  }
-
   void _showSortOverlay(Widget content) {
     setState(() {
       _middlePanelOverlay = content;
     });
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final navigator = Navigator.of(this.context);
-              Navigator.pop(context);
-              final auth = AuthService();
-              await auth.logout();
-              BanService.clearBan();
-              if (!mounted) return;
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const SplashScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.redAccent),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildLocalOverlay({required String title, required Widget content}) {
@@ -323,20 +260,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                 ),
               ),
             ),
-            const Spacer(),
-            // Profile Avatar
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: InkWell(
-                onTap: _openProfile,
-                borderRadius: BorderRadius.circular(12),
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Colors.white.withValues(alpha: 0.3),
-                  backgroundImage: const AssetImage('assets/icon/avatar.png'),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -380,6 +303,8 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
               _selectedBot = null;
             });
           },
+          onOpenPanel4: _openPanel4,
+          onClosePanel4: _closePanel4,
         ),
       );
     }
@@ -442,7 +367,18 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   Widget _buildMainMiddleContent(bool isDark, ColorScheme colorScheme) {
     switch (_middlePanelState) {
       case MiddlePanelState.settings:
-        return const SettingsScreen();
+        if (_currentSettingsPage != null) {
+          return SettingsPanel(
+            title: _currentSettingsTitle ?? '',
+            onBack: () {
+              setState(() {
+                _currentSettingsPage = null;
+              });
+            },
+            child: _currentSettingsPage!,
+          );
+        }
+        return SettingsScreen(onNavigate: _onOpenSettingsPage);
       case MiddlePanelState.profile:
         return const ProfileScreen();
       case MiddlePanelState.admin:
@@ -489,6 +425,14 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                   ),
                   StoriesTab(onStorySelected: _onStorySelected),
                   const CalendarTab(),
+                  Navigator(
+                    key: _moreTabNavKey,
+                    onGenerateRoute: (settings) {
+                      return MaterialPageRoute(
+                        builder: (context) => const MoreTab(),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -504,33 +448,53 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Row(
+      body: Stack(
         children: [
-          DesktopSidebar(
-            currentIndex: _currentIndex,
-            isSettingsSelected: _middlePanelState == MiddlePanelState.settings,
-            onTabSelected: (index) {
-              Navigator.maybePop(context);
-              setState(() {
-                _middlePanelOverlay = null; // Clear overlay on tab switch
-                _currentIndex = index;
-                _middlePanelState = MiddlePanelState.tabs;
-              });
-            },
-            onSettingsPressed: _openSettings,
-            onLogoutPressed: _showLogoutDialog,
-            onMoreOptionSelected: _handleMoreOptions,
+          Row(
+            children: [
+              DesktopSidebar(
+                currentIndex: _currentIndex,
+                onTabSelected: (index) {
+                  setState(() {
+                    _middlePanelOverlay = null;
+                    _currentIndex = index;
+                    _middlePanelState = MiddlePanelState.tabs;
+                  });
+                },
+              ),
+              Container(width: 1, color: cs.outlineVariant),
+
+              SizedBox(width: 380, child: _buildMiddlePanel()),
+
+              Container(width: 1, color: cs.outlineVariant),
+
+              Expanded(
+                child: Container(
+                  color: cs.surfaceContainer,
+                  child: _buildRightPanel(),
+                ),
+              ),
+            ],
           ),
-          Container(width: 1, color: cs.outlineVariant),
 
-          SizedBox(width: 380, child: _buildMiddlePanel()),
-
-          Container(width: 1, color: cs.outlineVariant),
-
-          Expanded(
-            child: Container(
-              color: cs.surfaceContainer,
-              child: _buildRightPanel(),
+          // Panel 4 overlay (slide from right)
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            right: _panel4Visible ? 0 : -380.0,
+            top: 0,
+            bottom: 0,
+            width: 380,
+            child: Material(
+              elevation: 8,
+              color: theme.scaffoldBackgroundColor,
+              child: _panel4Content != null
+                  ? OverlayPanel(
+                      title: _panel4Title ?? '',
+                      onClose: _closePanel4,
+                      child: _panel4Content!,
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
         ],

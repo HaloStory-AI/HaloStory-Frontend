@@ -7,6 +7,9 @@ class SystemNoteArea extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClose;
+  final String? title;
+  final String? hintText;
+  final int? maxLength;
 
   const SystemNoteArea({
     super.key,
@@ -14,6 +17,9 @@ class SystemNoteArea extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     required this.onClose,
+    this.title,
+    this.hintText,
+    this.maxLength,
   });
 
   @override
@@ -36,7 +42,7 @@ class SystemNoteArea extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  tr('chat_system_note'),
+                  title ?? tr('chat_system_note'),
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
                     fontSize: 11,
@@ -58,48 +64,25 @@ class SystemNoteArea extends StatelessWidget {
             controller: controller,
             maxLines: 3,
             minLines: 1,
+            maxLength: maxLength,
             style: TextStyle(color: titleColor(context), fontSize: 13),
             onChanged: onChanged,
             decoration: InputDecoration(
-              hintText: tr('chat_system_note_hint'),
+              hintText: hintText ?? tr('chat_system_note_hint'),
               hintStyle: TextStyle(color: hintColor(context), fontSize: 12),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 8,
               ),
+              counterStyle: TextStyle(
+                color: subtitleColor(context),
+                fontSize: 11,
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class SystemNoteIconButton extends StatelessWidget {
-  final bool isOpen;
-  final VoidCallback onToggle;
-
-  const SystemNoteIconButton({
-    super.key,
-    required this.isOpen,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return IconButton(
-      onPressed: onToggle,
-      icon: Icon(
-        isOpen ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined,
-        color: isOpen
-            ? colorScheme.primary
-            : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-      ),
-      iconSize: 22,
-      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-      padding: const EdgeInsets.all(4),
     );
   }
 }

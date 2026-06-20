@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/localization_service.dart';
 
 class PrivacySettingsPage extends StatefulWidget {
-  const PrivacySettingsPage({super.key});
+  final bool isDesktop;
+
+  const PrivacySettingsPage({super.key, this.isDesktop = false});
 
   @override
   State<PrivacySettingsPage> createState() => _PrivacySettingsPageState();
@@ -104,12 +106,14 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     final cardColor = isDark ? colorScheme.surface : colorScheme.surfaceContainer;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr('settings_tab_privacy'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: widget.isDesktop
+          ? null
+          : AppBar(
+              title: Text(
+                tr('settings_tab_privacy'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -247,37 +251,59 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
           color: colorScheme.primary,
         ),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _isConfirmStep
-                ? tr('pin_setup_confirm_subtitle')
-                : tr('pin_setup_subtitle'),
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _DialogPinDots(
-            length: _pinLength,
-            filled: displayPin.length,
-            isError: _isError,
-          ),
-          if (_isError) ...[
-            const SizedBox(height: 8),
+      content: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          final key = event.logicalKey;
+
+          final label = key.keyLabel;
+          if (label.length == 1 &&
+              label.codeUnitAt(0) >= 48 &&
+              label.codeUnitAt(0) <= 57) {
+            _onKeyPress(label);
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.backspace ||
+              key == LogicalKeyboardKey.delete) {
+            _onDelete();
+            return KeyEventResult.handled;
+          }
+
+          return KeyEventResult.ignored;
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Text(
-              _errorText,
-              style: TextStyle(fontSize: 12, color: colorScheme.error),
+              _isConfirmStep
+                  ? tr('pin_setup_confirm_subtitle')
+                  : tr('pin_setup_subtitle'),
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _DialogPinDots(
+              length: _pinLength,
+              filled: displayPin.length,
+              isError: _isError,
+            ),
+            if (_isError) ...[
+              const SizedBox(height: 8),
+              Text(
+                _errorText,
+                style: TextStyle(fontSize: 12, color: colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            _DialogNumpad(
+              onDigit: _onKeyPress,
+              onDelete: _onDelete,
             ),
           ],
-          const SizedBox(height: 24),
-          _DialogNumpad(
-            onDigit: _onKeyPress,
-            onDelete: _onDelete,
-          ),
-        ],
+        ),
       ),
       actions: [
         TextButton(

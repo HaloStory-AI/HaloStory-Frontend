@@ -15,6 +15,7 @@ class ConfigService {
   static String _maintenanceMsg = "HaloStory is under maintenance.";
   static String _remoteVersion = "0.0.0";
   static bool _needsUpdate = false;
+  static bool _hasMinorUpdate = false;
 
   static String get baseUrl =>
       _baseUrl ??
@@ -23,6 +24,7 @@ class ConfigService {
   static String get maintenanceMsg => _maintenanceMsg;
   static String get remoteVersion => _remoteVersion;
   static bool get needsUpdate => _needsUpdate;
+  static bool get hasMinorUpdate => _hasMinorUpdate;
 
   /// Manually trigger maintenance mode (e.g. on 503 error)
   static void enterMaintenance([String? msg]) {
@@ -139,8 +141,13 @@ class ConfigService {
 
       if (superMajorUpdate || majorUpdate) {
         _needsUpdate = true;
+        _hasMinorUpdate = false;
       } else {
         _needsUpdate = false;
+        bool minorUpdate = remoteParts[0] == localParts[0] &&
+            remoteParts[1] == localParts[1] &&
+            remoteParts[2] > localParts[2];
+        _hasMinorUpdate = minorUpdate;
       }
 
       if (kDebugMode) {

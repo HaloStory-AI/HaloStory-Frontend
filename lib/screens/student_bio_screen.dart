@@ -16,6 +16,10 @@ class StudentBioScreen extends StatefulWidget {
   final String groupBio;
   final String botId;
 
+  final bool isPanel;
+  final void Function(Widget child, String title)? onOpenPanel4;
+  final VoidCallback? onClosePanel;
+
   final VoidCallback? onGroupInfoChanged;
   final void Function(int index)? onKickMember;
   final void Function(List<Map<String, dynamic>> bots)? onAddMembers;
@@ -29,6 +33,9 @@ class StudentBioScreen extends StatefulWidget {
     required this.groupName,
     required this.groupBio,
     required this.botId,
+    this.isPanel = false,
+    this.onOpenPanel4,
+    this.onClosePanel,
     this.onGroupInfoChanged,
     this.onKickMember,
     this.onAddMembers,
@@ -51,6 +58,11 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   bool _isBondLoading = true;
   bool _bondDisabled = false;
 
+  // Bio data (fetched from /v1/bot-bio)
+  String? _bioDescription;
+  Map<String, String>? _personalityAttrs;
+  bool _isBioLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +71,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     _localGroupBio = widget.groupBio;
     _loadBondSetting();
     _loadBondData();
+    if (!widget.isGroup) _fetchBotBio();
   }
 
   Future<void> _loadBondSetting() async {
@@ -73,6 +86,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   String get _appLanguageCode => LocalizationService().currentLocale;
 
   String get _resolvedDescription {
+    if (_bioDescription != null && _bioDescription!.isNotEmpty) return _bioDescription!;
     final desc = widget.bot['description']?.toString();
     if (desc != null && desc.isNotEmpty) return desc;
     return widget.bot['bio']?.toString() ?? '';
@@ -101,6 +115,38 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
       return false;
     }
   }
+
+  Future<void> _fetchBotBio() async {
+    final authService = AuthService();
+    final token = await authService.getToken();
+    if (token == null || !mounted) return;
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/v1/bot-bio/${widget.botId}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200 && mounted) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _bioDescription = data['description']?.toString();
+          if (data['personality'] is Map) {
+            _personalityAttrs = (data['personality'] as Map)
+                .map((k, v) => MapEntry(k.toString(), v.toString()));
+          }
+          _isBioLoading = false;
+        });
+      } else {
+        if (mounted) setState(() => _isBioLoading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isBioLoading = false);
+    }
+  }
+
 
   Color _relationshipColor(String status) {
     return switch (status) {
@@ -276,11 +322,65 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     }
   }
 
+  void _onMembersSelected(List<Map<String, dynamic>> result) {
+    if (result.isEmpty) return;
+    final currentIds = _localMembers
+        .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+        .toSet();
+
+    final newMembers = <Map<String, dynamic>>[];
+    for (final bot in result) {
+      final botId = bot['id'].toString();
+      if (!currentIds.contains(botId)) {
+        newMembers.add({
+          'bot_id': botId,
+          'id': botId,
+          'name': bot['name'] ?? 'Unknown',
+          'image_url': bot['image_url'],
+          'avatar': bot['avatar'],
+          'color': bot['color'],
+        });
+      }
+    }
+
+    if (newMembers.isNotEmpty) {
+      widget.onAddMembers?.call(newMembers);
+      if (mounted) {
+        setState(() {
+          _localMembers.addAll(newMembers);
+        });
+      }
+    }
+
+    widget.onClosePanel?.call();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('group_member_added'))),
+      );
+    }
+  }
+
   Future<void> _navigateToAddMember() async {
     final existingIds = _localMembers
         .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
         .whereType<String>()
         .toSet();
+
+    if (widget.onOpenPanel4 != null) {
+      widget.onOpenPanel4!(
+        SelectContactScreen(
+          mode: SelectContactMode.addToGroup,
+          existingMemberIds: existingIds,
+          isPanel: true,
+          onPanelDone: _onMembersSelected,
+          onContactSelected: (_) {},
+          onCancel: () {},
+        ),
+        tr('group_add_member'),
+      );
+      return;
+    }
 
     final result = await Navigator.push<List<Map<String, dynamic>>>(
       context,
@@ -355,29 +455,31 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     final description = _translatedDescription ?? _resolvedDescription;
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        title: Text(
-          displayName,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        actions: [
-          if (widget.isGroup)
-            IconButton(
-              icon: const Icon(Icons.edit_note_rounded),
-              onPressed: _showEditGroupInfoDialog,
-              tooltip: 'Edit Group Info',
+      appBar: widget.isPanel
+          ? null
+          : AppBar(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              elevation: 0,
+              title: Text(
+                displayName,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              iconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              actions: [
+                if (widget.isGroup)
+                  IconButton(
+                    icon: const Icon(Icons.edit_note_rounded),
+                    onPressed: _showEditGroupInfoDialog,
+                    tooltip: 'Edit Group Info',
+                  ),
+              ],
             ),
-        ],
-      ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -675,126 +777,66 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Widget _buildPersonalitySection() {
+    if (_isBioLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_personalityAttrs == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Text(
+          tr('bio_no_personality'),
+          style: TextStyle(
+            fontSize: 15,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Builder(
-          builder: (context) {
-            final pData = widget.bot['personality'] ?? '';
-            if (pData.trim().isEmpty) {
-              return Text(
-                tr('bio_no_personality'),
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              );
-            }
-
-            Map<String, String> parseBioAttributes(String personality) {
-              Map<String, String> result = {
-                'Nickname': '*Unknown*',
-                'Age': '*Unknown*',
-                'Nationality': '*Unknown*',
-                'Height': '*Unknown*',
-                'Weight': '*Unknown*',
-                'Like': '*Unknown*',
-                'Dislike': '*Unknown*',
-              };
-
-              String? findMatch(String pattern) {
-                final regExp = RegExp(
-                  pattern,
-                  caseSensitive: false,
-                  multiLine: true,
-                );
-                final match = regExp.firstMatch(personality);
-                if (match != null && match.groupCount >= 1) {
-                  String val = match.group(1)!.trim();
-                  val = val
-                      .replaceAll(RegExp('^["\'*]+|["\'*]+\$'), '')
-                      .trim();
-                  if (val.endsWith(',')) {
-                    val = val.substring(0, val.length - 1).trim();
-                  }
-                  return val;
-                }
-                return null;
-              }
-
-              result['Nickname'] =
-                  findMatch(
-                    r'(?:Nickname|Alias(?:es)?)\s*[:\-]\s*(.+)$',
-                  ) ??
-                  '*Unknown*';
-              result['Age'] =
-                  findMatch(r'Age\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-              result['Nationality'] =
-                  findMatch(
-                    r'(?:Nationality|Country)\s*[:\-]\s*(.+)$',
-                  ) ??
-                  '*Unknown*';
-              result['Height'] =
-                  findMatch(r'Height\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-              result['Weight'] =
-                  findMatch(r'Weight\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-              result['Like'] =
-                  findMatch(r'Like(?:s)?\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-              result['Dislike'] =
-                  findMatch(r'Dislike(?:s)?\s*[:\-]\s*(.+)$') ?? '*Unknown*';
-
-              return result;
-            }
-
-            final attrs = parseBioAttributes(pData);
-
-            Widget buildBioRow(String label, String value) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 90,
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        value,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return Column(
+      child: Column(
+        children: _personalityAttrs!.entries.map((entry) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                buildBioRow('Nickname', attrs['Nickname']!),
-                buildBioRow('Age', attrs['Age']!),
-                buildBioRow('Nationality', attrs['Nationality']!),
-                buildBioRow('Height', attrs['Height']!),
-                buildBioRow('Weight', attrs['Weight']!),
-                buildBioRow('Like', attrs['Like']!),
-                buildBioRow('Dislike', attrs['Dislike']!),
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    entry.key,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    entry.value,
+                    style: TextStyle(
+                      color: cs.onSurface,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

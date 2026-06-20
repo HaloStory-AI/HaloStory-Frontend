@@ -15,7 +15,9 @@ import '../splash_screen.dart';
 import '../../services/local_backup_service.dart';
 
 class BackupSettingsPage extends StatefulWidget {
-  const BackupSettingsPage({super.key});
+  final bool isDesktop;
+
+  const BackupSettingsPage({super.key, this.isDesktop = false});
 
   @override
   State<BackupSettingsPage> createState() => _BackupSettingsPageState();
@@ -32,12 +34,14 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     final Color textColor = colorScheme.onSurface;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr('settings_tab_backup'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: widget.isDesktop
+          ? null
+          : AppBar(
+              title: Text(
+                tr('settings_tab_backup'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

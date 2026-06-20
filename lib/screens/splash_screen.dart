@@ -134,6 +134,11 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
+    if (ConfigService.hasMinorUpdate) {
+      if (!mounted) return;
+      await _showMinorUpdateDialog();
+    }
+
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
       final hasSeenWebNotice = prefs.getBool('web_notice_shown_session') ?? false;
@@ -343,6 +348,63 @@ class _SplashScreenState extends State<SplashScreen>
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('permissions_requested', true);
+  }
+
+  Future<void> _showMinorUpdateDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            tr('update_title'),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('update_desc'), style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 12),
+              Text(
+                "${tr('update_version')}: v${ConfigService.remoteVersion}",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('btn_cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => launchUrl(
+                Uri.parse('https://bluetalk.my-bini.my.id/download'),
+                mode: LaunchMode.externalApplication,
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+              ),
+              child: Text(
+                tr('update_btn'),
+                style: TextStyle(color: colorScheme.onPrimary),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showUpdateDialog() {

@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import '../constants.dart';
 import '../services/localization_service.dart';
 import '../widgets/skeleton_loader.dart';
+import 'call_screen.dart';
 import '../widgets/chat/bond_explosion_effect.dart';
 import '../widgets/chat/safety_bar.dart';
 import '../widgets/chat/delete_bottom_sheet.dart';
@@ -58,6 +59,8 @@ class ChatDetailScreen extends StatefulWidget {
   final String? initialMessage;
   final bool isDesktopMode;
   final VoidCallback? onChatDeleted;
+  final void Function(Widget child, String title)? onOpenPanel4;
+  final VoidCallback? onClosePanel4;
 
   const ChatDetailScreen({
     super.key,
@@ -66,6 +69,8 @@ class ChatDetailScreen extends StatefulWidget {
     this.initialMessage,
     this.isDesktopMode = false,
     this.onChatDeleted,
+    this.onOpenPanel4,
+    this.onClosePanel4,
   });
 
   @override
@@ -82,6 +87,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = false;
   Map<int, String> _summaries = {};
+  Set<int> _failedSummaryBatches = {};
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
   final ValueNotifier<String> _summaryProgressText = ValueNotifier<String>('');
@@ -92,12 +98,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
   // Debug overlay state
   bool _showDebugOverlay = false;
+
   OverlayEntry? _debugOverlayEntry;
   final List<String> _debugLogs = [];
   final ScrollController _debugScrollController = ScrollController();
 
   final TextEditingController _systemNoteController = TextEditingController();
   bool _isSystemNoteOpen = false;
+  final TextEditingController _personaController = TextEditingController();
+  bool _isPersonaOpen = false;
   bool _isCharacterMenuOpen = false;
 
   // Bond state
@@ -132,6 +141,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _scrollController.addListener(_scrollListener);
     _loadHistory();
     _loadSystemNote();
+    _loadPersona();
     _showBugNoticeIfNeeded();
     _loadSelectedBot();
     _loadItalicsSetting();
@@ -188,6 +198,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _messageController.dispose();
     _scrollController.dispose();
     _systemNoteController.dispose();
+    _personaController.dispose();
     _messages.removeWhere((m) => m['isTempSummary'] == true);
     unawaited(_localChatService.saveChat(widget.bot['id'], _messages));
     unawaited(_localChatService.saveSummaries(widget.bot['id'], _summaries));
@@ -224,6 +235,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     await prefs.setString(
       'system_note_${widget.bot['id']}',
       _systemNoteController.text,
+    );
+  }
+
+  Future<void> _loadPersona() async {
+    final prefs = await SharedPreferences.getInstance();
+    final persona = prefs.getString('persona_${widget.bot['id']}') ?? '';
+    if (!mounted || _isDisposed) return;
+    _personaController.text = persona;
+  }
+
+  Future<void> _savePersona() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'persona_${widget.bot['id']}',
+      _personaController.text,
     );
   }
 
@@ -553,11 +579,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
           if (resolvedName.isNotEmpty) {
             _groupName = resolvedName;
-            widget.bot['name'] = resolvedName;
           }
 
           _groupBio = resolvedBio;
-          widget.bot['description'] = resolvedBio;
 
           if (metadata['members'] != null) {
             _groupMembers = List<Map<String, dynamic>>.from(
@@ -633,6 +657,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
     for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
+        if (_failedSummaryBatches.contains(i)) continue;
         try {
           final List<Map<String, String>> batch = realMessages
               .sublist(i, i + batchSize)
@@ -670,15 +695,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                 } else if (statusCheck['status'] == 'not_found' ||
                     statusCheck['status'] == 'failed' ||
                     statusCheck['error'] != null) {
-                  // Gagal atau tidak ditemukan
                   summaryCompleted = true;
+                  _failedSummaryBatches.add(i);
+                  _summaries[i] = '[...]';
+                  updated = true;
                 } else {
                   // Berhasil! Backend menghapus kunci Redis dan langsung mengembalikan payload response
                   // Karena ProcessAiChatJob mengembalikan ['summary' => 'teks...']
                   final summaryText =
                       statusCheck['summary'] ??
                       statusCheck['response']?['summary'];
-                  if (summaryText != null) {
+                  if (summaryText != null && summaryText.isNotEmpty) {
                     _summaries[i] = summaryText;
                     updated = true;
                   }
@@ -687,7 +714,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
               }
               timeoutChecks--;
             }
-          } else if (result != null && result['summary'] != null) {
+          } else if (result != null &&
+              result['summary'] != null &&
+              (result['summary'] as String).isNotEmpty) {
             _summaries[i] = result['summary'];
             updated = true;
           }
@@ -921,6 +950,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
     final bool realtimeDateTime = prefs.getBool('realtime_date_time_enabled') ?? false;
     final bool bondDisabled = prefs.getBool('bond_disabled') ?? false;
+
+    // Resolve persona: per-chat override > global persona > none
+    String? resolvedPersona;
+    final chatPersona = prefs.getString('persona_${widget.bot['id']}');
+    if (chatPersona != null && chatPersona.trim().isNotEmpty) {
+      resolvedPersona = chatPersona.trim();
+    } else {
+      final profile = await AuthService().getUserProfile();
+      final globalPersona = profile?['persona'] as String?;
+      if (globalPersona != null && globalPersona.trim().isNotEmpty) {
+        resolvedPersona = globalPersona.trim();
+      }
+    }
     if (realtimeDateTime) {
       final timeTag = DateFormat("'[this message sent at 'dd/MM/yyyy HH:mm:ss']'").format(DateTime.now());
       final List<Map<String, String>> injected = [];
@@ -941,6 +983,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       if (summaryPrompt != null) {
         print('DEBUG: Summary Prompt: $summaryPrompt');
       }
+      if (resolvedPersona != null) {
+        print('DEBUG: Persona: $resolvedPersona');
+      }
       print('DEBUG: Messages Payload: ${jsonEncode(aiMessages)}');
       print('DEBUG: ---------------------');
     }
@@ -958,6 +1003,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
             : null,
         language: language,
         summary: summaryPrompt,
+        persona: resolvedPersona,
         bondDisabled: bondDisabled,
         isGroup: _isGroup,
       );
@@ -1591,6 +1637,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   }
 
   Future<void> _showStudentBio() async {
+    if (widget.onOpenPanel4 != null) {
+      widget.onOpenPanel4!(
+        StudentBioScreen(
+          bot: widget.bot,
+          isGroup: _isGroup,
+          groupMembers: _groupMembers,
+          groupName: _groupName,
+          groupBio: _groupBio,
+          botId: widget.bot['id'].toString(),
+          isPanel: true,
+          onOpenPanel4: widget.onOpenPanel4,
+          onClosePanel: () => widget.onClosePanel4?.call(),
+          onKickMember: _handleKickMemberFromBio,
+          onAddMembers: _handleAddMembersFromBio,
+          onEditGroupInfo: _handleEditGroupInfoFromBio,
+        ),
+        widget.bot['name'] ?? 'Bio',
+      );
+      return;
+    }
+
     if (widget.isDesktopMode) {
       if (await Navigator.maybePop(context)) {
         // If there's a popup (like more menu), close it first
@@ -1902,6 +1969,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
               ),
             ),
             actions: [
+              IconButton(
+                icon: Icon(Icons.call, color: subtitleColor(context)),
+                onPressed: () {
+                  if (widget.isDesktopMode && widget.onOpenPanel4 != null) {
+                    widget.onOpenPanel4!(
+                      CallScreen(bot: widget.bot, onClose: widget.onClosePanel4),
+                      "Call",
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CallScreen(bot: widget.bot),
+                      ),
+                    );
+                  }
+                },
+              ),
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: subtitleColor(context)),
                 onSelected: (value) async {
@@ -2425,6 +2510,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       onClose: () =>
                           _safeSetState(() => _isSystemNoteOpen = false),
                     ),
+                    SystemNoteArea(
+                      isOpen: _isPersonaOpen,
+                      controller: _personaController,
+                      onChanged: (_) => _savePersona(),
+                      onClose: () =>
+                          _safeSetState(() => _isPersonaOpen = false),
+                      title: tr('chat_persona'),
+                      hintText: tr('chat_persona_hint'),
+                      maxLength: 500,
+                    ),
                     ChatInputArea(
                       isGroup: _isGroup,
                       leadingAvatar: _buildLeftInputIcon(),
@@ -2452,8 +2547,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                           !_isTypingEffectActive && !_isSummarizing,
                       onSend: _sendMessage,
                       isSystemNoteOpen: _isSystemNoteOpen,
+                      isPersonaOpen: _isPersonaOpen,
                       onToggleSystemNote: () => _safeSetState(
                           () => _isSystemNoteOpen = !_isSystemNoteOpen),
+                      onTogglePersona: () => _safeSetState(
+                          () => _isPersonaOpen = !_isPersonaOpen),
                     ),
                   ],
                 ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/localization_service.dart';
 import '../../utils/chat_helpers.dart';
-import 'system_note_area.dart';
 
 class ChatInputArea extends StatelessWidget {
   final bool isGroup;
@@ -12,7 +11,9 @@ class ChatInputArea extends StatelessWidget {
   final bool isSendEnabled;
   final VoidCallback onSend;
   final bool isSystemNoteOpen;
+  final bool isPersonaOpen;
   final VoidCallback? onToggleSystemNote;
+  final VoidCallback? onTogglePersona;
 
   const ChatInputArea({
     super.key,
@@ -24,12 +25,19 @@ class ChatInputArea extends StatelessWidget {
     required this.isSendEnabled,
     required this.onSend,
     required this.isSystemNoteOpen,
+    required this.isPersonaOpen,
     this.onToggleSystemNote,
+    this.onTogglePersona,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    final hasNoteToggle = onToggleSystemNote != null;
+    final hasPersonaToggle = onTogglePersona != null;
+    final anyOpen = isSystemNoteOpen || isPersonaOpen;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -62,11 +70,8 @@ class ChatInputArea extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                     ] else ...[
-                      if (onToggleSystemNote != null)
-                        SystemNoteIconButton(
-                          isOpen: isSystemNoteOpen,
-                          onToggle: onToggleSystemNote!,
-                        ),
+                      if (hasNoteToggle || hasPersonaToggle)
+                        _buildPopupMenuButton(context, colorScheme, anyOpen),
                       const SizedBox(width: 4),
                     ],
                     Expanded(
@@ -119,12 +124,8 @@ class ChatInputArea extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    if (isGroup && onToggleSystemNote != null) ...[
-                      SystemNoteIconButton(
-                        isOpen: isSystemNoteOpen,
-                        onToggle: onToggleSystemNote!,
-                      )
-                    ],
+                    if (isGroup && (hasNoteToggle || hasPersonaToggle))
+                      _buildPopupMenuButton(context, colorScheme, anyOpen),
                     GestureDetector(
                       onTap: isSendEnabled ? onSend : null,
                       child: Container(
@@ -155,6 +156,68 @@ class ChatInputArea extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPopupMenuButton(
+      BuildContext context, ColorScheme colorScheme, bool anyOpen) {
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (value == 'system_note') {
+          onToggleSystemNote?.call();
+        } else if (value == 'persona') {
+          onTogglePersona?.call();
+        }
+      },
+      icon: Icon(
+        anyOpen ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined,
+        color: anyOpen
+            ? colorScheme.primary
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+      ),
+      iconSize: 22,
+      padding: const EdgeInsets.all(4),
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'system_note',
+          child: Row(
+            children: [
+              Icon(
+                isSystemNoteOpen
+                    ? Icons.check_box
+                    : Icons.check_box_outline_blank,
+                size: 18,
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                tr('chat_system_note'),
+                style: TextStyle(color: colorScheme.onSurface),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'persona',
+          child: Row(
+            children: [
+              Icon(
+                isPersonaOpen
+                    ? Icons.check_box
+                    : Icons.check_box_outline_blank,
+                size: 18,
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                tr('chat_persona'),
+                style: TextStyle(color: colorScheme.onSurface),
+              ),
+            ],
           ),
         ),
       ],

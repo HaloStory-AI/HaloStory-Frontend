@@ -4,7 +4,9 @@ import '../../services/localization_service.dart';
 import '../../services/ai_service.dart';
 
 class GeneralSettingsPage extends StatefulWidget {
-  const GeneralSettingsPage({super.key});
+  final bool isDesktop;
+
+  const GeneralSettingsPage({super.key, this.isDesktop = false});
 
   @override
   State<GeneralSettingsPage> createState() => _GeneralSettingsPageState();
@@ -67,12 +69,14 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
     final Color textColor = colorScheme.onSurface;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr('settings_tab_general'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: widget.isDesktop
+          ? null
+          : AppBar(
+              title: Text(
+                tr('settings_tab_general'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),

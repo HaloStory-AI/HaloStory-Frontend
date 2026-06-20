@@ -9,7 +9,9 @@ import '../../services/wallpaper_service.dart';
 import '../splash_screen.dart';
 
 class AppearanceSettingsPage extends StatefulWidget {
-  const AppearanceSettingsPage({super.key});
+  final bool isDesktop;
+
+  const AppearanceSettingsPage({super.key, this.isDesktop = false});
 
   @override
   State<AppearanceSettingsPage> createState() => _AppearanceSettingsPageState();
@@ -88,12 +90,14 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     final bool showWallpaper = WallpaperService.isMobileLayout(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          tr('settings_tab_appearance'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: widget.isDesktop
+          ? null
+          : AppBar(
+              title: Text(
+                tr('settings_tab_appearance'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),

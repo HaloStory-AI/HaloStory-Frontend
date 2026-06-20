@@ -26,6 +26,7 @@ class AIService {
     List<String>? botIds,
     String? language,
     String? summary,
+    String? persona,
     bool bondDisabled = false,
     bool isGroup = false,
   }) async {
@@ -35,6 +36,11 @@ class AIService {
     final actualLanguage =
         language ?? LocalizationService().currentLanguageName;
     final prefs = await SharedPreferences.getInstance();
+
+    // Load user persona: prefer per-chat override, fallback to global profile
+    final userProfile = await _authService.getUserProfile();
+    final globalPersona = userProfile?['persona'] as String?;
+    final userPersona = persona ?? globalPersona;
 
     // Normalize provider for legacy support if needed
     final mode = normalizeProvider(provider);
@@ -93,6 +99,7 @@ class AIService {
           summary,
           bondDisabled,
           isGroup,
+          userPersona,
         );
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
@@ -114,6 +121,7 @@ class AIService {
           summary,
           bondDisabled,
           isGroup,
+          userPersona,
         );
       } else if (mode == 'BYOM') {
         final endpoint =
@@ -225,6 +233,7 @@ class AIService {
     String? summary,
     bool bondDisabled,
     bool isGroup,
+    String? userPersona,
   ) async {
     final response = await http.post(
       Uri.parse(AppConstants.chatSystemUrl),
@@ -241,6 +250,8 @@ class AIService {
         'summary': summary,
         if (bondDisabled) 'isdisabledbond': true,
         if (isGroup) 'is_group': true,
+        if (userPersona != null && userPersona.isNotEmpty)
+          'user_persona': userPersona,
         ...advancedParams,
       }),
     );
@@ -276,6 +287,7 @@ class AIService {
     String? summary,
     bool bondDisabled,
     bool isGroup,
+    String? userPersona,
   ) async {
     // Dynamic endpoint for BYOK
     final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
@@ -298,6 +310,8 @@ class AIService {
         'summary': summary,
         if (bondDisabled) 'isdisabledbond': true,
         if (isGroup) 'is_group': true,
+        if (userPersona != null && userPersona.isNotEmpty)
+          'user_persona': userPersona,
         ...advancedParams,
       }),
     );

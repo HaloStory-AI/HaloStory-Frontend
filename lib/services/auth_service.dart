@@ -450,6 +450,37 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> updatePersona(String persona) async {
+    final token = await getToken();
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/user/update-persona'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'persona': persona}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
+        return {'success': true, 'message': 'Persona updated successfully'};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to update persona',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error occurred'};
+    }
+  }
+
   Future<Map<String, dynamic>> updatePassword(
     String currentPassword,
     String newPassword,

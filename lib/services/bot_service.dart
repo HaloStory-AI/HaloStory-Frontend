@@ -188,6 +188,57 @@ class BotService {
     return [];
   }
 
+  Future<Map<String, dynamic>> getCategories() async {
+    final token = await _authService.getToken();
+    if (token == null) return {};
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/v1/categories'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getCategories Error: $e');
+      }
+    }
+    return {};
+  }
+
+  Future<List<Map<String, dynamic>>> getBotsByCategory(String slug) async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/v1/category/$slug'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: getBotsByCategory Error: $e');
+      }
+    }
+    return [];
+  }
+
   void clearCache() async {
     _cachedBots = null;
     _lastBotsFetch = null;
