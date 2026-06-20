@@ -1150,7 +1150,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
           color: _chatSeparatorColor(context),
         ),
         Expanded(
-          child: Container(
+          child: Material(
             color: Theme.of(context).scaffoldBackgroundColor,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
