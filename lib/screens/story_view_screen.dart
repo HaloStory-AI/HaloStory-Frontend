@@ -13,6 +13,7 @@ import '../services/ai_service.dart';
 import '../services/localization_service.dart';
 import '../services/bot_service.dart';
 import 'chat_screen.dart';
+import '../widgets/vip_plus_gate.dart';
 
 class StoryViewScreen extends StatefulWidget {
   final List<Map<String, dynamic>> stories;
@@ -315,10 +316,12 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => ChatDetailScreen(
-                  bot: bot,
-                  provider: provider,
-                  initialMessage: message,
+                builder: (_) => VipPlusGate(
+                  child: ChatDetailScreen(
+                    bot: bot,
+                    provider: provider,
+                    initialMessage: message,
+                  ),
                 ),
               ),
             );

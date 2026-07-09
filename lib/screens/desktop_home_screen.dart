@@ -15,13 +15,12 @@ import '../widgets/settings_panel.dart';
 import '../widgets/overlay_panel.dart';
 import 'chat_screen.dart';
 import 'story_view_screen.dart';
+import '../widgets/vip_plus_gate.dart';
 import 'select_contact_screen.dart';
 import 'profile_screen.dart';
 import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'app_info_screen.dart';
-import 'donation_screen.dart';
-
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({super.key});
 
@@ -37,7 +36,6 @@ enum MiddlePanelState {
   suggest,
   info,
   chat,
-  donation,
   selectContact,
 }
 
@@ -292,19 +290,21 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           topLeft: Radius.circular(16),
           bottomLeft: Radius.circular(16),
         ),
-        child: ChatDetailScreen(
-          key: ValueKey('${_selectedBot!['id']}_$_initialChatMessage'),
-          bot: _selectedBot!,
-          provider: _defaultProvider ?? 'gemini',
-          isDesktopMode: true,
-          initialMessage: _initialChatMessage,
-          onChatDeleted: () {
-            setState(() {
-              _selectedBot = null;
-            });
-          },
-          onOpenPanel4: _openPanel4,
-          onClosePanel4: _closePanel4,
+        child: VipPlusGate(
+          child: ChatDetailScreen(
+            key: ValueKey('${_selectedBot!['id']}_$_initialChatMessage'),
+            bot: _selectedBot!,
+            provider: _defaultProvider ?? 'gemini',
+            isDesktopMode: true,
+            initialMessage: _initialChatMessage,
+            onChatDeleted: () {
+              setState(() {
+                _selectedBot = null;
+              });
+            },
+            onOpenPanel4: _openPanel4,
+            onClosePanel4: _closePanel4,
+          ),
         ),
       );
     }
@@ -389,8 +389,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         return const AppInfoScreen();
       case MiddlePanelState.chat:
         return const Center(child: Text("Chat View"));
-      case MiddlePanelState.donation:
-        return const DonationScreen(isDesktopMiddlePanel: true);
       case MiddlePanelState.selectContact:
         return SelectContactScreen(
           onContactSelected: (chatData) {

@@ -48,6 +48,7 @@ class _MoreTabState extends State<MoreTab> {
     return switch (role) {
       'admin' => Colors.amber,
       'vip' => const Color(0xFFFFD700),
+      'vip_plus' => Colors.purpleAccent,
       _ => Theme.of(context).colorScheme.primary,
     };
   }
@@ -56,6 +57,7 @@ class _MoreTabState extends State<MoreTab> {
     return switch (role) {
       'admin' => Icons.shield_rounded,
       'vip' => Icons.star_rounded,
+      'vip_plus' => Icons.workspace_premium_rounded,
       _ => Icons.person_rounded,
     };
   }
@@ -198,7 +200,7 @@ class _MoreTabState extends State<MoreTab> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              _user?['role']?.toString().toUpperCase() ?? 'USER',
+                              _user?['role']?.toString().replaceAll('_plus', '+').toUpperCase() ?? 'USER',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -208,7 +210,7 @@ class _MoreTabState extends State<MoreTab> {
                           ],
                         ),
                       ),
-                      if (_user?['role'] == 'vip' &&
+                      if ((_user?['role'] == 'vip' || _user?['role'] == 'vip_plus') &&
                           _user?['vip_expires_at'] != null) ...[
                         const SizedBox(height: 6),
                         Text(
@@ -333,17 +335,16 @@ class _MoreTabState extends State<MoreTab> {
               ListTile(
                 tileColor: Colors.transparent,
                 leading: const Icon(
-                  Icons.favorite_rounded,
-                  color: Colors.pinkAccent,
+                  Icons.subscriptions_rounded,
+                  color: Color(0xFF6C63FF),
                 ),
-                title: Text(tr('sidebar_donation')),
+                title: Text(tr('sidebar_subscription')),
                 trailing: Icon(
                   Icons.chevron_right,
                   color: colorScheme.onSurfaceVariant,
                 ),
                 onTap: () {
-                  Navigator.push(
-                    context,
+                  Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute(
                       builder: (context) => const DonationScreen(),
                     ),

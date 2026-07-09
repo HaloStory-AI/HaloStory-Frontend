@@ -18,6 +18,7 @@ import 'tabs/chat_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'tabs/more_tab.dart';
+import '../widgets/vip_plus_gate.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,116 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
       const _KeepAliveWrapper(child: CalendarTab()),
       const _KeepAliveWrapper(child: MoreTab()),
     ];
-    _checkDonation();
   }
 
-  Future<void> _checkDonation() async {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showDonationPopup();
-    });
-  }
 
-  void _showDonationPopup() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        final theme = Theme.of(sheetContext);
-        final colorScheme = theme.colorScheme;
-        final bodyTextColor = theme.textTheme.bodyMedium?.color?.withValues(
-          alpha: 0.85,
-        );
-
-        return Container(
-          padding: const EdgeInsets.all(24),
-          constraints: const BoxConstraints(maxWidth: 500),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: theme.dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/image/notice_image.png',
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('donation_title'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                tr('donation_content'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: bodyTextColor,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DonationScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
-                label: Text(tr('donation_button')),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  foregroundColor: colorScheme.primary,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.pop(sheetContext),
-                child: Text(
-                  tr('donation_later'),
-                  style: TextStyle(
-                    color: theme.textTheme.bodyMedium?.color?.withValues(
-                      alpha: 0.75,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
 
 
@@ -182,7 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (context) => ChatDetailScreen(bot: bot, provider: provider),
+        builder: (context) => VipPlusGate(
+          child: ChatDetailScreen(bot: bot, provider: provider),
+        ),
       ),
     );
     if (!mounted) return;

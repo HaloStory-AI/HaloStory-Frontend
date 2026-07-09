@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
 import '../../services/localization_service.dart';
+import '../../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../select_contact_screen.dart';
+import '../donation_screen.dart';
 
 enum ChatSortType { newest, name, bond }
 
@@ -44,11 +46,13 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
   bool _showSyncNotice = true;
+  bool _isSensei = true;
   StreamSubscription<String>? _chatUpdateSubscription;
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
   static const String _syncNoticeDismissedKey = 'chat_sync_notice_dismissed';
+  static const String _bannerImageUrl = 'https://placehold.co/468x60/6C63FF/FFFFFF?text=Langganan';
   static const String _chatHeaderPopupFont = 'Roboto';
   static const List<ChatSortType> _sortOptions = [
     ChatSortType.newest,
@@ -235,6 +239,15 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     if (!silent) {
       setState(() {
         _isLoadingChats = true;
+      });
+    }
+
+    final profile = await AuthService().getUserProfile();
+    final role = profile?['role']?.toString();
+
+    if (mounted) {
+      setState(() {
+        _isSensei = role != 'admin' && role != 'vip' && role != 'vip_plus';
       });
     }
 
@@ -1201,20 +1214,79 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     );
   }
 
-  Widget _buildChatList() {
-    return ListView.separated(
-      itemCount: _activeChats.length,
-      padding: const EdgeInsets.symmetric(vertical: 0),
-      separatorBuilder: (context, index) => Divider(
-        height: 1,
-        thickness: 0.7,
-        indent: 12,
-        endIndent: 12,
-        color: _chatSeparatorColor(context),
+  Widget _buildBanner() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SizedBox(
+        height: 60,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DonationScreen()),
+            ),
+            child: Image.network(
+              _bannerImageUrl,
+              width: double.infinity,
+              height: 60,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _buildBannerPlaceholder(),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return _buildBannerPlaceholder();
+              },
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildBannerPlaceholder() {
+    return Container(
+      height: 60,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF6C63FF), Color(0xFF8B7FFF)],
+        ),
+      ),
+      child: const Center(
+        child: Text(
+          'Langganan',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatList() {
+    final int bannerIndex = _activeChats.length >= 5 ? 5 : _activeChats.length;
+
+    return ListView.separated(
+      itemCount: _activeChats.length + (_isSensei ? 1 : 0),
+      padding: const EdgeInsets.symmetric(vertical: 0),
+      separatorBuilder: (context, index) {
+        if (_isSensei && index == bannerIndex - 1) return const SizedBox.shrink();
+        return Divider(
+          height: 1,
+          thickness: 0.7,
+          indent: 12,
+          endIndent: 12,
+          color: _chatSeparatorColor(context),
+        );
+      },
       itemBuilder: (context, index) {
+        if (_isSensei && index == bannerIndex) return _buildBanner();
+        final chatIndex = _isSensei
+            ? (index < bannerIndex ? index : index - 1)
+            : index;
         final colorScheme = Theme.of(context).colorScheme;
-        final chat = _activeChats[index];
+        final chat = _activeChats[chatIndex];
         final chatId = chat['id'].toString();
         final isSelected = _selectedChatIds.contains(chatId);
         final selectedChatBgColor = colorScheme.surfaceContainerHighest

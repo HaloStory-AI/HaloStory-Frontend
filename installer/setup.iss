@@ -3,11 +3,11 @@
 
 #define AppName "HaloStory AI"
 #define AppPublisher "R8KStudio"
-#define AppURL "https://github.com/Rafiq8K"
+#define AppURL "https://github.com/rafiq8k-moga"
 #define AppExe "bluetalk_frontend.exe"
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.12.0"
 #endif
 
 [Setup]
