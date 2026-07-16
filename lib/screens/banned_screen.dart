@@ -78,6 +78,7 @@ class BannedScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   Container(
                     width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 200),
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -86,26 +87,28 @@ class BannedScreen extends StatelessWidget {
                         color: colorScheme.outlineVariant.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr('ban_reason_label'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurfaceVariant,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tr('ban_reason_label'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          reason,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: colorScheme.onSurface,
+                          const SizedBox(height: 6),
+                          Text(
+                            reason,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 40),
