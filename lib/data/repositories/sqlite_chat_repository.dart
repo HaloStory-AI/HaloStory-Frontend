@@ -232,6 +232,34 @@ class SqliteChatRepository implements ChatRepository {
     });
   }
 
+  @override
+  Future<void> saveMemories(String botId, List<String> memories) async {
+    final db = await _getDb();
+    await db.transaction((txn) async {
+      await txn.delete('bot_memories', where: 'bot_id = ?', whereArgs: [botId]);
+      final now = DateTime.now().toIso8601String();
+      for (final item in memories) {
+        await txn.insert('bot_memories', {
+          'bot_id': botId,
+          'memory_item': item,
+          'created_at': now,
+        });
+      }
+    });
+  }
+
+  @override
+  Future<List<String>> loadMemories(String botId) async {
+    final db = await _getDb();
+    final rows = await db.query(
+      'bot_memories',
+      where: 'bot_id = ?',
+      whereArgs: [botId],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map((row) => row['memory_item'] as String).toList();
+  }
+
   Future<void> insertPinnedChat(String chatId) async {
     final db = await _getDb();
     await db.insert('pinned_chats', {

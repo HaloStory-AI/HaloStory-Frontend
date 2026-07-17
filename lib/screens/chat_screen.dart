@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
@@ -640,6 +638,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
     if (totalBatchesToSummarize == 0) return;
 
+    // Load existing memories to pass to AI
+    final existingMemories = await _localChatService.loadMemories(widget.bot['id']);
+
     _safeSetState(() {
       _isSummarizing = true;
       _summaryProgress = 0.0;
@@ -654,6 +655,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
     bool updated = false;
     int processedBatches = 0;
+    List<String> latestMemories = List.from(existingMemories);
 
     for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
@@ -673,6 +675,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
             messages: batch,
             botId: widget.bot['id'],
             provider: widget.provider,
+            existingMemories: latestMemories,
           );
 
           if (result != null &&
@@ -700,14 +703,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                   _summaries[i] = '[...]';
                   updated = true;
                 } else {
-                  // Berhasil! Backend menghapus kunci Redis dan langsung mengembalikan payload response
-                  // Karena ProcessAiChatJob mengembalikan ['summary' => 'teks...']
+                  // Berhasil!
                   final summaryText =
                       statusCheck['summary'] ??
                       statusCheck['response']?['summary'];
                   if (summaryText != null && summaryText.isNotEmpty) {
                     _summaries[i] = summaryText;
                     updated = true;
+                  }
+                  // Extract memory_worth_keeping from response
+                  final memories = statusCheck['memory_worth_keeping'] ??
+                      statusCheck['response']?['memory_worth_keeping'];
+                  if (memories is List && memories.isNotEmpty) {
+                    latestMemories = List<String>.from(memories);
+                    await _localChatService.saveMemories(widget.bot['id'], latestMemories);
                   }
                   summaryCompleted = true;
                 }
@@ -719,6 +728,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
               (result['summary'] as String).isNotEmpty) {
             _summaries[i] = result['summary'];
             updated = true;
+            // Extract memory_worth_keeping from direct response
+            if (result['memory_worth_keeping'] is List) {
+              latestMemories = List<String>.from(result['memory_worth_keeping']);
+              await _localChatService.saveMemories(widget.bot['id'], latestMemories);
+            }
           }
         } catch (e) {
           // Log failed batch if needed
@@ -899,11 +913,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     });
     _scrollToBottom();
 
+    // Determine which summaries to use (last 2 for context efficiency)
+    final sortedSummaryKeys = _summaries.keys.toList()..sort();
+    final keysToUse = sortedSummaryKeys.length > 2
+        ? sortedSummaryKeys.sublist(sortedSummaryKeys.length - 2)
+        : sortedSummaryKeys;
+
     String? summaryPrompt;
     if (_summaries.isNotEmpty) {
       summaryPrompt = "[CONVERSATION RECAP]\n";
-      final sortedKeys = _summaries.keys.toList()..sort();
-      for (var key in sortedKeys) {
+      for (var key in keysToUse) {
         summaryPrompt =
             "${summaryPrompt!}- Messages ${key + 1}-${key + 20}: ${_summaries[key]}\n";
       }
@@ -919,7 +938,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
         )
         .toList();
 
-    int summarizedCount = _summaries.length * 20;
+    int summarizedCount = keysToUse.length * 20;
     List<Map<String, String>> aiMessages;
 
     if (summarizedCount > 0) {
@@ -1763,73 +1782,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _groupInfoChanged = true;
   }
 
-  Future<void> _exportChat(String format) async {
-    if (_messages.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(tr('chat_export_empty'))));
-      return;
-    }
-
-    try {
-      String content = '';
-      if (format == 'json') {
-        content = jsonEncode(_messages);
-      } else {
-        final sb = StringBuffer();
-        sb.writeln('=== Chat dengan ${widget.bot['name']} ===');
-        sb.writeln('Provider: ${widget.provider}');
-        sb.writeln(
-          'Diexport pada: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now())}',
-        );
-        sb.writeln('====================================\n');
-
-        for (var msg in _messages) {
-          final role = msg['role'] == 'user' ? 'Sensei' : widget.bot['name'];
-          final time = msg['timestamp'] != null
-              ? DateFormat('HH:mm').format(DateTime.parse(msg['timestamp']))
-              : '';
-          sb.writeln('[$time] $role:');
-          sb.writeln('${msg['content']}\n');
-        }
-        content = sb.toString();
-      }
-
-      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final safeName = widget.bot['name'].toString().replaceAll(
-        RegExp(r'[^a-zA-Z0-9]'),
-        '_',
-      );
-      final fileName = 'HaloStory_Chat_${safeName}_$dateStr.$format';
-
-      if (kIsWeb) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(tr('chat_export_web_error'))));
-        return;
-      } else {
-        final downloadDir = await _getDownloadDir();
-        final file = File('${downloadDir.path}/$fileName');
-        await file.writeAsString(content);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${tr('chat_export_success')}\n$fileName'),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${tr('chat_export_failed')} $e')),
-        );
-      }
-    }
-  }
-
   void _syncMetadataToMessages({
     String? name,
     String? bio,
@@ -1850,24 +1802,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     }
     if (members != null) meta['members'] = members;
     _messages[idx] = {..._messages[idx], 'metadata': meta};
-  }
-
-  Future<Directory> _getDownloadDir() async {
-    Directory? baseDir;
-    if (Platform.isAndroid) {
-      baseDir = Directory('/storage/emulated/0/Download/HaloStory');
-    } else {
-      baseDir = await getDownloadsDirectory();
-      if (baseDir != null) {
-        baseDir = Directory('${baseDir.path}/HaloStory');
-      }
-    }
-
-    if (baseDir != null && !await baseDir.exists()) {
-      await baseDir.create(recursive: true);
-    }
-
-    return baseDir ?? await getApplicationDocumentsDirectory();
   }
 
   @override
@@ -2022,10 +1956,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       const SnackBar(
                           content: Text('Group info updated.')),
                     );
-                  } else if (value == 'export_txt') {
-                    await _exportChat('txt');
-                  } else if (value == 'export_json') {
-                    await _exportChat('json');
                   } else if (value == 'toggle_italics') {
                     await _saveItalicsSetting(!_hideItalics);
                   } else if (value == 're_summary') {
@@ -2129,34 +2059,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                           ],
                         ),
                       ),
-                    PopupMenuItem<String>(
-                      value: 'export_txt',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.description_outlined,
-                            color: scheme.onSurfaceVariant,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Export as TXT'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'export_json',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.data_object_outlined,
-                            color: scheme.onSurfaceVariant,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Export as JSON'),
-                        ],
-                      ),
-                    ),
                     CheckedPopupMenuItem<String>(
                       value: 'toggle_italics',
                       checked: _hideItalics,

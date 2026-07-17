@@ -12,6 +12,7 @@ class WebChatRepository implements ChatRepository {
   static const String _webPrefix = 'chat_history_';
   static const String _webTimePrefix = 'chat_time_';
   static const String _webSummaryPrefix = 'chat_summary_';
+  static const String _webMemoriesPrefix = 'bot_memories_';
   static const String _webPinsKey = 'chat_pinned_ids';
 
   static final StreamController<String> _updateController =
@@ -230,12 +231,56 @@ class WebChatRepository implements ChatRepository {
   }
 
   @override
+  Future<void> saveMemories(String botId, List<String> memories) async {
+    final jsonContent = jsonEncode(memories);
+
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_webMemoriesPrefix$botId', jsonContent);
+      return;
+    }
+
+    try {
+      final path = await _getStoragePath();
+      final file = File('$path/$botId.memories.json');
+      await file.writeAsString(jsonContent);
+    } catch (e) {
+      if (kDebugMode) debugPrint('DEBUG: Error saving memories: $e');
+    }
+  }
+
+  @override
+  Future<List<String>> loadMemories(String botId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString('$_webMemoriesPrefix$botId');
+      if (data != null) {
+        return List<String>.from(jsonDecode(data));
+      }
+      return [];
+    }
+
+    try {
+      final path = await _getStoragePath();
+      final file = File('$path/$botId.memories.json');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        return List<String>.from(jsonDecode(content));
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('DEBUG: Error loading memories: $e');
+    }
+    return [];
+  }
+
+  @override
   Future<void> deleteChat(String chatId) async {
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('$_webPrefix$chatId');
       await prefs.remove('$_webTimePrefix$chatId');
       await prefs.remove('$_webSummaryPrefix$chatId');
+      await prefs.remove('$_webMemoriesPrefix$chatId');
       return;
     }
 

@@ -411,6 +411,10 @@
   "dev_mode_reset_migration": "Atur Ulang Bendera Migrasi",
   "dev_mode_reset_migration_desc": "Izinkan prompt migrasi muncul kembali pada peluncuran berikutnya",
   "dev_mode_reset_migration_done": "Bendera migrasi diatur ulang. Mulai ulang aplikasi untuk memicu migrasi.",
+  "dev_mode_clear_all_data": "Hapus Semua Data SQLite",
+  "dev_mode_clear_all_data_desc": "Hapus semua chat, ringkasan, memori lokal, dan setel ulang bendera migrasi",
+  "dev_mode_clear_all_data_confirm": "Semua data lokal akan dihapus permanen. Lanjutkan?",
+  "dev_mode_clear_all_data_done": "Semua data dihapus. Mulai ulang aplikasi untuk memulai baru.",
 
   "ban_title": "Akun Dibanned",
   "ban_permanent": "Permanent",
@@ -457,5 +461,8 @@
   "migration_result_pinned": "Disematkan",
   "migration_result_errors": "Error",
   "migration_result_title": "Migrasi Selesai",
-  "migration_result_title_errors": "Migrasi Selesai dengan Error"
+  "migration_result_title_errors": "Migrasi Selesai dengan Error",
+  "memories_title": "Memori & Ringkasan",
+  "memories_chat_summary_section": "Ringkasan Chat",
+  "memories_worth_keeping_section": "Memori yang Perlu Disimpan"
 }

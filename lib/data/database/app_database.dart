@@ -12,7 +12,7 @@ class AppDatabase {
   Database? _db;
 
   static const _databaseName = 'halostory.db';
-  static const _databaseVersion = 1;
+  static const _databaseVersion = 2;
 
   Future<Database> get database async {
     if (_db != null) return _db!;
@@ -29,7 +29,7 @@ class AppDatabase {
     if (!await dbDirFile.exists()) {
       await dbDirFile.create(recursive: true);
     }
-    return await openDatabase(dbPath, version: _databaseVersion, onCreate: _onCreate);
+    return await openDatabase(dbPath, version: _databaseVersion, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -84,6 +84,28 @@ class AppDatabase {
         FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE bot_memories (
+        bot_id TEXT NOT NULL,
+        memory_item TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (bot_id, memory_item)
+      )
+    ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS bot_memories (
+          bot_id TEXT NOT NULL,
+          memory_item TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY (bot_id, memory_item)
+        )
+      ''');
+    }
   }
 
   Future<Database> openFresh() async {

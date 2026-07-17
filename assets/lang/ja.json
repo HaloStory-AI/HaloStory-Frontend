@@ -411,6 +411,10 @@
   "dev_mode_reset_migration": "移行フラグをリセット",
   "dev_mode_reset_migration_desc": "次回起動時に移行プロンプトを再度表示できるようにする",
   "dev_mode_reset_migration_done": "移行フラグをリセットしました。アプリを再起動して移行を再実行してください。",
+  "dev_mode_clear_all_data": "すべてのSQLiteデータをクリア",
+  "dev_mode_clear_all_data_desc": "ローカルのチャット、要約、記憶をすべて削除し、移行フラグをリセット",
+  "dev_mode_clear_all_data_confirm": "すべてのローカルデータが完全に削除されます。続行しますか？",
+  "dev_mode_clear_all_data_done": "すべてのデータをクリアしました。アプリを再起動して新しく始めてください。",
 
   "ban_title": "アカウント停止",
   "ban_permanent": "永久",
@@ -457,5 +461,8 @@
   "migration_result_pinned": "ピン留め",
   "migration_result_errors": "エラー",
   "migration_result_title": "移行完了",
-  "migration_result_title_errors": "エラー付きで移行完了"
+  "migration_result_title_errors": "エラー付きで移行完了",
+  "memories_title": "記憶と要約",
+  "memories_chat_summary_section": "チャットの要約",
+  "memories_worth_keeping_section": "保持すべき記憶"
 }

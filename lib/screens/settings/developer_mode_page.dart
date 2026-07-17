@@ -292,6 +292,58 @@ class _DeveloperModePageState extends State<DeveloperModePage> {
                         },
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(Icons.delete_sweep, color: Colors.red),
+                        title: Text(
+                          tr('dev_mode_clear_all_data'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          tr('dev_mode_clear_all_data_desc'),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        onTap: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(tr('dev_mode_clear_all_data')),
+                              content: Text(tr('dev_mode_clear_all_data_confirm')),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(tr('btn_cancel')),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(tr('dev_mode_proceed')),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await DatabaseMigrationService.clearAllData();
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(tr('dev_mode_clear_all_data_done')),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
                   ],
                 ],
               ),

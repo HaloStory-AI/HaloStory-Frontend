@@ -411,6 +411,10 @@
   "dev_mode_reset_migration": "重置迁移标志",
   "dev_mode_reset_migration_desc": "允许迁移提示在下次启动时再次出现",
   "dev_mode_reset_migration_done": "迁移标志已重置。重新启动应用以触发迁移。",
+  "dev_mode_clear_all_data": "清除所有SQLite数据",
+  "dev_mode_clear_all_data_desc": "删除所有本地聊天、摘要、记忆，并重置迁移标志",
+  "dev_mode_clear_all_data_confirm": "所有本地数据将被永久删除。是否继续？",
+  "dev_mode_clear_all_data_done": "所有数据已清除。重新启动应用以全新开始。",
 
   "ban_title": "账户已禁用",
   "ban_permanent": "永久",
@@ -457,5 +461,8 @@
   "migration_result_pinned": "已置顶",
   "migration_result_errors": "错误",
   "migration_result_title": "迁移完成",
-  "migration_result_title_errors": "迁移完成但有错误"
+  "migration_result_title_errors": "迁移完成但有错误",
+  "memories_title": "记忆与摘要",
+  "memories_chat_summary_section": "聊天摘要",
+  "memories_worth_keeping_section": "值得保留的记忆"
 }

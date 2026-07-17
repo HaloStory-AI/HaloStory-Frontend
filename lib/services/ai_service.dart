@@ -414,6 +414,7 @@ class AIService {
     String? botId,
     String? language,
     String? provider,
+    List<String>? existingMemories,
   }) async {
     final token = await _authService.getToken();
     if (token == null) return null;
@@ -426,6 +427,15 @@ class AIService {
     if (mode == 'BYOM') return null;
 
     try {
+      final body = <String, dynamic>{
+        'messages': messages,
+        'bot_id': botId,
+        'language': actualLanguage,
+      };
+      if (existingMemories != null && existingMemories.isNotEmpty) {
+        body['existing_memories'] = existingMemories;
+      }
+
       if (mode == 'BYOK') {
         final prefs = await SharedPreferences.getInstance();
         final apiKey = prefs.getString('byok_api_key') ?? '';
@@ -434,6 +444,13 @@ class AIService {
         final baseUrl = prefs.getString('byok_base_url') ?? '';
         final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
 
+        body.addAll({
+          'api_key': apiKey,
+          'model': model,
+          'base_url': baseUrl,
+          'is_summarize': true,
+        });
+
         final response = await http.post(
           Uri.parse(endpoint),
           headers: {
@@ -441,15 +458,7 @@ class AIService {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
           },
-          body: jsonEncode({
-            'messages': messages,
-            'bot_id': botId,
-            'language': actualLanguage,
-            'api_key': apiKey,
-            'model': model,
-            'base_url': baseUrl,
-            'is_summarize': true,
-          }),
+          body: jsonEncode(body),
         );
         if (response.statusCode == 200) return jsonDecode(response.body);
         return null;
@@ -463,11 +472,7 @@ class AIService {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'messages': messages,
-          'bot_id': botId,
-          'language': actualLanguage,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) return jsonDecode(response.body);

@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_message.dart';
 import '../repositories/sqlite_chat_repository.dart';
+import 'app_database.dart';
 
 class MigrationProgress {
   final String phase;
@@ -213,61 +214,13 @@ class DatabaseMigrationService {
         }
       }
 
-      // 4. Migrate summaries
-      List<File> summaryFiles;
-      if (retryItems != null) {
-        summaryFiles = retryItems
-            .where((i) => i.type == 'summary')
-            .map((i) => File(i.filePath))
-            .where((f) => f.existsSync())
-            .toList();
-      } else {
-        summaryFiles = dir.listSync().whereType<File>().where((f) =>
-            f.path.endsWith('.summary.json')).toList();
-      }
-      if (kDebugMode) debugPrint('DEBUG: Found ${summaryFiles.length} summary files');
-      onProgress?.call(MigrationProgress(
-        phase: 'summaries', current: 0, total: summaryFiles.length));
-
-      for (int i = 0; i < summaryFiles.length; i++) {
-        final file = summaryFiles[i];
-        final chatId = file.uri.pathSegments.last
-            .replaceFirst('.summary.json', '');
-        onProgress?.call(MigrationProgress(
-          phase: 'summaries', current: i + 1, total: summaryFiles.length, currentFile: chatId));
-        try {
-          final content = await file.readAsString();
-          final Map<String, dynamic> decoded = jsonDecode(content);
-          for (final entry in decoded.entries) {
-            final startIndex = int.tryParse(entry.key);
-            if (startIndex != null) {
-              await repo.insertSummary(chatId, startIndex, entry.value.toString());
-              summaries++;
-            }
-          }
-        } catch (e) {
-          failedItems.add(FailedItem(
-            type: 'summary', chatId: chatId, filePath: file.path, error: e.toString()));
-          errors.add('Failed to migrate summary for $chatId: $e');
-          stoppedEarly = true;
-          onProgress?.call(MigrationProgress(
-            phase: 'summaries', current: i + 1, total: summaryFiles.length,
-            currentFile: chatId, errorMessage: e.toString()));
-          return MigrationReport(
-            chatsMigrated: chats, messagesMigrated: messages,
-            summariesMigrated: summaries, pinnedMigrated: pins,
-            errors: errors, stoppedEarly: true, failedItems: failedItems,
-          );
-        }
-      }
-
-      // 5. Archive old folder
+      // 4. Archive old folder
       onProgress?.call(const MigrationProgress(
         phase: 'archive', current: 0, total: 0));
       await _archiveOldFolder(path);
       if (kDebugMode) debugPrint('DEBUG: Old folder archived');
 
-      // 6. Mark migration done
+      // 5. Mark migration done
       onProgress?.call(const MigrationProgress(
         phase: 'finalize', current: 0, total: 0));
       final prefs = await SharedPreferences.getInstance();
@@ -332,5 +285,11 @@ class DatabaseMigrationService {
   static Future<void> resetMigrationFlag() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_migrationDoneKey);
+  }
+
+  static Future<void> clearAllData() async {
+    final appDb = AppDatabase();
+    await appDb.openFresh();
+    await resetMigrationFlag();
   }
 }

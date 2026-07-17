@@ -59,6 +59,14 @@ class LocalChatService {
     await _repo.savePinnedChats(pins);
   }
 
+  Future<void> saveMemories(String botId, List<String> memories) async {
+    await _repo.saveMemories(botId, memories);
+  }
+
+  Future<List<String>> loadMemories(String botId) async {
+    return await _repo.loadMemories(botId);
+  }
+
   Future<void> deleteChat(String chatId) async {
     await _repo.deleteChat(chatId);
   }

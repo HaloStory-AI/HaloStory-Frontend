@@ -411,6 +411,10 @@
   "dev_mode_reset_migration": "마이그레이션 플래그 재설정",
   "dev_mode_reset_migration_desc": "다음 실행 시 마이그레이션 프롬프트가 다시 나타나도록 허용",
   "dev_mode_reset_migration_done": "마이그레이션 플래그가 재설정되었습니다. 앱을 다시 시작하여 마이그레이션을 트리거하세요.",
+  "dev_mode_clear_all_data": "모든 SQLite 데이터 지우기",
+  "dev_mode_clear_all_data_desc": "모든 로컬 채팅, 요약, 기억을 삭제하고 마이그레이션 플래그 재설정",
+  "dev_mode_clear_all_data_confirm": "모든 로컬 데이터가 영구 삭제됩니다. 계속하시겠습니까?",
+  "dev_mode_clear_all_data_done": "모든 데이터가 지워졌습니다. 앱을 다시 시작하여 새로 시작하세요.",
 
   "ban_title": "계정이 차단됨",
   "ban_permanent": "영구",
@@ -457,5 +461,8 @@
   "migration_result_pinned": "고정됨",
   "migration_result_errors": "오류",
   "migration_result_title": "마이그레이션 완료",
-  "migration_result_title_errors": "오류와 함께 마이그레이션 완료"
+  "migration_result_title_errors": "오류와 함께 마이그레이션 완료",
+  "memories_title": "기억 및 요약",
+  "memories_chat_summary_section": "채팅 요약",
+  "memories_worth_keeping_section": "유지할 가치가 있는 기억"
 }

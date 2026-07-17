@@ -23,4 +23,8 @@ abstract class ChatRepository {
   Future<void> deleteChatOnly(String chatId);
 
   Future<bool> updateGroupMetadata(String chatId, {String? name, String? bio, List<Map<String, dynamic>>? members});
+
+  Future<void> saveMemories(String botId, List<String> memories);
+
+  Future<List<String>> loadMemories(String botId);
 }

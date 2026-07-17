@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../services/auth_service.dart';
+import '../services/local_chat_service.dart';
 import '../services/localization_service.dart';
 import '../widgets/chat/edit_group_info_dialog.dart';
 import 'select_contact_screen.dart';
@@ -63,6 +64,11 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   Map<String, String>? _personalityAttrs;
   bool _isBioLoading = true;
 
+  // Memories
+  final LocalChatService _localChatService = LocalChatService();
+  List<String> _memories = [];
+  bool _isLoadingMemories = true;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +78,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     _loadBondSetting();
     _loadBondData();
     if (!widget.isGroup) _fetchBotBio();
+    _loadMemories();
   }
 
   Future<void> _loadBondSetting() async {
@@ -165,6 +172,24 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     } else {
       await _fetchBondStats();
     }
+  }
+
+  Future<void> _loadMemories() async {
+    if (widget.isGroup) return;
+    final memories = await _localChatService.loadMemories(widget.botId);
+    if (mounted) {
+      setState(() {
+        _memories = memories;
+        _isLoadingMemories = false;
+      });
+    }
+  }
+
+  Future<void> _deleteMemory(String item) async {
+    if (widget.isGroup) return;
+    _memories.remove(item);
+    await _localChatService.saveMemories(widget.botId, _memories);
+    if (mounted) setState(() {});
   }
 
   Future<void> _fetchBondStats() async {
@@ -613,6 +638,10 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               ),
               const SizedBox(height: 12),
               _buildPersonalitySection(),
+              if (!widget.isGroup && !_isLoadingMemories) ...[
+                const SizedBox(height: 24),
+                _buildMemoriesSection(),
+              ],
             ],
             const SizedBox(height: 32),
           ],
@@ -837,6 +866,63 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMemoriesSection() {
+    if (_memories.isEmpty) return const SizedBox.shrink();
+
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('memories_title'),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: cs.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            tr('memories_worth_keeping_section'),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._memories.map((item) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '- $item',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete_forever, color: Colors.red),
+                        iconSize: 20,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _deleteMemory(item),
+                      ),
+                    ],
+                  ),
+                ),
+              )),
+        ],
       ),
     );
   }
