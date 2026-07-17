@@ -16,9 +16,11 @@ import 'package:flutter/services.dart';
 import '../services/ban_service.dart';
 import 'banned_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/database/app_database.dart';
+import '../data/database/database_migration_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -149,6 +151,7 @@ class _SplashScreenState extends State<SplashScreen>
       }
     } else {
       await _requestPermissions();
+      await _initDatabaseAndMigrate();
     }
 
     final results = await Future.wait([
@@ -348,6 +351,318 @@ class _SplashScreenState extends State<SplashScreen>
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('permissions_requested', true);
+  }
+
+  Future<void> _initDatabaseAndMigrate() async {
+    bool dbOk = false;
+    try {
+      await AppDatabase().database;
+      dbOk = true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('DEBUG: DB init error: $e');
+    }
+    if (!dbOk) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('db_init_error')),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
+
+    final needsMigration = await DatabaseMigrationService.isMigrationNeeded();
+    if (!needsMigration || !mounted) return;
+
+    final confirmed = await _showMigrationNotice();
+    if (!confirmed || !mounted) return;
+
+    List<FailedItem>? retryItems;
+
+    while (true) {
+      if (kDebugMode) debugPrint('DEBUG: Starting migration...');
+      if (!mounted) return;
+
+      final report = await showDialog<MigrationReport?>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _MigrationProgressDialog(retryItems: retryItems),
+      );
+      if (!mounted || report == null) return;
+
+      if (kDebugMode) {
+        debugPrint('DEBUG: Migration done — chats: ${report.chatsMigrated}, '
+            'messages: ${report.messagesMigrated}, '
+            'summaries: ${report.summariesMigrated}, '
+            'pins: ${report.pinnedMigrated}, '
+            'errors: ${report.errors.length}, '
+            'stoppedEarly: ${report.stoppedEarly}');
+        for (final err in report.errors) {
+          debugPrint('DEBUG: Migration error: $err');
+        }
+      }
+
+      if (!report.stoppedEarly && !report.hasError) {
+        await _showMigrationResult(report);
+        break;
+      }
+
+      if (report.stoppedEarly) {
+        retryItems = report.failedItems;
+        continue;
+      }
+
+      final retryItemsResult = await _showMigrationResult(report);
+      if (retryItemsResult != null) {
+        retryItems = retryItemsResult;
+        continue;
+      }
+      break;
+    }
+  }
+
+  Future<bool> _showMigrationNotice() async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Icon(Icons.storage_rounded, size: 64, color: colorScheme.primary),
+              const SizedBox(height: 24),
+              Text(
+                tr('migration_title'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                tr('migration_desc'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  tr('migration_start'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: Text(
+                  tr('migration_later'),
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  Future<List<FailedItem>?> _showMigrationResult(MigrationReport report) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final result = await showModalBottomSheet<List<FailedItem>?>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isSuccess = !report.hasError;
+        final icon = isSuccess ? Icons.check_circle : Icons.warning_amber_rounded;
+        final iconColor = isSuccess ? Colors.green : Colors.orange;
+        final title = isSuccess
+            ? tr('migration_result_title')
+            : tr('migration_result_title_errors');
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 5,
+                decoration: BoxDecoration(
+                  color: theme.dividerColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Icon(icon, size: 64, color: iconColor),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _resultRow(colorScheme, Icons.forum_outlined,
+                  tr('migration_result_chats'), report.chatsMigrated.toString()),
+              _resultRow(colorScheme, Icons.message_outlined,
+                  tr('migration_result_messages'), report.messagesMigrated.toString()),
+              _resultRow(colorScheme, Icons.article_outlined,
+                  tr('migration_result_summaries'), report.summariesMigrated.toString()),
+              _resultRow(colorScheme, Icons.push_pin_outlined,
+                  tr('migration_result_pinned'), report.pinnedMigrated.toString()),
+              if (report.hasError && report.errors.isNotEmpty) ...[
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${tr('migration_result_errors')} (${report.errors.length})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 120),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(8),
+                    children: report.errors.map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        e,
+                        style: TextStyle(
+                          fontSize: 12, color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              if (!isSuccess && report.failedItems.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(ctx, report.failedItems),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(tr('migration_btn_retry_failed')),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    tr('migration_btn_ok'),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+    return result;
+  }
+
+  Widget _resultRow(ColorScheme colorScheme, IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: colorScheme.primary),
+          const SizedBox(width: 10),
+          Text(label, style: TextStyle(color: colorScheme.onSurfaceVariant)),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showMinorUpdateDialog() async {
@@ -897,6 +1212,200 @@ class _LoadingNoticeButtonState extends State<_LoadingNoticeButton> {
               tr('system_notice_btn'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+    );
+  }
+}
+
+class _MigrationProgressDialog extends StatefulWidget {
+  final List<FailedItem>? retryItems;
+
+  const _MigrationProgressDialog({this.retryItems});
+
+  @override
+  State<_MigrationProgressDialog> createState() => _MigrationProgressDialogState();
+}
+
+class _MigrationProgressDialogState extends State<_MigrationProgressDialog> {
+  MigrationProgress? _progress;
+  MigrationReport? _report;
+  bool _isError = false;
+  String? _errorMessage;
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _started = true;
+      _startMigration();
+    }
+  }
+
+  Future<void> _startMigration() async {
+    final report = await DatabaseMigrationService.performMigration(
+      onProgress: (p) {
+        if (!mounted) return;
+        setState(() {
+          _progress = p;
+          if (p.errorMessage != null) {
+            _isError = true;
+            _errorMessage = p.errorMessage;
+          }
+        });
+      },
+      retryItems: widget.retryItems,
+    );
+    if (!mounted) return;
+    setState(() {
+      _report = report;
+      if (report.stoppedEarly && report.failedItems.isNotEmpty) {
+        _isError = true;
+        _errorMessage ??= report.failedItems.first.error;
+      }
+    });
+
+    if (!report.stoppedEarly && !report.hasError) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (mounted) Navigator.of(context).pop(report);
+    }
+  }
+
+  double get _progressValue {
+    if (_progress == null) return 0;
+    if (_progress!.total == 0) return 0;
+    return _progress!.current / _progress!.total;
+  }
+
+  String get _phaseText {
+    switch (_progress?.phase) {
+      case 'pinned': return tr('migration_progress_pinned');
+      case 'chats':
+        if (_progress!.total > 0) {
+          return tr('migration_progress_chats')
+              .replaceFirst('{current}', _progress!.current.toString())
+              .replaceFirst('{total}', _progress!.total.toString());
+        }
+        return tr('migration_progress_chats');
+      case 'summaries': return tr('migration_progress_summaries');
+      case 'archive': return tr('migration_progress_archive');
+      case 'finalize': return tr('migration_progress_finalize');
+      default: return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: _isError && _report != null
+            ? _buildErrorContent(colorScheme)
+            : _buildProgressContent(colorScheme),
+      ),
+    );
+  }
+
+  Widget _buildProgressContent(ColorScheme colorScheme) {
+    return SizedBox(
+      width: 280,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Icon(Icons.storage_rounded, size: 48, color: colorScheme.primary),
+          const SizedBox(height: 16),
+          Text(
+            tr('migration_progress_title'),
+            style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: _progressValue > 0 ? _progressValue : null,
+              minHeight: 8,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _phaseText,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr('migration_progress_wait'),
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorContent(ColorScheme colorScheme) {
+    return SizedBox(
+      width: 280,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            tr('migration_progress_error_title'),
+            style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _errorMessage ?? 'Unknown error',
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(null),
+                child: Text(tr('btn_cancel')),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(context).pop(_report),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(tr('migration_retry')),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

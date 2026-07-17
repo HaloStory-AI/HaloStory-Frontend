@@ -408,6 +408,10 @@
   "dev_mode_copy_log_copied": "错误日志已复制到剪贴板！",
   "dev_mode_copy_log_toast": "你可能需要在设置的开发者模式中启用复制BYOK日志 :)",
 
+  "dev_mode_reset_migration": "重置迁移标志",
+  "dev_mode_reset_migration_desc": "允许迁移提示在下次启动时再次出现",
+  "dev_mode_reset_migration_done": "迁移标志已重置。重新启动应用以触发迁移。",
+
   "ban_title": "账户已禁用",
   "ban_permanent": "永久",
   "ban_until": "直到",
@@ -427,5 +431,31 @@
   "btn_cancel": "取消",
   "call_prank_title": "抱歉，此功能尚不可用",
   "call_prank_subtitle": "作为替代...",
-  "call_prank_desc": "请欣赏开发者的精彩视频"
+  "call_prank_desc": "请欣赏开发者的精彩视频",
+  "db_init_error": "本地数据库初始化失败。某些功能可能无法使用。",
+  "migration_title": "数据存储升级可用",
+  "migration_desc": "HaloStory 正在升级到更快的本地数据库，以提高性能和可靠性。您的聊天数据将自动迁移。",
+  "migration_start": "立即升级",
+  "migration_later": "稍后再说",
+  "migration_done": "迁移完成！已升级 {chats} 个聊天，{messages} 条消息。",
+  "migration_done_with_errors": "迁移完成，包含 {chats} 个聊天，{messages} 条消息。发生了一些错误 — 请查看详情。",
+
+  "migration_progress_title": "正在升级存储",
+  "migration_progress_pinned": "正在迁移置顶聊天...",
+  "migration_progress_chats": "正在迁移聊天 {current}/{total}",
+  "migration_progress_summaries": "正在迁移摘要...",
+  "migration_progress_archive": "正在归档旧数据...",
+  "migration_progress_finalize": "正在完成...",
+  "migration_progress_wait": "请稍候...",
+  "migration_progress_error_title": "迁移错误",
+  "migration_retry": "重试",
+  "migration_btn_ok": "知道了！",
+  "migration_btn_retry_failed": "重试失败项",
+  "migration_result_chats": "聊天",
+  "migration_result_messages": "消息",
+  "migration_result_summaries": "摘要",
+  "migration_result_pinned": "已置顶",
+  "migration_result_errors": "错误",
+  "migration_result_title": "迁移完成",
+  "migration_result_title_errors": "迁移完成但有错误"
 }

@@ -408,6 +408,10 @@
   "dev_mode_copy_log_copied": "Log error disalin ke clipboard!",
   "dev_mode_copy_log_toast": "Kamu mungkin perlu mengaktifkan Salin Log BYOK di Mode Pengembang di Setelan :)",
 
+  "dev_mode_reset_migration": "Atur Ulang Bendera Migrasi",
+  "dev_mode_reset_migration_desc": "Izinkan prompt migrasi muncul kembali pada peluncuran berikutnya",
+  "dev_mode_reset_migration_done": "Bendera migrasi diatur ulang. Mulai ulang aplikasi untuk memicu migrasi.",
+
   "ban_title": "Akun Dibanned",
   "ban_permanent": "Permanent",
   "ban_until": "Sampai",
@@ -427,5 +431,31 @@
   "btn_cancel": "Batal",
   "call_prank_title": "Maaf fitur ini belum tersedia",
   "call_prank_subtitle": "Sebagai gantinya...",
-  "call_prank_desc": "Lihatlah video mengasyikan dari developer ini"
+  "call_prank_desc": "Lihatlah video mengasyikan dari developer ini",
+  "db_init_error": "Gagal menginisialisasi database lokal. Beberapa fitur mungkin tidak berfungsi.",
+  "migration_title": "Peningkatan Penyimpanan Data Tersedia",
+  "migration_desc": "HaloStory meningkatkan ke database lokal yang lebih cepat untuk performa dan keandalan yang lebih baik. Data chat Anda akan dipindahkan secara otomatis.",
+  "migration_start": "Tingkatkan Sekarang",
+  "migration_later": "Nanti Saja",
+  "migration_done": "Migrasi selesai! {chats} chat, {messages} pesan ditingkatkan.",
+  "migration_done_with_errors": "Migrasi selesai dengan {chats} chat, {messages} pesan. Beberapa error terjadi — cek detailnya.",
+
+  "migration_progress_title": "Meningkatkan Penyimpanan",
+  "migration_progress_pinned": "Memigrasi chat yang disematkan...",
+  "migration_progress_chats": "Memigrasi chat {current}/{total}",
+  "migration_progress_summaries": "Memigrasi ringkasan...",
+  "migration_progress_archive": "Mengarsipkan data lama...",
+  "migration_progress_finalize": "Menyelesaikan...",
+  "migration_progress_wait": "Harap tunggu...",
+  "migration_progress_error_title": "Error Migrasi",
+  "migration_retry": "Coba Lagi",
+  "migration_btn_ok": "Selesai!",
+  "migration_btn_retry_failed": "Coba Lagi Item Gagal",
+  "migration_result_chats": "Chat",
+  "migration_result_messages": "Pesan",
+  "migration_result_summaries": "Ringkasan",
+  "migration_result_pinned": "Disematkan",
+  "migration_result_errors": "Error",
+  "migration_result_title": "Migrasi Selesai",
+  "migration_result_title_errors": "Migrasi Selesai dengan Error"
 }

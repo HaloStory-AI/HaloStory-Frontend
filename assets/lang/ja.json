@@ -408,6 +408,10 @@
   "dev_mode_copy_log_copied": "エラーログをクリップボードにコピーしました！",
   "dev_mode_copy_log_toast": "設定の開発者モードでBYOKログのコピーを有効にする必要があります :)",
 
+  "dev_mode_reset_migration": "移行フラグをリセット",
+  "dev_mode_reset_migration_desc": "次回起動時に移行プロンプトを再度表示できるようにする",
+  "dev_mode_reset_migration_done": "移行フラグをリセットしました。アプリを再起動して移行を再実行してください。",
+
   "ban_title": "アカウント停止",
   "ban_permanent": "永久",
   "ban_until": "まで",
@@ -427,5 +431,31 @@
   "btn_cancel": "キャンセル",
   "call_prank_title": "すみません、この機能はまだ利用できません",
   "call_prank_subtitle": "代わりに...",
-  "call_prank_desc": "代わりに開発者の素晴らしいビデオをご覧ください"
+  "call_prank_desc": "代わりに開発者の素晴らしいビデオをご覧ください",
+  "db_init_error": "ローカルデータベースの初期化に失敗しました。一部の機能が動作しない可能性があります。",
+  "migration_title": "データストレージのアップグレードが利用可能です",
+  "migration_desc": "HaloStory はパフォーマンスと信頼性向上のため、より高速なローカルデータベースにアップグレードします。チャットデータは自動的に移行されます。",
+  "migration_start": "今すぐアップグレード",
+  "migration_later": "後で",
+  "migration_done": "移行完了！{chats} チャット、{messages} メッセージがアップグレードされました。",
+  "migration_done_with_errors": "移行が完了しました（{chats} チャット、{messages} メッセージ）。一部のエラーが発生しました — 詳細を確認してください。",
+
+  "migration_progress_title": "ストレージをアップグレード中",
+  "migration_progress_pinned": "ピン留めチャットを移行中...",
+  "migration_progress_chats": "チャット {current}/{total} を移行中",
+  "migration_progress_summaries": "サマリーを移行中...",
+  "migration_progress_archive": "古いデータをアーカイブ中...",
+  "migration_progress_finalize": "最終処理中...",
+  "migration_progress_wait": "お待ちください...",
+  "migration_progress_error_title": "移行エラー",
+  "migration_retry": "再試行",
+  "migration_btn_ok": "完了！",
+  "migration_btn_retry_failed": "失敗した項目を再試行",
+  "migration_result_chats": "チャット",
+  "migration_result_messages": "メッセージ",
+  "migration_result_summaries": "サマリー",
+  "migration_result_pinned": "ピン留め",
+  "migration_result_errors": "エラー",
+  "migration_result_title": "移行完了",
+  "migration_result_title_errors": "エラー付きで移行完了"
 }

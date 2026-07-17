@@ -408,6 +408,10 @@
   "dev_mode_copy_log_copied": "오류 로그가 클립보드에 복사되었습니다!",
   "dev_mode_copy_log_toast": "설정의 개발자 모드에서 BYOK 로그 복사를 활성화해야 할 수도 있습니다 :)",
 
+  "dev_mode_reset_migration": "마이그레이션 플래그 재설정",
+  "dev_mode_reset_migration_desc": "다음 실행 시 마이그레이션 프롬프트가 다시 나타나도록 허용",
+  "dev_mode_reset_migration_done": "마이그레이션 플래그가 재설정되었습니다. 앱을 다시 시작하여 마이그레이션을 트리거하세요.",
+
   "ban_title": "계정이 차단됨",
   "ban_permanent": "영구",
   "ban_until": "까지",
@@ -427,5 +431,31 @@
   "btn_cancel": "취소",
   "call_prank_title": "죄송합니다, 아직 이 기능을 사용할 수 없습니다",
   "call_prank_subtitle": "대신에...",
-  "call_prank_desc": "대신 개발자의 멋진 비디오를 시청하세요"
+  "call_prank_desc": "대신 개발자의 멋진 비디오를 시청하세요",
+  "db_init_error": "로컬 데이터베이스 초기화에 실패했습니다. 일부 기능이 작동하지 않을 수 있습니다.",
+  "migration_title": "데이터 저장소 업그레이드 가능",
+  "migration_desc": "HaloStory가 성능과 안정성을 향상시키기 위해 더 빠른 로컬 데이터베이스로 업그레이드됩니다. 채팅 데이터가 자동으로 마이그레이션됩니다.",
+  "migration_start": "지금 업그레이드",
+  "migration_later": "나중에",
+  "migration_done": "마이그레이션 완료! {chats}개 채팅, {messages}개 메시지가 업그레이드되었습니다.",
+  "migration_done_with_errors": "마이그레이션이 완료되었습니다({chats}개 채팅, {messages}개 메시지). 일부 오류가 발생했습니다 — 자세한 내용을 확인하세요.",
+
+  "migration_progress_title": "저장소 업그레이드 중",
+  "migration_progress_pinned": "고정된 채팅 마이그레이션 중...",
+  "migration_progress_chats": "채팅 {current}/{total} 마이그레이션 중",
+  "migration_progress_summaries": "요약 마이그레이션 중...",
+  "migration_progress_archive": "이전 데이터 보관 중...",
+  "migration_progress_finalize": "마무리 중...",
+  "migration_progress_wait": "잠시 기다려주세요...",
+  "migration_progress_error_title": "마이그레이션 오류",
+  "migration_retry": "재시도",
+  "migration_btn_ok": "확인!",
+  "migration_btn_retry_failed": "실패한 항목 재시도",
+  "migration_result_chats": "채팅",
+  "migration_result_messages": "메시지",
+  "migration_result_summaries": "요약",
+  "migration_result_pinned": "고정됨",
+  "migration_result_errors": "오류",
+  "migration_result_title": "마이그레이션 완료",
+  "migration_result_title_errors": "오류와 함께 마이그레이션 완료"
 }

@@ -8,6 +8,15 @@ import 'localization_service.dart';
 import 'config_service.dart';
 
 class AIService {
+  static const _removedProviders = {
+    'groq', 'novel', 'horde', 'venus', 'nanogpt', 'chutes', 'featherless', 'mancer', 'arli',
+  };
+
+  static String _normalizeByokProvider(String? provider) {
+    if (provider == null || _removedProviders.contains(provider)) return 'gemini';
+    return provider;
+  }
+
   static String normalizeProvider(String? p) {
     if (p == null) return 'System';
     if (p == 'System' || p == 'BYOK' || p == 'BYOM') return p;
@@ -104,7 +113,7 @@ class AIService {
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
         final model = prefs.getString('byok_model') ?? 'openai/gpt-3.5-turbo';
-        final byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
+        final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
         final baseUrl = prefs.getString('byok_base_url') ?? '';
 
         return await _sendByokMessage(
@@ -421,7 +430,7 @@ class AIService {
         final prefs = await SharedPreferences.getInstance();
         final apiKey = prefs.getString('byok_api_key') ?? '';
         final model = prefs.getString('byok_model') ?? '';
-        final byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
+        final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
         final baseUrl = prefs.getString('byok_base_url') ?? '';
         final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
 
