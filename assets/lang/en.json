@@ -463,5 +463,6 @@
   "migration_result_title_errors": "Migration Complete with Errors",
   "memories_title": "Memories & Summaries",
   "memories_chat_summary_section": "Chat Summaries",
-  "memories_worth_keeping_section": "Memory Worth Keeping"
+  "memories_worth_keeping_section": "Memory Worth Keeping",
+  "summary_error_retry": "[Oops, something went wrong, retrying in {interval}s]"
 }

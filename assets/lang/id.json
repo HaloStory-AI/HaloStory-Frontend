@@ -464,5 +464,6 @@
   "migration_result_title_errors": "Migrasi Selesai dengan Error",
   "memories_title": "Memori & Ringkasan",
   "memories_chat_summary_section": "Ringkasan Chat",
-  "memories_worth_keeping_section": "Memori yang Perlu Disimpan"
+  "memories_worth_keeping_section": "Memori yang Perlu Disimpan",
+  "summary_error_retry": "[Eh, ada yang salah, kami coba lagi dalam {interval}s]"
 }

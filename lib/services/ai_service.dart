@@ -461,7 +461,7 @@ class AIService {
           body: jsonEncode(body),
         );
         if (response.statusCode == 200) return jsonDecode(response.body);
-        return null;
+        return _errorResponse(response);
       }
 
       // Default: System
@@ -476,12 +476,33 @@ class AIService {
       );
 
       if (response.statusCode == 200) return jsonDecode(response.body);
+      return _errorResponse(response);
     } catch (e) {
       if (kDebugMode) {
         print('DEBUG: AIService summarizeChat Error: $e');
       }
+      return {
+        'error': true,
+        'error_status_code': 0,
+        'summary': '[ERROR: Network error - ${e.toString()}]',
+      };
     }
-    return null;
+  }
+
+  Map<String, dynamic> _errorResponse(http.Response response) {
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map<String, dynamic>) {
+        body['error'] = true;
+        body['error_status_code'] = response.statusCode;
+        return body;
+      }
+    } catch (_) {}
+    return {
+      'error': true,
+      'error_status_code': response.statusCode,
+      'summary': '[ERROR ${response.statusCode}] Failed to summarize',
+    };
   }
 
   Future<Map<String, dynamic>?> checkChatStatus(String uuid) async {

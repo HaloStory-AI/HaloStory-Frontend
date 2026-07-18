@@ -464,5 +464,6 @@
   "migration_result_title_errors": "迁移完成但有错误",
   "memories_title": "记忆与摘要",
   "memories_chat_summary_section": "聊天摘要",
-  "memories_worth_keeping_section": "值得保留的记忆"
+  "memories_worth_keeping_section": "值得保留的记忆",
+  "summary_error_retry": "[哎呀，出了点问题，{interval}秒后重试]"
 }

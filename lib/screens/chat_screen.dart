@@ -86,6 +86,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   bool _isLoading = false;
   Map<int, String> _summaries = {};
   Set<int> _failedSummaryBatches = {};
+  static const int _maxSummaryRetries = 5;
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
   final ValueNotifier<String> _summaryProgressText = ValueNotifier<String>('');
@@ -527,6 +528,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   void _addDebugLog(String message) {
     if (!kDebugMode) return;
     final timestamp = DateTime.now().toIso8601String();
+    debugPrint('[$timestamp] $message');
     _safeSetState(() {
       _debugLogs.add('[$timestamp] $message');
       if (_debugLogs.length > 1000) {
@@ -660,82 +662,149 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
         if (_failedSummaryBatches.contains(i)) continue;
-        try {
-          final List<Map<String, String>> batch = realMessages
-              .sublist(i, i + batchSize)
-              .map(
-                (m) => {
-                  'role': m['role'] as String,
-                  'content': m['content'] as String,
-                },
-              )
-              .toList();
 
-          final result = await _aiService.summarizeChat(
-            messages: batch,
-            botId: widget.bot['id'],
-            provider: widget.provider,
-            existingMemories: latestMemories,
-          );
+        bool batchDone = false;
 
-          if (result != null &&
-              result['status'] == 'queued' &&
-              result['uuid'] != null) {
-            String uuid = result['uuid'];
-            bool summaryCompleted = false;
-            int timeoutChecks = 60; // Max 2 minutes
-
-            while (mounted &&
-                !_isDisposed &&
-                !summaryCompleted &&
-                timeoutChecks > 0) {
-              await Future.delayed(const Duration(seconds: 1));
-              final statusCheck = await _aiService.checkChatStatus(uuid);
-              if (statusCheck != null) {
-                if (statusCheck['status'] == 'queued' ||
-                    statusCheck['status'] == 'processing') {
-                  // Masih diproses, teruskan polling
-                } else if (statusCheck['status'] == 'not_found' ||
-                    statusCheck['status'] == 'failed' ||
-                    statusCheck['error'] != null) {
-                  summaryCompleted = true;
-                  _failedSummaryBatches.add(i);
-                  _summaries[i] = '[...]';
-                  updated = true;
-                } else {
-                  // Berhasil!
-                  final summaryText =
-                      statusCheck['summary'] ??
-                      statusCheck['response']?['summary'];
-                  if (summaryText != null && summaryText.isNotEmpty) {
-                    _summaries[i] = summaryText;
-                    updated = true;
-                  }
-                  // Extract memory_worth_keeping from response
-                  final memories = statusCheck['memory_worth_keeping'] ??
-                      statusCheck['response']?['memory_worth_keeping'];
-                  if (memories is List && memories.isNotEmpty) {
-                    latestMemories = List<String>.from(memories);
-                    await _localChatService.saveMemories(widget.bot['id'], latestMemories);
-                  }
-                  summaryCompleted = true;
-                }
+        for (int attempt = 1; attempt <= _maxSummaryRetries && !batchDone && mounted && !_isDisposed; attempt++) {
+          if (mounted && !_isDisposed) {
+            _safeSetState(() {
+              if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+                _messages.last['content'] = '${tr('chat_compressing_memory')} ($processedBatches/$totalBatchesToSummarize)';
               }
-              timeoutChecks--;
+            });
+          }
+          try {
+            final List<Map<String, String>> batch = realMessages
+                .sublist(i, i + batchSize)
+                .map(
+                  (m) => {
+                    'role': m['role'] as String,
+                    'content': m['content'] as String,
+                  },
+                )
+                .toList();
+
+            final result = await _aiService.summarizeChat(
+              messages: batch,
+              botId: widget.bot['id'],
+              provider: widget.provider,
+              existingMemories: latestMemories,
+            );
+
+            if (result != null &&
+                result['status'] == 'queued' &&
+                result['uuid'] != null) {
+              final pollResult = await _pollSummaryStatus(result['uuid']);
+              if (!mounted || _isDisposed) return;
+
+              if (pollResult == null) {
+                // Timeout - retry
+                _addDebugLog('Summary batch $i attempt $attempt: poll timeout');
+                debugPrint('DEBUG: Summary batch $i attempt $attempt: poll timeout');
+                if (attempt >= _maxSummaryRetries) {
+                  _summaries[i] = '[...]';
+                  _failedSummaryBatches.add(i);
+                  batchDone = true;
+                  updated = true;
+                }
+                continue;
+              }
+
+              if (pollResult['error'] != null ||
+                  pollResult['status'] == 'not_found' ||
+                  pollResult['status'] == 'failed') {
+                final errorStatusCode = pollResult['error_status_code'] ?? 0;
+                final delay = _getRetryDelay(errorStatusCode);
+
+                _addDebugLog('Summary batch $i attempt $attempt error: status_code=$errorStatusCode');
+                debugPrint('DEBUG: Summary batch $i attempt $attempt error: status_code=$errorStatusCode');
+
+                if (delay < 0 || attempt >= _maxSummaryRetries) {
+                  _summaries[i] = '[...]';
+                  _failedSummaryBatches.add(i);
+                  batchDone = true;
+                  updated = true;
+                  _addDebugLog('Summary batch $i: gave up after $attempt attempts');
+                  debugPrint('DEBUG: Summary batch $i: gave up after $attempt attempts');
+                  break;
+                }
+
+                // Countdown before retry
+                for (int s = delay; s > 0 && mounted && !_isDisposed; s--) {
+                  final msg = tr('summary_error_retry').replaceAll('{interval}', s.toString());
+                  _safeSetState(() {
+                    if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+                      _messages.last['content'] = msg;
+                    }
+                  });
+                  await Future.delayed(const Duration(seconds: 1));
+                }
+                continue; // retry
+              } else {
+                // Success
+                final summaryText = pollResult['summary'] ?? pollResult['response']?['summary'];
+                if (summaryText != null && summaryText.isNotEmpty) {
+                  _summaries[i] = summaryText;
+                  updated = true;
+                }
+                final mems = pollResult['memory_worth_keeping'] ?? pollResult['response']?['memory_worth_keeping'];
+                if (mems is List && mems.isNotEmpty) {
+                  latestMemories = List<String>.from(mems);
+                  await _localChatService.saveMemories(widget.bot['id'], latestMemories);
+                }
+                batchDone = true;
+                _addDebugLog('Summary batch $i attempt $attempt succeeded');
+                debugPrint('DEBUG: Summary batch $i attempt $attempt succeeded');
+              }
+            } else if (result != null &&
+                result['summary'] != null &&
+                (result['summary'] as String).isNotEmpty &&
+                result['error'] != true) {
+              _summaries[i] = result['summary'];
+              updated = true;
+              if (result['memory_worth_keeping'] is List) {
+                latestMemories = List<String>.from(result['memory_worth_keeping']);
+                await _localChatService.saveMemories(widget.bot['id'], latestMemories);
+              }
+              batchDone = true;
+              _addDebugLog('Summary batch $i direct success');
+              debugPrint('DEBUG: Summary batch $i direct success');
+            } else {
+              // Direct error
+              final errorStatusCode = result != null ? (result['error_status_code'] ?? 0) : 0;
+              final delay = _getRetryDelay(errorStatusCode);
+
+              _addDebugLog('Summary batch $i attempt $attempt direct error: status_code=$errorStatusCode');
+              debugPrint('DEBUG: Summary batch $i attempt $attempt direct error: status_code=$errorStatusCode');
+
+              if (delay < 0 || attempt >= _maxSummaryRetries) {
+                _summaries[i] = '[...]';
+                _failedSummaryBatches.add(i);
+                batchDone = true;
+                updated = true;
+                break;
+              }
+
+              for (int s = delay; s > 0 && mounted && !_isDisposed; s--) {
+                final msg = tr('summary_error_retry').replaceAll('{interval}', s.toString());
+                _safeSetState(() {
+                  if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+                    _messages.last['content'] = msg;
+                  }
+                });
+                await Future.delayed(const Duration(seconds: 1));
+              }
             }
-          } else if (result != null &&
-              result['summary'] != null &&
-              (result['summary'] as String).isNotEmpty) {
-            _summaries[i] = result['summary'];
-            updated = true;
-            // Extract memory_worth_keeping from direct response
-            if (result['memory_worth_keeping'] is List) {
-              latestMemories = List<String>.from(result['memory_worth_keeping']);
-              await _localChatService.saveMemories(widget.bot['id'], latestMemories);
+          } catch (e) {
+            _addDebugLog('Summary batch $i attempt $attempt exception: $e');
+            debugPrint('DEBUG: Summary batch $i attempt $attempt exception: $e');
+            if (attempt >= _maxSummaryRetries) {
+              _summaries[i] = '[...]';
+              _failedSummaryBatches.add(i);
+              batchDone = true;
+              updated = true;
             }
           }
-        } catch (e) {
-          // Log failed batch if needed
         }
 
         processedBatches++;
@@ -762,6 +831,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       _isSummarizing = false;
       _summaryProgress = 0.0;
     });
+  }
+
+  int _getRetryDelay(int statusCode) {
+    if (statusCode == 429) return 30;
+    if (statusCode == 500 || statusCode == 503) return 15;
+    if (statusCode == 422) return -1;
+    if (statusCode == 400 || statusCode == 401) return 10;
+    return 15;
+  }
+
+  Future<Map<String, dynamic>?> _pollSummaryStatus(String uuid) async {
+    int checks = 60;
+    while (mounted && !_isDisposed && checks > 0) {
+      await Future.delayed(const Duration(seconds: 1));
+      final status = await _aiService.checkChatStatus(uuid);
+      if (status == null) { checks--; continue; }
+      if (status['status'] == 'processing' ||
+          status['status'] == 'queued') { checks--; continue; }
+      return status;
+    }
+    return null;
   }
 
   void _scrollToBottom() {

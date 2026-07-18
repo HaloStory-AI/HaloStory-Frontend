@@ -464,5 +464,6 @@
   "migration_result_title_errors": "エラー付きで移行完了",
   "memories_title": "記憶と要約",
   "memories_chat_summary_section": "チャットの要約",
-  "memories_worth_keeping_section": "保持すべき記憶"
+  "memories_worth_keeping_section": "保持すべき記憶",
+  "summary_error_retry": "[エラーが発生しました、{interval}秒後に再試行します]"
 }

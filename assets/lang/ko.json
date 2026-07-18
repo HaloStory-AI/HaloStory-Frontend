@@ -464,5 +464,6 @@
   "migration_result_title_errors": "오류와 함께 마이그레이션 완료",
   "memories_title": "기억 및 요약",
   "memories_chat_summary_section": "채팅 요약",
-  "memories_worth_keeping_section": "유지할 가치가 있는 기억"
+  "memories_worth_keeping_section": "유지할 가치가 있는 기억",
+  "summary_error_retry": "[문제가 발생했습니다. {interval}초 후에 다시 시도합니다]"
 }
