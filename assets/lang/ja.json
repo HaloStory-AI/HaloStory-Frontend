@@ -153,6 +153,7 @@
   "welcome_ready": "始める準備はできてる、先生？",
   "btn_login": "ログイン",
   "btn_register": "新規登録",
+  "register_have_account": "アカウントをお持ちですか？ログイン",
   "welcome_disclaimer_content": "HaloStoryは、ブルーアーカイブ、Nexon Games、またはその子会社や関連会社と提携、関連、認可、承認、あるいは何らかの形での公式な関係はありません。\n\n参照されているすべての名称、キャラクター、商標、および関連する資産は、それぞれの著作権および商標権者の財産です。\n\nHaloStoryは、教育および個人的な開発のみを目的として作成された、独立した非営利のプロジェクトです。著作権を侵害したり、公式製品に損害を与えたりすることを意図したものではありません。\n\nこのアプリは、R8KStudioの創設者であるRafiq8Kによって開発されました。\n\nNexon Gamesまたは関連する当事者が、このアプリが権利を侵害している、あるいは懸念があると感じる場合は、メール（r8kstudio@gmail.com） atau TwitterのDM（@rafiq8kbest）で遠慮なくご連絡ください。必要に応じて調整や適切な措置を講じる用意があります。\n\nこの免責事項を読み、アプリの使用を継続することで、先生はHaloStoryが定める利用規約に同意したものとみなされます。",
   "login_welcome_back": "おかえり、先生〜！",
   "login_please_sign_in": "続けるにはログインしてね！",
@@ -465,5 +466,7 @@
   "memories_title": "記憶と要約",
   "memories_chat_summary_section": "チャットの要約",
   "memories_worth_keeping_section": "保持すべき記憶",
-  "summary_error_retry": "[エラーが発生しました、{interval}秒後に再試行します]"
+  "summary_error_retry": "[エラーが発生しました、{interval}秒後に再試行します]",
+  "child_sfw_warning": "このキャラクターは16歳未満の未成年です。Safe for Workポリシーに従ってください。違反するとアカウントが永久停止される可能性があります。",
+  "chat_retry_prompt": "[再試行ボタンをクリックして再試行してください]"
 }

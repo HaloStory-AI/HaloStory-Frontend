@@ -111,7 +111,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                                   onUploadReceived: (payload) async {
                                     await _processRestorePayload(payload);
                                     if (mounted) {
-                                      Navigator.of(context).pushAndRemoveUntil(
+                                      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                                         MaterialPageRoute(
                                           builder: (_) => const SplashScreen(),
                                         ),
@@ -192,7 +192,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                                     if (payload != null) {
                                       await _processRestorePayload(payload);
                                       if (mounted) {
-                                        Navigator.of(context)
+                                        Navigator.of(context, rootNavigator: true)
                                             .pushAndRemoveUntil(
                                           MaterialPageRoute(
                                             builder: (_) =>
@@ -681,7 +681,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const SplashScreen(),
         ),
@@ -802,7 +802,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const SplashScreen(),
         ),

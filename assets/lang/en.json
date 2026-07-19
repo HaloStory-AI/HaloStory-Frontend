@@ -153,6 +153,7 @@
   "welcome_ready": "Ready to start your adventure, Sensei?",
   "btn_login": "LOGIN",
   "btn_register": "REGISTER",
+  "register_have_account": "Already have an account? Login",
   "welcome_disclaimer_content": "HaloStory is not affiliated, associated, authorized, endorsed by, or in any way officially connected with Blue Archive, Nexon Games, or any of their subsidiaries or affiliates.\n\nAll names, characters, trademarks, and related assets referenced remain the property of their respective copyright and trademark holders.\n\nHaloStory is an independent, non-commercial project created solely for educational and personal development purposes. It is not intended to infringe upon any copyrights or harm any official products.\n\nThis application is developed by Rafiq8K, Founder of R8KStudio.\n\nIf Nexon Games or any related party believes that this application violates any rights or causes concern, please feel free to reach out via email at r8kstudio@gmail.com or through Twitter DM at @rafiq8kbest. We are happy to make any necessary adjustments.\n\nBy continuing to use this app, Sensei is deemed to have read, understood, and agreed to HaloStory's Terms of Service.",
   "login_welcome_back": "Welcome back, Sensei~",
   "login_please_sign_in": "Sign in to continue chatting!",
@@ -464,5 +465,7 @@
   "memories_title": "Memories & Summaries",
   "memories_chat_summary_section": "Chat Summaries",
   "memories_worth_keeping_section": "Memory Worth Keeping",
-  "summary_error_retry": "[Oops, something went wrong, retrying in {interval}s]"
+  "summary_error_retry": "[Oops, something went wrong, retrying in {interval}s]",
+  "child_sfw_warning": "This character is a minor (under 16). Please adhere to our Safe for Work policy or your account may be permanently suspended.",
+  "chat_retry_prompt": "[Click the retry button to try again]"
 }

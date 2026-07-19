@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:http/http.dart' as http;
 import '../services/ai_service.dart';
@@ -94,6 +96,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   bool _isDisposed = false;
   bool _showScrollButton = false;
   bool _isPollingActive = false;
+  String? _retryCountdownText;
+  bool _hasSystemError = false;
+  bool _showChildWarning = false;
 
   // Debug overlay state
   bool _showDebugOverlay = false;
@@ -137,6 +142,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _groupBio = (widget.bot['description'] ?? widget.bot['bio'] ?? '')
         .toString();
     _bondLevel = widget.bot['bond_hearts'] ?? 0;
+    _showChildWarning = widget.bot['child'] == true && !_isGroup;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
     _loadSystemNote();
@@ -638,6 +644,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       }
     }
 
+    // Retry 1-2 batch summary terakhir yang gagal ([...])
+    final sortedKeys = _summaries.keys.toList()..sort();
+    int retried = 0;
+    for (int k = sortedKeys.length - 1; k >= 0 && retried < 2; k--) {
+      final idx = sortedKeys[k];
+      if (_summaries[idx] == '[...]') {
+        _summaries.remove(idx);
+        _failedSummaryBatches.remove(idx);
+        retried++;
+        _addDebugLog('Retrying previously failed summary batch $idx');
+        debugPrint('DEBUG: Retrying previously failed summary batch $idx');
+      } else {
+        break;
+      }
+    }
+
+    if (retried > 0) {
+      totalBatchesToSummarize = 0;
+      for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
+        if (!_summaries.containsKey(i)) {
+          totalBatchesToSummarize++;
+        }
+      }
+    }
+
     if (totalBatchesToSummarize == 0) return;
 
     // Load existing memories to pass to AI
@@ -919,6 +950,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     await _getAIResponse();
   }
 
+  Future<void> _retryAfterError() async {
+    _safeSetState(() {
+      if (_messages.isNotEmpty && _messages.last['role'] == 'system') {
+        _messages.removeLast();
+      }
+      _hasSystemError = false;
+      _isLoading = true;
+    });
+    _scrollToBottom();
+    await _getAIResponse();
+  }
+
   Future<void> _regenerateResponse() async {
     if (_isLoading || _messages.isEmpty) return;
 
@@ -1099,109 +1142,133 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       print('DEBUG: ---------------------');
     }
 
-    try {
-      final response = await _aiService.sendMessage(
-        provider: widget.provider,
-        messages: aiMessages,
-        botId: botIdForRequest,
-        botIds: _isGroup
-            ? _groupMembers
-                  .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
-                  .whereType<String>()
-                  .toList()
-            : null,
-        language: language,
-        summary: summaryPrompt,
-        persona: resolvedPersona,
-        bondDisabled: bondDisabled,
-        isGroup: _isGroup,
-      );
+    final aiTimestamp = DateTime.now().toIso8601String();
 
-      if (!mounted || _isDisposed) return;
-
-      final aiTimestamp = DateTime.now().toIso8601String();
-
-      if (response != null && response['status'] == 'queued') {
+    for (int attempt = 1; attempt <= _maxSummaryRetries; attempt++) {
+      if (attempt > 1) {
         _safeSetState(() {
           if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
             _messages.last['status'] = 'sent';
-            _messages.last['uuid'] = response['uuid'];
           }
         });
-        _startPolling(response['uuid'], botIdForRequest, aiTimestamp);
-        return;
       }
 
-      await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
-    } catch (e) {
-      if (!mounted || _isDisposed) return;
-      _safeSetState(() {
-        _isLoading = false;
-        _activeBotId = null;
-        _addSystemError(DateTime.now().toIso8601String());
-      });
-    }
-  }
+      try {
+        final response = await _aiService.sendMessage(
+          provider: widget.provider,
+          messages: aiMessages,
+          botId: botIdForRequest,
+          botIds: _isGroup
+              ? _groupMembers
+                    .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+                    .whereType<String>()
+                    .toList()
+              : null,
+          language: language,
+          summary: summaryPrompt,
+          persona: resolvedPersona,
+          bondDisabled: bondDisabled,
+          isGroup: _isGroup,
+        );
 
-  Future<void> _startPolling(
-    String uuid,
-    String? botIdForRequest,
-    String aiTimestamp,
-  ) async {
-    _isPollingActive = false;
-    _isPollingActive = true;
-    await _pollLoop(uuid, botIdForRequest, aiTimestamp);
-  }
+        if (!mounted || _isDisposed) return;
 
-  Future<void> _pollLoop(
-    String uuid,
-    String? botIdForRequest,
-    String aiTimestamp,
-  ) async {
-    while (_isPollingActive && mounted && !_isDisposed) {
-      final response = await _aiService.checkChatStatus(uuid);
-
-      if (!_isPollingActive || !mounted || _isDisposed) return;
-
-      if (response == null || response['status'] == 'not_found') {
-        _isPollingActive = false;
-        if (mounted && !_isDisposed) {
+        if (response != null && response['status'] == 'queued') {
           _safeSetState(() {
-            _isLoading = false;
-            _activeBotId = null;
-            _addSystemError(aiTimestamp);
+            if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+              _messages.last['status'] = 'sent';
+              _messages.last['uuid'] = response['uuid'];
+            }
           });
-        }
-        return;
-      }
 
-      if (response['status'] == 'processing') {
-        _safeSetState(() {
-          if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
-            _messages.last['status'] = 'processing';
+          _isPollingActive = true;
+          final pollResult = await _pollLoopForResult(response['uuid']);
+          _isPollingActive = false;
+          if (!mounted || _isDisposed) return;
+
+          if (pollResult == null) {
+            if (attempt >= _maxSummaryRetries) {
+              _safeSetState(() { _isLoading = false; _activeBotId = null; });
+              _addSystemError(aiTimestamp);
+              return;
+            }
+            await _doRetryCountdown(15);
+            continue;
           }
-        });
-        await Future.delayed(const Duration(seconds: 1));
-        continue;
-      }
 
-      if (response['status'] == 'completed' ||
-          response['choices'] != null ||
-          response['error'] != null) {
-        _isPollingActive = false;
-        if (mounted && !_isDisposed) {
+          if (pollResult['error'] != null ||
+              pollResult['status'] == 'not_found') {
+            final statusCode = (pollResult['error_status_code'] ?? 0) as int;
+            final delay = _getRetryDelay(statusCode);
+
+            if (delay < 0 || attempt >= _maxSummaryRetries) {
+              _safeSetState(() {
+                if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+                  _messages.last['status'] = 'completed';
+                }
+              });
+              await _handleAIResponseData(pollResult, botIdForRequest, aiTimestamp);
+              return;
+            }
+
+            await _doRetryCountdown(delay);
+            continue;
+          }
+
           _safeSetState(() {
             if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
               _messages.last['status'] = 'completed';
             }
           });
-          await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+          await _handleAIResponseData(pollResult, botIdForRequest, aiTimestamp);
+          return;
         }
-        return;
-      }
 
+        await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+        return;
+      } catch (e) {
+        if (!mounted || _isDisposed) return;
+        if (attempt >= _maxSummaryRetries) {
+          _safeSetState(() { _isLoading = false; _activeBotId = null; });
+          _addSystemError(aiTimestamp);
+          return;
+        }
+        await _doRetryCountdown(15);
+      }
+    }
+  }
+
+  Future<void> _doRetryCountdown(int delay) async {
+    for (int s = delay; s > 0 && mounted && !_isDisposed; s--) {
+      _safeSetState(() {
+        _retryCountdownText = tr('summary_error_retry').replaceAll('{interval}', s.toString());
+      });
       await Future.delayed(const Duration(seconds: 1));
     }
+    if (mounted && !_isDisposed) {
+      _safeSetState(() => _retryCountdownText = null);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _pollLoopForResult(String uuid) async {
+    int checks = 120;
+    while (_isPollingActive && mounted && !_isDisposed && checks > 0) {
+      final response = await _aiService.checkChatStatus(uuid);
+      if (response == null) { checks--; continue; }
+      if (response['status'] == 'processing' || response['status'] == 'queued') {
+        if (response['status'] == 'processing') {
+          _safeSetState(() {
+            if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+              _messages.last['status'] = 'processing';
+            }
+          });
+        }
+        checks--;
+        continue;
+      }
+      return response;
+    }
+    return null;
   }
 
   Future<void> _handleAIResponseData(
@@ -1610,6 +1677,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       'timestamp': timestamp,
       if (rawError != null) 'raw_error': rawError,
     });
+    _hasSystemError = true;
   }
 
   void _copyErrorLog(Map<String, dynamic> msg) async {
@@ -2054,6 +2122,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       widget.bot['id'],
                       _summaries,
                     );
+                    await _localChatService.saveMemories(widget.bot['id'], []);
 
                     if (!context.mounted) return;
 
@@ -2495,6 +2564,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                     ),
                     if (_isLoading)
                       _buildTypingIndicatorWidget(),
+                    if (_retryCountdownText != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 60, top: 2),
+                        child: Text(
+                          _retryCountdownText!,
+                          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.8)),
+                        ),
+                      ),
                     SystemNoteArea(
                       isOpen: _isSystemNoteOpen,
                       controller: _systemNoteController,
@@ -2536,8 +2613,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                             }()
                           : '${tr('tab_chat')} ${(widget.bot['name'] as String).length > 15 ? '${(widget.bot['name'] as String).substring(0, 15)}...' : widget.bot['name']}',
                       isSendEnabled:
-                          !_isTypingEffectActive && !_isSummarizing,
+                          !_isLoading && !_isTypingEffectActive && !_isSummarizing,
                       onSend: _sendMessage,
+                      hasSystemError: _hasSystemError,
+                      onRetry: _retryAfterError,
                       isSystemNoteOpen: _isSystemNoteOpen,
                       isPersonaOpen: _isPersonaOpen,
                       onToggleSystemNote: () => _safeSetState(
@@ -2548,6 +2627,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                   ],
                 ),
               ),
+              if (_showChildWarning)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildChildWarningBanner(context),
+                ),
             ],
           ),
         ),
@@ -2597,6 +2683,52 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       }
     } catch (_) {}
     return parseColor(widget.bot['color']);
+  }
+
+  Widget _buildChildWarningBanner(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Colors.amber.shade100,
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                style: TextStyle(fontSize: 12, color: Colors.black87),
+                children: [
+                  TextSpan(text: tr('child_sfw_warning')),
+                  const TextSpan(text: ' '),
+                  TextSpan(
+                    text: 'https://s.my-bini.my.id/hs-sfw-policy',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      decoration: TextDecoration.underline,
+                      fontSize: 12,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        launchUrl(
+                          Uri.parse('https://s.my-bini.my.id/hs-sfw-policy'),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _safeSetState(() => _showChildWarning = false),
+            child: const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Icon(Icons.close, color: Colors.black54, size: 16),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTypingIndicatorWidget() {

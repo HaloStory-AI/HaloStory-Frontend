@@ -153,6 +153,7 @@
   "welcome_ready": "Siap untuk mulai?",
   "btn_login": "LOGIN",
   "btn_register": "REGISTER",
+  "register_have_account": "Sudah punya akun? Masuk",
   "welcome_disclaimer_content": "HaloStory tidak berafiliasi, dikaitkan, diizinkan, didukung oleh, atau dengan cara apa pun terhubung secara resmi dengan Blue Archive, Nexon Games, atau salah satu anak perusahaan atau afiliasi mereka.\n\nSemua nama, karakter, merek dagang, dan aset terkait yang dirujuk tetap menjadi milik dari masing-masing pemegang hak cipta dan merek dagang.\n\nHaloStory adalah proyek independen non-komersial yang dibuat semata-mata untuk tujuan pendidikan dan pengembangan pribadi. Ini tidak dimaksudkan untuk melanggar hak cipta apa pun atau membahayakan produk resmi apa pun.\n\nAplikasi ini dikembangkan oleh Rafiq8K, Pendiri R8KStudio.\n\nJika Nexon Games atau pihak terkait merasa bahwa aplikasi ini melanggar hak apa pun atau menyebabkan kekhawatiran, jangan ragu untuk menghubungi saya melalui email di r8kstudio@gmail.com atau melalui DM Twitter di @rafiq8kbest. Saya bersedia melakukan penyesuaian yang diperlukan atau mengambil tindakan yang tepat jika diperlukan.\n\nDengan membaca disclaimer ini dan terus menggunakan aplikasi, pengguna dianggap telah menyetujui dan mematuhi Ketentuan Layanan yang ditetapkan oleh HaloStory.",
   "login_welcome_back": "Selamat Datang Kembali",
   "login_please_sign_in": "Silakan masuk untuk melanjutkan",
@@ -465,5 +466,7 @@
   "memories_title": "Memori & Ringkasan",
   "memories_chat_summary_section": "Ringkasan Chat",
   "memories_worth_keeping_section": "Memori yang Perlu Disimpan",
-  "summary_error_retry": "[Eh, ada yang salah, kami coba lagi dalam {interval}s]"
+  "summary_error_retry": "[Eh, ada yang salah, kami coba lagi dalam {interval}s]",
+  "child_sfw_warning": "Ini karakter dibawah umur 16 tahun, patuhilah kebijakan Safe for Work kami atau akunmu bisa disuspend permanen",
+  "chat_retry_prompt": "[Klik tombol Ulangi untuk mencoba lagi]"
 }

@@ -74,7 +74,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('verify_email_success')),
-          backgroundColor: Colors.green,
+          backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
       Navigator.of(
@@ -85,7 +85,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['message'] ?? tr('verify_email_failed')),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -109,14 +109,174 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['message']),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
   }
 
+  Widget _buildForm(ColorScheme colorScheme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 20),
+        Text(
+          tr('verify_email_title'),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          tr('verify_email_subtitle'),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            color: colorScheme.onSurfaceVariant,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 40),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(
+            6,
+            (index) => SizedBox(
+              width: 45,
+              child: TextField(
+                controller: _controllers[index],
+                focusNode: _focusNodes[index],
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.number,
+                maxLength: 1,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+                decoration: InputDecoration(
+                  counterText: "",
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  fillColor: colorScheme.surfaceContainer,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                onChanged: (value) {
+                  if (value.isNotEmpty && index < 5) {
+                    _focusNodes[index + 1].requestFocus();
+                  } else if (value.isEmpty && index > 0) {
+                    _focusNodes[index - 1].requestFocus();
+                  }
+                  if (_controllers.every((c) => c.text.isNotEmpty) &&
+                      !_isLoading) {
+                    _verify();
+                  }
+                },
+                textInputAction:
+                    index == 5 ? TextInputAction.done : TextInputAction.next,
+                onSubmitted: index == 5 ? (_) => _verify() : null,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 48),
+        SizedBox(
+          height: 50,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : ElevatedButton(
+                  onPressed: _verify,
+                  child: Text(tr('verify_email_btn')),
+                ),
+        ),
+        const SizedBox(height: 24),
+        TextButton(
+          onPressed: _resendTimer > 0 || _isResending ? null : _resendOtp,
+          child: _isResending
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  _resendTimer > 0
+                      ? "${tr('verify_email_resend_wait')} ${_resendTimer}s"
+                      : tr('verify_email_resend'),
+                  style: TextStyle(
+                    color: _resendTimer > 0
+                        ? colorScheme.onSurfaceVariant
+                        : colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRightPanel(ColorScheme colorScheme) {
+    return Container(
+      color: colorScheme.surfaceContainer,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.mark_email_read_outlined,
+                size: 100,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(height: 40),
+              Text(
+                tr('verify_email_title'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                tr('verify_email_subtitle'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDesktop = MediaQuery.of(context).size.width >= 800;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('verify_email_title')),
@@ -136,124 +296,32 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            const Icon(
-              Icons.mark_email_read_outlined,
-              size: 80,
-              color: Color(0xFF135ACF),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              tr('verify_email_subtitle'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF4A5568),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 40),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(
-                6,
-                (index) => SizedBox(
-                  width: 45,
-                  child: TextField(
-                    controller: _controllers[index],
-                    focusNode: _focusNodes[index],
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    maxLength: 1,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF135ACF),
-                    ),
-                    decoration: InputDecoration(
-                      counterText: "",
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      fillColor: Colors.white,
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF135ACF),
-                          width: 2,
+        child: isDesktop
+            ? Row(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(48),
+                        child: SizedBox(
+                          width: 400,
+                          child: _buildForm(colorScheme),
                         ),
                       ),
                     ),
-                    onChanged: (value) {
-                      if (value.isNotEmpty && index < 5) {
-                        _focusNodes[index + 1].requestFocus();
-                      } else if (value.isEmpty && index > 0) {
-                        _focusNodes[index - 1].requestFocus();
-                      }
-                      if (_controllers.every((c) => c.text.isNotEmpty) &&
-                          !_isLoading) {
-                        _verify();
-                      }
-                    },
                   ),
+                  Container(width: 1, color: colorScheme.outlineVariant),
+                  Expanded(
+                    child: _buildRightPanel(colorScheme),
+                  ),
+                ],
+              )
+            : Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: _buildForm(colorScheme),
                 ),
               ),
-            ),
-            const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _verify,
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(
-                      tr('verify_email_btn'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 24),
-            TextButton(
-              onPressed: _resendTimer > 0 || _isResending ? null : _resendOtp,
-              child: _isResending
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      _resendTimer > 0
-                          ? "${tr('verify_email_resend_wait')} ${_resendTimer}s"
-                          : tr('verify_email_resend'),
-                      style: TextStyle(
-                        color: _resendTimer > 0
-                            ? Colors.grey
-                            : const Color(0xFF135ACF),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-            ),
-          ],
-        ),
-        ),
       ),
     );
   }

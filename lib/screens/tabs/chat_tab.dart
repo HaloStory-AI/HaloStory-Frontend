@@ -1296,6 +1296,30 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                         ),
                       ),
                     ),
+                  if (chat['child'] == true && !isGroupChat)
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: IgnorePointer(
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              width: 2.5,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.child_care,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                   Positioned(
                     right: -3,
                     bottom: -2,
@@ -1616,7 +1640,10 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     if (selectedIds.isEmpty) return;
 
     await Future.wait(
-      selectedIds.map((chatId) => _localChatService.saveSummaries(chatId, {})),
+      selectedIds.map((chatId) async {
+        await _localChatService.saveSummaries(chatId, {});
+        await _localChatService.saveMemories(chatId, []);
+      }),
     );
 
     _clearSelection();

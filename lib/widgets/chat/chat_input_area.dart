@@ -14,6 +14,8 @@ class ChatInputArea extends StatelessWidget {
   final bool isPersonaOpen;
   final VoidCallback? onToggleSystemNote;
   final VoidCallback? onTogglePersona;
+  final bool hasSystemError;
+  final VoidCallback? onRetry;
 
   const ChatInputArea({
     super.key,
@@ -28,6 +30,8 @@ class ChatInputArea extends StatelessWidget {
     required this.isPersonaOpen,
     this.onToggleSystemNote,
     this.onTogglePersona,
+    this.hasSystemError = false,
+    this.onRetry,
   });
 
   @override
@@ -75,73 +79,14 @@ class ChatInputArea extends StatelessWidget {
                       const SizedBox(width: 4),
                     ],
                     Expanded(
-                      child: TextField(
-                        controller: messageController,
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: colorScheme.surfaceContainerHighest,
-                          hintText: hintText,
-                          hintStyle: TextStyle(
-                            color:
-                                colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.7,
-                            ),
-                            fontSize: 14,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(50),
-                            borderSide: const BorderSide(
-                              color: Colors.transparent,
-                            ),
-                          ),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                        ),
-                        onSubmitted: (_) {
-                          if (isSendEnabled) {
-                            onSend();
-                          }
-                        },
-                      ),
+                      child: hasSystemError
+                          ? _buildRetryPrompt(context, colorScheme)
+                          : _buildTextField(context, colorScheme),
                     ),
                     const SizedBox(width: 4),
                     if (isGroup && (hasNoteToggle || hasPersonaToggle))
                       _buildPopupMenuButton(context, colorScheme, anyOpen),
-                    GestureDetector(
-                      onTap: isSendEnabled ? onSend : null,
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 4),
-                        padding: const EdgeInsets.all(6),
-                        child: Icon(
-                          Icons.send,
-                          color: isSendEnabled
-                              ? colorScheme.primary
-                              : colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.5,
-                                ),
-                          size: 24,
-                        ),
-                      ),
-                    ),
+                    _buildSendOrRetryButton(colorScheme),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -159,6 +104,108 @@ class ChatInputArea extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTextField(BuildContext context, ColorScheme colorScheme) {
+    return TextField(
+      controller: messageController,
+      style: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: 14,
+      ),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color:
+              colorScheme.onSurfaceVariant.withValues(
+            alpha: 0.7,
+          ),
+          fontSize: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(50),
+          borderSide: const BorderSide(
+            color: Colors.transparent,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(50),
+          borderSide: const BorderSide(
+            color: Colors.transparent,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(50),
+          borderSide: const BorderSide(
+            color: Colors.transparent,
+          ),
+        ),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 8,
+        ),
+      ),
+      onSubmitted: (_) {
+        if (isSendEnabled) {
+          onSend();
+        }
+      },
+    );
+  }
+
+  Widget _buildRetryPrompt(BuildContext context, ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(50),
+      ),
+      child: Text(
+        tr('chat_retry_prompt'),
+        style: TextStyle(
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          fontSize: 14,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _buildSendOrRetryButton(ColorScheme colorScheme) {
+    if (hasSystemError) {
+      return GestureDetector(
+        onTap: onRetry,
+        child: Container(
+          margin: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            Icons.refresh,
+            color: colorScheme.primary,
+            size: 24,
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: isSendEnabled ? onSend : null,
+      child: Container(
+        margin: const EdgeInsets.only(right: 4),
+        padding: const EdgeInsets.all(6),
+        child: Icon(
+          Icons.send,
+          color: isSendEnabled
+              ? colorScheme.primary
+              : colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.5,
+                ),
+          size: 24,
+        ),
+      ),
     );
   }
 
