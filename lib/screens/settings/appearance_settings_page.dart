@@ -52,7 +52,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
 
     if (!mounted) return;
     if (_isLanguageChanged) {
-      Navigator.of(context).pushAndRemoveUntil(
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const SplashScreen()),
         (route) => false,
       );

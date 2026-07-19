@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
@@ -88,6 +88,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   bool _isLoading = false;
   Map<int, String> _summaries = {};
   Set<int> _failedSummaryBatches = {};
+  static const int _maxSummaryRetries = 5;
   bool _isSummarizing = false;
   double _summaryProgress = 0.0;
   final ValueNotifier<String> _summaryProgressText = ValueNotifier<String>('');
@@ -95,6 +96,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   bool _isDisposed = false;
   bool _showScrollButton = false;
   bool _isPollingActive = false;
+  String? _retryCountdownText;
+  bool _hasSystemError = false;
+  bool _showChildWarning = false;
 
   // Debug overlay state
   bool _showDebugOverlay = false;
@@ -138,6 +142,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _groupBio = (widget.bot['description'] ?? widget.bot['bio'] ?? '')
         .toString();
     _bondLevel = widget.bot['bond_hearts'] ?? 0;
+    _showChildWarning = widget.bot['child'] == true && !_isGroup;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
     _loadSystemNote();
@@ -529,6 +534,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   void _addDebugLog(String message) {
     if (!kDebugMode) return;
     final timestamp = DateTime.now().toIso8601String();
+    debugPrint('[$timestamp] $message');
     _safeSetState(() {
       _debugLogs.add('[$timestamp] $message');
       if (_debugLogs.length > 1000) {
@@ -638,7 +644,35 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       }
     }
 
+    // Retry 1-2 batch summary terakhir yang gagal ([...])
+    final sortedKeys = _summaries.keys.toList()..sort();
+    int retried = 0;
+    for (int k = sortedKeys.length - 1; k >= 0 && retried < 2; k--) {
+      final idx = sortedKeys[k];
+      if (_summaries[idx] == '[...]') {
+        _summaries.remove(idx);
+        _failedSummaryBatches.remove(idx);
+        retried++;
+        _addDebugLog('Retrying previously failed summary batch $idx');
+        debugPrint('DEBUG: Retrying previously failed summary batch $idx');
+      } else {
+        break;
+      }
+    }
+
+    if (retried > 0) {
+      totalBatchesToSummarize = 0;
+      for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
+        if (!_summaries.containsKey(i)) {
+          totalBatchesToSummarize++;
+        }
+      }
+    }
+
     if (totalBatchesToSummarize == 0) return;
+
+    // Load existing memories to pass to AI
+    final existingMemories = await _localChatService.loadMemories(widget.bot['id']);
 
     _safeSetState(() {
       _isSummarizing = true;
@@ -654,74 +688,154 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
     bool updated = false;
     int processedBatches = 0;
+    List<String> latestMemories = List.from(existingMemories);
 
     for (int i = 0; i <= realMessages.length - batchSize; i += batchSize) {
       if (!_summaries.containsKey(i)) {
         if (_failedSummaryBatches.contains(i)) continue;
-        try {
-          final List<Map<String, String>> batch = realMessages
-              .sublist(i, i + batchSize)
-              .map(
-                (m) => {
-                  'role': m['role'] as String,
-                  'content': m['content'] as String,
-                },
-              )
-              .toList();
 
-          final result = await _aiService.summarizeChat(
-            messages: batch,
-            botId: widget.bot['id'],
-            provider: widget.provider,
-          );
+        bool batchDone = false;
 
-          if (result != null &&
-              result['status'] == 'queued' &&
-              result['uuid'] != null) {
-            String uuid = result['uuid'];
-            bool summaryCompleted = false;
-            int timeoutChecks = 60; // Max 2 minutes
-
-            while (mounted &&
-                !_isDisposed &&
-                !summaryCompleted &&
-                timeoutChecks > 0) {
-              await Future.delayed(const Duration(seconds: 1));
-              final statusCheck = await _aiService.checkChatStatus(uuid);
-              if (statusCheck != null) {
-                if (statusCheck['status'] == 'queued' ||
-                    statusCheck['status'] == 'processing') {
-                  // Masih diproses, teruskan polling
-                } else if (statusCheck['status'] == 'not_found' ||
-                    statusCheck['status'] == 'failed' ||
-                    statusCheck['error'] != null) {
-                  summaryCompleted = true;
-                  _failedSummaryBatches.add(i);
-                  _summaries[i] = '[...]';
-                  updated = true;
-                } else {
-                  // Berhasil! Backend menghapus kunci Redis dan langsung mengembalikan payload response
-                  // Karena ProcessAiChatJob mengembalikan ['summary' => 'teks...']
-                  final summaryText =
-                      statusCheck['summary'] ??
-                      statusCheck['response']?['summary'];
-                  if (summaryText != null && summaryText.isNotEmpty) {
-                    _summaries[i] = summaryText;
-                    updated = true;
-                  }
-                  summaryCompleted = true;
-                }
+        for (int attempt = 1; attempt <= _maxSummaryRetries && !batchDone && mounted && !_isDisposed; attempt++) {
+          if (mounted && !_isDisposed) {
+            _safeSetState(() {
+              if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+                _messages.last['content'] = '${tr('chat_compressing_memory')} ($processedBatches/$totalBatchesToSummarize)';
               }
-              timeoutChecks--;
-            }
-          } else if (result != null &&
-              result['summary'] != null &&
-              (result['summary'] as String).isNotEmpty) {
-            _summaries[i] = result['summary'];
-            updated = true;
+            });
           }
-        } catch (e) {
-          // Log failed batch if needed
+          try {
+            final List<Map<String, String>> batch = realMessages
+                .sublist(i, i + batchSize)
+                .map(
+                  (m) => {
+                    'role': m['role'] as String,
+                    'content': m['content'] as String,
+                  },
+                )
+                .toList();
+
+            final result = await _aiService.summarizeChat(
+              messages: batch,
+              botId: widget.bot['id'],
+              provider: widget.provider,
+              existingMemories: latestMemories,
+            );
+
+            if (result != null &&
+                result['status'] == 'queued' &&
+                result['uuid'] != null) {
+              final pollResult = await _pollSummaryStatus(result['uuid']);
+              if (!mounted || _isDisposed) return;
+
+              if (pollResult == null) {
+                // Timeout - retry
+                _addDebugLog('Summary batch $i attempt $attempt: poll timeout');
+                debugPrint('DEBUG: Summary batch $i attempt $attempt: poll timeout');
+                if (attempt >= _maxSummaryRetries) {
+                  _summaries[i] = '[...]';
+                  _failedSummaryBatches.add(i);
+                  batchDone = true;
+                  updated = true;
+                }
+                continue;
+              }
+
+              if (pollResult['error'] != null ||
+                  pollResult['status'] == 'not_found' ||
+                  pollResult['status'] == 'failed') {
+                final errorStatusCode = pollResult['error_status_code'] ?? 0;
+                final delay = _getRetryDelay(errorStatusCode);
+
+                _addDebugLog('Summary batch $i attempt $attempt error: status_code=$errorStatusCode');
+                debugPrint('DEBUG: Summary batch $i attempt $attempt error: status_code=$errorStatusCode');
+
+                if (delay < 0 || attempt >= _maxSummaryRetries) {
+                  _summaries[i] = '[...]';
+                  _failedSummaryBatches.add(i);
+                  batchDone = true;
+                  updated = true;
+                  _addDebugLog('Summary batch $i: gave up after $attempt attempts');
+                  debugPrint('DEBUG: Summary batch $i: gave up after $attempt attempts');
+                  break;
+                }
+
+                // Countdown before retry
+                for (int s = delay; s > 0 && mounted && !_isDisposed; s--) {
+                  final msg = tr('summary_error_retry').replaceAll('{interval}', s.toString());
+                  _safeSetState(() {
+                    if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+                      _messages.last['content'] = msg;
+                    }
+                  });
+                  await Future.delayed(const Duration(seconds: 1));
+                }
+                continue; // retry
+              } else {
+                // Success
+                final summaryText = pollResult['summary'] ?? pollResult['response']?['summary'];
+                if (summaryText != null && summaryText.isNotEmpty) {
+                  _summaries[i] = summaryText;
+                  updated = true;
+                }
+                final mems = pollResult['memory_worth_keeping'] ?? pollResult['response']?['memory_worth_keeping'];
+                if (mems is List && mems.isNotEmpty) {
+                  latestMemories = List<String>.from(mems);
+                  await _localChatService.saveMemories(widget.bot['id'], latestMemories);
+                }
+                batchDone = true;
+                _addDebugLog('Summary batch $i attempt $attempt succeeded');
+                debugPrint('DEBUG: Summary batch $i attempt $attempt succeeded');
+              }
+            } else if (result != null &&
+                result['summary'] != null &&
+                (result['summary'] as String).isNotEmpty &&
+                result['error'] != true) {
+              _summaries[i] = result['summary'];
+              updated = true;
+              if (result['memory_worth_keeping'] is List) {
+                latestMemories = List<String>.from(result['memory_worth_keeping']);
+                await _localChatService.saveMemories(widget.bot['id'], latestMemories);
+              }
+              batchDone = true;
+              _addDebugLog('Summary batch $i direct success');
+              debugPrint('DEBUG: Summary batch $i direct success');
+            } else {
+              // Direct error
+              final errorStatusCode = result != null ? (result['error_status_code'] ?? 0) : 0;
+              final delay = _getRetryDelay(errorStatusCode);
+
+              _addDebugLog('Summary batch $i attempt $attempt direct error: status_code=$errorStatusCode');
+              debugPrint('DEBUG: Summary batch $i attempt $attempt direct error: status_code=$errorStatusCode');
+
+              if (delay < 0 || attempt >= _maxSummaryRetries) {
+                _summaries[i] = '[...]';
+                _failedSummaryBatches.add(i);
+                batchDone = true;
+                updated = true;
+                break;
+              }
+
+              for (int s = delay; s > 0 && mounted && !_isDisposed; s--) {
+                final msg = tr('summary_error_retry').replaceAll('{interval}', s.toString());
+                _safeSetState(() {
+                  if (_messages.isNotEmpty && _messages.last['isTempSummary'] == true) {
+                    _messages.last['content'] = msg;
+                  }
+                });
+                await Future.delayed(const Duration(seconds: 1));
+              }
+            }
+          } catch (e) {
+            _addDebugLog('Summary batch $i attempt $attempt exception: $e');
+            debugPrint('DEBUG: Summary batch $i attempt $attempt exception: $e');
+            if (attempt >= _maxSummaryRetries) {
+              _summaries[i] = '[...]';
+              _failedSummaryBatches.add(i);
+              batchDone = true;
+              updated = true;
+            }
+          }
         }
 
         processedBatches++;
@@ -748,6 +862,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       _isSummarizing = false;
       _summaryProgress = 0.0;
     });
+  }
+
+  int _getRetryDelay(int statusCode) {
+    if (statusCode == 429) return 30;
+    if (statusCode == 500 || statusCode == 503) return 15;
+    if (statusCode == 422) return -1;
+    if (statusCode == 400 || statusCode == 401) return 10;
+    return 15;
+  }
+
+  Future<Map<String, dynamic>?> _pollSummaryStatus(String uuid) async {
+    int checks = 60;
+    while (mounted && !_isDisposed && checks > 0) {
+      await Future.delayed(const Duration(seconds: 1));
+      final status = await _aiService.checkChatStatus(uuid);
+      if (status == null) { checks--; continue; }
+      if (status['status'] == 'processing' ||
+          status['status'] == 'queued') { checks--; continue; }
+      return status;
+    }
+    return null;
   }
 
   void _scrollToBottom() {
@@ -812,6 +947,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _scrollToBottom();
 
     await _generateSummaries();
+    await _getAIResponse();
+  }
+
+  Future<void> _retryAfterError() async {
+    _safeSetState(() {
+      if (_messages.isNotEmpty && _messages.last['role'] == 'system') {
+        _messages.removeLast();
+      }
+      _hasSystemError = false;
+      _isLoading = true;
+    });
+    _scrollToBottom();
     await _getAIResponse();
   }
 
@@ -899,11 +1046,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     });
     _scrollToBottom();
 
+    // Determine which summaries to use (last 2 for context efficiency)
+    final sortedSummaryKeys = _summaries.keys.toList()..sort();
+    final keysToUse = sortedSummaryKeys.length > 2
+        ? sortedSummaryKeys.sublist(sortedSummaryKeys.length - 2)
+        : sortedSummaryKeys;
+
     String? summaryPrompt;
     if (_summaries.isNotEmpty) {
       summaryPrompt = "[CONVERSATION RECAP]\n";
-      final sortedKeys = _summaries.keys.toList()..sort();
-      for (var key in sortedKeys) {
+      for (var key in keysToUse) {
         summaryPrompt =
             "${summaryPrompt!}- Messages ${key + 1}-${key + 20}: ${_summaries[key]}\n";
       }
@@ -919,7 +1071,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
         )
         .toList();
 
-    int summarizedCount = _summaries.length * 20;
+    int summarizedCount = keysToUse.length * 20;
     List<Map<String, String>> aiMessages;
 
     if (summarizedCount > 0) {
@@ -990,109 +1142,133 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       print('DEBUG: ---------------------');
     }
 
-    try {
-      final response = await _aiService.sendMessage(
-        provider: widget.provider,
-        messages: aiMessages,
-        botId: botIdForRequest,
-        botIds: _isGroup
-            ? _groupMembers
-                  .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
-                  .whereType<String>()
-                  .toList()
-            : null,
-        language: language,
-        summary: summaryPrompt,
-        persona: resolvedPersona,
-        bondDisabled: bondDisabled,
-        isGroup: _isGroup,
-      );
+    final aiTimestamp = DateTime.now().toIso8601String();
 
-      if (!mounted || _isDisposed) return;
-
-      final aiTimestamp = DateTime.now().toIso8601String();
-
-      if (response != null && response['status'] == 'queued') {
+    for (int attempt = 1; attempt <= _maxSummaryRetries; attempt++) {
+      if (attempt > 1) {
         _safeSetState(() {
           if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
             _messages.last['status'] = 'sent';
-            _messages.last['uuid'] = response['uuid'];
           }
         });
-        _startPolling(response['uuid'], botIdForRequest, aiTimestamp);
-        return;
       }
 
-      await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
-    } catch (e) {
-      if (!mounted || _isDisposed) return;
-      _safeSetState(() {
-        _isLoading = false;
-        _activeBotId = null;
-        _addSystemError(DateTime.now().toIso8601String());
-      });
-    }
-  }
+      try {
+        final response = await _aiService.sendMessage(
+          provider: widget.provider,
+          messages: aiMessages,
+          botId: botIdForRequest,
+          botIds: _isGroup
+              ? _groupMembers
+                    .map((m) => m['bot_id']?.toString() ?? m['id']?.toString())
+                    .whereType<String>()
+                    .toList()
+              : null,
+          language: language,
+          summary: summaryPrompt,
+          persona: resolvedPersona,
+          bondDisabled: bondDisabled,
+          isGroup: _isGroup,
+        );
 
-  Future<void> _startPolling(
-    String uuid,
-    String? botIdForRequest,
-    String aiTimestamp,
-  ) async {
-    _isPollingActive = false;
-    _isPollingActive = true;
-    await _pollLoop(uuid, botIdForRequest, aiTimestamp);
-  }
+        if (!mounted || _isDisposed) return;
 
-  Future<void> _pollLoop(
-    String uuid,
-    String? botIdForRequest,
-    String aiTimestamp,
-  ) async {
-    while (_isPollingActive && mounted && !_isDisposed) {
-      final response = await _aiService.checkChatStatus(uuid);
-
-      if (!_isPollingActive || !mounted || _isDisposed) return;
-
-      if (response == null || response['status'] == 'not_found') {
-        _isPollingActive = false;
-        if (mounted && !_isDisposed) {
+        if (response != null && response['status'] == 'queued') {
           _safeSetState(() {
-            _isLoading = false;
-            _activeBotId = null;
-            _addSystemError(aiTimestamp);
+            if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+              _messages.last['status'] = 'sent';
+              _messages.last['uuid'] = response['uuid'];
+            }
           });
-        }
-        return;
-      }
 
-      if (response['status'] == 'processing') {
-        _safeSetState(() {
-          if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
-            _messages.last['status'] = 'processing';
+          _isPollingActive = true;
+          final pollResult = await _pollLoopForResult(response['uuid']);
+          _isPollingActive = false;
+          if (!mounted || _isDisposed) return;
+
+          if (pollResult == null) {
+            if (attempt >= _maxSummaryRetries) {
+              _safeSetState(() { _isLoading = false; _activeBotId = null; });
+              _addSystemError(aiTimestamp);
+              return;
+            }
+            await _doRetryCountdown(15);
+            continue;
           }
-        });
-        await Future.delayed(const Duration(seconds: 1));
-        continue;
-      }
 
-      if (response['status'] == 'completed' ||
-          response['choices'] != null ||
-          response['error'] != null) {
-        _isPollingActive = false;
-        if (mounted && !_isDisposed) {
+          if (pollResult['error'] != null ||
+              pollResult['status'] == 'not_found') {
+            final statusCode = (pollResult['error_status_code'] ?? 0) as int;
+            final delay = _getRetryDelay(statusCode);
+
+            if (delay < 0 || attempt >= _maxSummaryRetries) {
+              _safeSetState(() {
+                if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+                  _messages.last['status'] = 'completed';
+                }
+              });
+              await _handleAIResponseData(pollResult, botIdForRequest, aiTimestamp);
+              return;
+            }
+
+            await _doRetryCountdown(delay);
+            continue;
+          }
+
           _safeSetState(() {
             if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
               _messages.last['status'] = 'completed';
             }
           });
-          await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+          await _handleAIResponseData(pollResult, botIdForRequest, aiTimestamp);
+          return;
         }
-        return;
-      }
 
+        await _handleAIResponseData(response, botIdForRequest, aiTimestamp);
+        return;
+      } catch (e) {
+        if (!mounted || _isDisposed) return;
+        if (attempt >= _maxSummaryRetries) {
+          _safeSetState(() { _isLoading = false; _activeBotId = null; });
+          _addSystemError(aiTimestamp);
+          return;
+        }
+        await _doRetryCountdown(15);
+      }
+    }
+  }
+
+  Future<void> _doRetryCountdown(int delay) async {
+    for (int s = delay; s > 0 && mounted && !_isDisposed; s--) {
+      _safeSetState(() {
+        _retryCountdownText = tr('summary_error_retry').replaceAll('{interval}', s.toString());
+      });
       await Future.delayed(const Duration(seconds: 1));
     }
+    if (mounted && !_isDisposed) {
+      _safeSetState(() => _retryCountdownText = null);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _pollLoopForResult(String uuid) async {
+    int checks = 120;
+    while (_isPollingActive && mounted && !_isDisposed && checks > 0) {
+      final response = await _aiService.checkChatStatus(uuid);
+      if (response == null) { checks--; continue; }
+      if (response['status'] == 'processing' || response['status'] == 'queued') {
+        if (response['status'] == 'processing') {
+          _safeSetState(() {
+            if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+              _messages.last['status'] = 'processing';
+            }
+          });
+        }
+        checks--;
+        continue;
+      }
+      return response;
+    }
+    return null;
   }
 
   Future<void> _handleAIResponseData(
@@ -1501,6 +1677,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       'timestamp': timestamp,
       if (rawError != null) 'raw_error': rawError,
     });
+    _hasSystemError = true;
   }
 
   void _copyErrorLog(Map<String, dynamic> msg) async {
@@ -1763,73 +1940,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _groupInfoChanged = true;
   }
 
-  Future<void> _exportChat(String format) async {
-    if (_messages.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(tr('chat_export_empty'))));
-      return;
-    }
-
-    try {
-      String content = '';
-      if (format == 'json') {
-        content = jsonEncode(_messages);
-      } else {
-        final sb = StringBuffer();
-        sb.writeln('=== Chat dengan ${widget.bot['name']} ===');
-        sb.writeln('Provider: ${widget.provider}');
-        sb.writeln(
-          'Diexport pada: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now())}',
-        );
-        sb.writeln('====================================\n');
-
-        for (var msg in _messages) {
-          final role = msg['role'] == 'user' ? 'Sensei' : widget.bot['name'];
-          final time = msg['timestamp'] != null
-              ? DateFormat('HH:mm').format(DateTime.parse(msg['timestamp']))
-              : '';
-          sb.writeln('[$time] $role:');
-          sb.writeln('${msg['content']}\n');
-        }
-        content = sb.toString();
-      }
-
-      final dateStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final safeName = widget.bot['name'].toString().replaceAll(
-        RegExp(r'[^a-zA-Z0-9]'),
-        '_',
-      );
-      final fileName = 'HaloStory_Chat_${safeName}_$dateStr.$format';
-
-      if (kIsWeb) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(tr('chat_export_web_error'))));
-        return;
-      } else {
-        final downloadDir = await _getDownloadDir();
-        final file = File('${downloadDir.path}/$fileName');
-        await file.writeAsString(content);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${tr('chat_export_success')}\n$fileName'),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${tr('chat_export_failed')} $e')),
-        );
-      }
-    }
-  }
-
   void _syncMetadataToMessages({
     String? name,
     String? bio,
@@ -1850,24 +1960,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     }
     if (members != null) meta['members'] = members;
     _messages[idx] = {..._messages[idx], 'metadata': meta};
-  }
-
-  Future<Directory> _getDownloadDir() async {
-    Directory? baseDir;
-    if (Platform.isAndroid) {
-      baseDir = Directory('/storage/emulated/0/Download/HaloStory');
-    } else {
-      baseDir = await getDownloadsDirectory();
-      if (baseDir != null) {
-        baseDir = Directory('${baseDir.path}/HaloStory');
-      }
-    }
-
-    if (baseDir != null && !await baseDir.exists()) {
-      await baseDir.create(recursive: true);
-    }
-
-    return baseDir ?? await getApplicationDocumentsDirectory();
   }
 
   @override
@@ -2022,10 +2114,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       const SnackBar(
                           content: Text('Group info updated.')),
                     );
-                  } else if (value == 'export_txt') {
-                    await _exportChat('txt');
-                  } else if (value == 'export_json') {
-                    await _exportChat('json');
                   } else if (value == 'toggle_italics') {
                     await _saveItalicsSetting(!_hideItalics);
                   } else if (value == 're_summary') {
@@ -2034,6 +2122,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       widget.bot['id'],
                       _summaries,
                     );
+                    await _localChatService.saveMemories(widget.bot['id'], []);
 
                     if (!context.mounted) return;
 
@@ -2129,34 +2218,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                           ],
                         ),
                       ),
-                    PopupMenuItem<String>(
-                      value: 'export_txt',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.description_outlined,
-                            color: scheme.onSurfaceVariant,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Export as TXT'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'export_json',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.data_object_outlined,
-                            color: scheme.onSurfaceVariant,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Export as JSON'),
-                        ],
-                      ),
-                    ),
                     CheckedPopupMenuItem<String>(
                       value: 'toggle_italics',
                       checked: _hideItalics,
@@ -2503,6 +2564,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                     ),
                     if (_isLoading)
                       _buildTypingIndicatorWidget(),
+                    if (_retryCountdownText != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 60, top: 2),
+                        child: Text(
+                          _retryCountdownText!,
+                          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.8)),
+                        ),
+                      ),
                     SystemNoteArea(
                       isOpen: _isSystemNoteOpen,
                       controller: _systemNoteController,
@@ -2544,8 +2613,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                             }()
                           : '${tr('tab_chat')} ${(widget.bot['name'] as String).length > 15 ? '${(widget.bot['name'] as String).substring(0, 15)}...' : widget.bot['name']}',
                       isSendEnabled:
-                          !_isTypingEffectActive && !_isSummarizing,
+                          !_isLoading && !_isTypingEffectActive && !_isSummarizing,
                       onSend: _sendMessage,
+                      hasSystemError: _hasSystemError,
+                      onRetry: _retryAfterError,
                       isSystemNoteOpen: _isSystemNoteOpen,
                       isPersonaOpen: _isPersonaOpen,
                       onToggleSystemNote: () => _safeSetState(
@@ -2556,6 +2627,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                   ],
                 ),
               ),
+              if (_showChildWarning)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildChildWarningBanner(context),
+                ),
             ],
           ),
         ),
@@ -2605,6 +2683,52 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       }
     } catch (_) {}
     return parseColor(widget.bot['color']);
+  }
+
+  Widget _buildChildWarningBanner(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Colors.amber.shade100,
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                style: TextStyle(fontSize: 12, color: Colors.black87),
+                children: [
+                  TextSpan(text: tr('child_sfw_warning')),
+                  const TextSpan(text: ' '),
+                  TextSpan(
+                    text: 'https://s.my-bini.my.id/hs-sfw-policy',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      decoration: TextDecoration.underline,
+                      fontSize: 12,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        launchUrl(
+                          Uri.parse('https://s.my-bini.my.id/hs-sfw-policy'),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _safeSetState(() => _showChildWarning = false),
+            child: const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Icon(Icons.close, color: Colors.black54, size: 16),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTypingIndicatorWidget() {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:bluetalk_frontend/screens/splash_screen.dart';
 import 'package:bluetalk_frontend/screens/banned_screen.dart';
 import 'package:bluetalk_frontend/services/localization_service.dart';
@@ -9,13 +10,24 @@ import 'package:bluetalk_frontend/theme/app_theme.dart';
 import 'package:bluetalk_frontend/services/config_service.dart';
 import 'package:bluetalk_frontend/services/ban_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:io' show Platform;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+void initSqlite() {
+  if (kIsWeb) return;
+  if (!Platform.isAndroid && !Platform.isIOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initSqlite();
   await LocalizationService().init();
   await ThemeService().init();
   await WallpaperService().init();

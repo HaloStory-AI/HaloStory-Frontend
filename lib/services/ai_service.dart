@@ -8,6 +8,15 @@ import 'localization_service.dart';
 import 'config_service.dart';
 
 class AIService {
+  static const _removedProviders = {
+    'groq', 'novel', 'horde', 'venus', 'nanogpt', 'chutes', 'featherless', 'mancer', 'arli',
+  };
+
+  static String _normalizeByokProvider(String? provider) {
+    if (provider == null || _removedProviders.contains(provider)) return 'gemini';
+    return provider;
+  }
+
   static String normalizeProvider(String? p) {
     if (p == null) return 'System';
     if (p == 'System' || p == 'BYOK' || p == 'BYOM') return p;
@@ -104,7 +113,7 @@ class AIService {
       } else if (mode == 'BYOK') {
         final apiKey = prefs.getString('byok_api_key') ?? '';
         final model = prefs.getString('byok_model') ?? 'openai/gpt-3.5-turbo';
-        final byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
+        final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
         final baseUrl = prefs.getString('byok_base_url') ?? '';
 
         return await _sendByokMessage(
@@ -405,6 +414,7 @@ class AIService {
     String? botId,
     String? language,
     String? provider,
+    List<String>? existingMemories,
   }) async {
     final token = await _authService.getToken();
     if (token == null) return null;
@@ -417,13 +427,29 @@ class AIService {
     if (mode == 'BYOM') return null;
 
     try {
+      final body = <String, dynamic>{
+        'messages': messages,
+        'bot_id': botId,
+        'language': actualLanguage,
+      };
+      if (existingMemories != null && existingMemories.isNotEmpty) {
+        body['existing_memories'] = existingMemories;
+      }
+
       if (mode == 'BYOK') {
         final prefs = await SharedPreferences.getInstance();
         final apiKey = prefs.getString('byok_api_key') ?? '';
         final model = prefs.getString('byok_model') ?? '';
-        final byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
+        final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
         final baseUrl = prefs.getString('byok_base_url') ?? '';
         final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
+
+        body.addAll({
+          'api_key': apiKey,
+          'model': model,
+          'base_url': baseUrl,
+          'is_summarize': true,
+        });
 
         final response = await http.post(
           Uri.parse(endpoint),
@@ -432,18 +458,10 @@ class AIService {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
           },
-          body: jsonEncode({
-            'messages': messages,
-            'bot_id': botId,
-            'language': actualLanguage,
-            'api_key': apiKey,
-            'model': model,
-            'base_url': baseUrl,
-            'is_summarize': true,
-          }),
+          body: jsonEncode(body),
         );
         if (response.statusCode == 200) return jsonDecode(response.body);
-        return null;
+        return _errorResponse(response);
       }
 
       // Default: System
@@ -454,20 +472,37 @@ class AIService {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'messages': messages,
-          'bot_id': botId,
-          'language': actualLanguage,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) return jsonDecode(response.body);
+      return _errorResponse(response);
     } catch (e) {
       if (kDebugMode) {
         print('DEBUG: AIService summarizeChat Error: $e');
       }
+      return {
+        'error': true,
+        'error_status_code': 0,
+        'summary': '[ERROR: Network error - ${e.toString()}]',
+      };
     }
-    return null;
+  }
+
+  Map<String, dynamic> _errorResponse(http.Response response) {
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map<String, dynamic>) {
+        body['error'] = true;
+        body['error_status_code'] = response.statusCode;
+        return body;
+      }
+    } catch (_) {}
+    return {
+      'error': true,
+      'error_status_code': response.statusCode,
+      'summary': '[ERROR ${response.statusCode}] Failed to summarize',
+    };
   }
 
   Future<Map<String, dynamic>?> checkChatStatus(String uuid) async {

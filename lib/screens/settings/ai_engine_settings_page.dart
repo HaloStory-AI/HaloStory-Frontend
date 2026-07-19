@@ -26,18 +26,9 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     'gemini': 'Google Gemini',
     'claude': 'Anthropic Claude',
     'deepseek': 'DeepSeek',
-    'groq': 'Groq',
     'mistral': 'Mistral AI',
     'openrouter': 'OpenRouter',
-    'arli': 'Arli AI',
-    'mancer': 'Mancer',
-    'featherless': 'Featherless AI',
-    'chutes': 'Chutes AI',
-    'nanogpt': 'NanoGPT',
-    'venus': 'Venus AI',
     'zai': 'Z.ai',
-    'novel': 'NovelAI',
-    'horde': 'AI Horde',
     'openai-compatible': 'Custom OpenAI Compatible',
   };
 
@@ -386,8 +377,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
           ),
         ],
       ),
-      if (_byokProvider == 'openai-compatible' ||
-          _byokProvider == 'chutes') ...[
+      if (_byokProvider == 'openai-compatible') ...[
         const SizedBox(height: 16),
         _buildTextField(
           controller: _byokBaseUrlController,
@@ -404,10 +394,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     final prov = _byokProvider;
     final baseUrl = _byokBaseUrlController.text;
 
-    if (apiKey.isEmpty &&
-        prov != 'horde' &&
-        prov != 'arli' &&
-        prov != 'mancer') {
+    if (apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('API Key required to fetch models for this provider'),
@@ -436,7 +423,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
               final requestBody = {
                 'api_key': apiKey.isEmpty ? 'guest' : apiKey,
                 'provider': prov,
-                if (prov == 'chutes' || prov == 'openai-compatible')
+                if (prov == 'openai-compatible')
                   'base_url': baseUrl,
               };
 

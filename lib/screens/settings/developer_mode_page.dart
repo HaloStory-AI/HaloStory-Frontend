@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/database/database_migration_service.dart';
 import '../../services/localization_service.dart';
 
 class DeveloperModePage extends StatefulWidget {
@@ -237,6 +238,110 @@ class _DeveloperModePageState extends State<DeveloperModePage> {
                         value: _copyByokLogEnabled,
                         activeThumbColor: colorScheme.primary,
                         onChanged: _toggleCopyByokLog,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(Icons.refresh),
+                        title: Text(
+                          tr('dev_mode_reset_migration'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          tr('dev_mode_reset_migration_desc'),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        onTap: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(tr('dev_mode_reset_migration')),
+                              content: Text(tr('dev_mode_reset_migration_desc')),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(tr('btn_cancel')),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(tr('dev_mode_proceed')),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await DatabaseMigrationService.resetMigrationFlag();
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(tr('dev_mode_reset_migration_done')),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(Icons.delete_sweep, color: Colors.red),
+                        title: Text(
+                          tr('dev_mode_clear_all_data'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          tr('dev_mode_clear_all_data_desc'),
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        onTap: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(tr('dev_mode_clear_all_data')),
+                              content: Text(tr('dev_mode_clear_all_data_confirm')),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(tr('btn_cancel')),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(tr('dev_mode_proceed')),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await DatabaseMigrationService.clearAllData();
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(tr('dev_mode_clear_all_data_done')),
+                              ),
+                            );
+                          }
+                        },
                       ),
                     ),
                   ],
