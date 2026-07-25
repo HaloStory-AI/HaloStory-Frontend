@@ -11,6 +11,10 @@ class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _loginDateKey = 'login_date';
 
+  static final StreamController<void> _sessionExpiredController =
+      StreamController<void>.broadcast();
+  static Stream<void> get onSessionExpired => _sessionExpiredController.stream;
+
   Future<Map<String, dynamic>> register(
     String name,
     String email,
@@ -286,11 +290,11 @@ class AuthService {
 
         return true;
       } else if (response.statusCode == 401) {
-        // Token is invalid/expired on server side - clear it
         if (kDebugMode) {
           print('DEBUG: Token rejected by server (401), clearing local token.');
         }
         await logout();
+        _sessionExpiredController.add(null);
         return false;
       } else if (response.statusCode == 503) {
         ConfigService.enterMaintenance();

@@ -34,7 +34,7 @@ class _StoriesTabState extends State<StoriesTab> {
     }
 
     try {
-      final stories = await _storyService.getStories();
+      final stories = await _storyService.getStories(forceRefresh: force);
 
       // Check seen status for each
       List<Map<String, dynamic>> enrichedStories = [];

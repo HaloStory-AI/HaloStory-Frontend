@@ -873,9 +873,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   }
 
   Future<Map<String, dynamic>?> _pollSummaryStatus(String uuid) async {
-    int checks = 60;
+    int checks = 30;
     while (mounted && !_isDisposed && checks > 0) {
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 3));
       final status = await _aiService.checkChatStatus(uuid);
       if (status == null) { checks--; continue; }
       if (status['status'] == 'processing' ||
@@ -946,7 +946,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     });
     _scrollToBottom();
 
-    await _generateSummaries();
     await _getAIResponse();
   }
 
@@ -1251,8 +1250,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   }
 
   Future<Map<String, dynamic>?> _pollLoopForResult(String uuid) async {
-    int checks = 120;
+    int checks = 60;
     while (_isPollingActive && mounted && !_isDisposed && checks > 0) {
+      await Future.delayed(const Duration(seconds: 3));
       final response = await _aiService.checkChatStatus(uuid);
       if (response == null) { checks--; continue; }
       if (response['status'] == 'processing' || response['status'] == 'queued') {
@@ -1347,7 +1347,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       await _startTypingEffect(partsLength);
     } else {
       await _localChatService.saveChat(widget.bot['id'], _messages);
-      _generateSummaries();
     }
     _scrollToBottom();
 
@@ -1367,18 +1366,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       _isTypingEffectActive = true;
     });
 
-    await _localChatService.saveChat(widget.bot['id'], _messages);
-
     for (int i = 1; i < totalParts; i++) {
       await Future.delayed(const Duration(milliseconds: 500));
       _scrollToBottom();
 
       await Future.delayed(const Duration(milliseconds: 1500));
 
-      if (!mounted || _isDisposed) {
-        await _localChatService.saveChat(widget.bot['id'], _messages);
-        return;
-      }
+      if (!mounted || _isDisposed) return;
 
       _safeSetState(() {
         _messages.last['visible_parts'] = i + 1;
@@ -1388,11 +1382,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
         }
       });
 
-      await _localChatService.saveChat(widget.bot['id'], _messages);
       _scrollToBottom();
     }
 
-    _generateSummaries();
+    await _localChatService.saveChat(widget.bot['id'], _messages);
   }
 
   // ───────────────────────────────────────────────────────────────

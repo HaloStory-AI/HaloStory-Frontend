@@ -468,5 +468,8 @@
   "memories_worth_keeping_section": "保持すべき記憶",
   "summary_error_retry": "[エラーが発生しました、{interval}秒後に再試行します]",
   "child_sfw_warning": "このキャラクターは16歳未満の未成年です。Safe for Workポリシーに従ってください。違反するとアカウントが永久停止される可能性があります。",
-  "chat_retry_prompt": "[再試行ボタンをクリックして再試行してください]"
+  "chat_retry_prompt": "[再試行ボタンをクリックして再試行してください]",
+  "session_expired_title": "セッションの有効期限が切れました",
+  "session_expired_message": "セッションの有効期限が切れました。もう一度ログインしてください。",
+  "session_expired_btn": "再ログイン"
 }

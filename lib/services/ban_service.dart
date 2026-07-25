@@ -13,6 +13,11 @@ class BanService {
   static String? _bannedUntil;
   static Map<String, String?>? _deviceInfo;
 
+  static const String _banCacheKey = 'ban_cache_result';
+  static const String _banCacheTimeKey = 'ban_cache_timestamp';
+  static DateTime? _lastBanCheck;
+  static bool? _cachedBanResult;
+
   static bool get isBanned => _isBanned;
   static String? get banReason => _banReason;
   static String? get bannedUntil => _bannedUntil;
@@ -188,6 +193,23 @@ class BanService {
     final token = prefs.getString('auth_token');
     if (token == null) return false;
 
+    // Cache check: skip API call if checked < 10 minutes ago
+    final now = DateTime.now();
+    if (_lastBanCheck != null &&
+        now.difference(_lastBanCheck!).inMinutes < 10) {
+      return _cachedBanResult ?? false;
+    }
+
+    final cachedTimeStr = prefs.getString(_banCacheTimeKey);
+    if (cachedTimeStr != null) {
+      final cachedTime = DateTime.parse(cachedTimeStr);
+      if (now.difference(cachedTime).inMinutes < 10) {
+        _lastBanCheck = cachedTime;
+        _cachedBanResult = prefs.getBool(_banCacheKey) ?? false;
+        return _cachedBanResult!;
+      }
+    }
+
     try {
       final response = await http
           .get(
@@ -200,18 +222,31 @@ class BanService {
           )
           .timeout(const Duration(seconds: 15));
 
+      final bool banned;
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         if (body is Map<String, dynamic> && body['is_banned'] == true) {
           await handleBanFromProfile(body);
-          return true;
+          banned = true;
+        } else {
+          banned = false;
         }
       } else if (isBanResponse(response)) {
         await handleBanFromResponse(response);
-        return true;
+        banned = true;
+      } else {
+        banned = false;
       }
-    } catch (_) {}
 
-    return false;
+      // Cache the result
+      _lastBanCheck = now;
+      _cachedBanResult = banned;
+      await prefs.setBool(_banCacheKey, banned);
+      await prefs.setString(_banCacheTimeKey, now.toIso8601String());
+
+      return banned;
+    } catch (_) {
+      return false;
+    }
   }
 }
