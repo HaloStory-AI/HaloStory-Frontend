@@ -468,5 +468,8 @@
   "memories_worth_keeping_section": "值得保留的记忆",
   "summary_error_retry": "[哎呀，出了点问题，{interval}秒后重试]",
   "child_sfw_warning": "此角色为未成年人（16岁以下）。请遵守我们的安全工作政策，否则您的账户可能会被永久封禁。",
-  "chat_retry_prompt": "[点击重试按钮重新尝试]"
+  "chat_retry_prompt": "[点击重试按钮重新尝试]",
+  "session_expired_title": "会话已过期",
+  "session_expired_message": "您的会话已过期，请重新登录。",
+  "session_expired_btn": "重新登录"
 }

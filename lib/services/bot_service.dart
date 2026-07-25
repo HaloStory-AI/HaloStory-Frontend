@@ -12,6 +12,8 @@ class BotService {
   static const String _botsCacheKey = 'cached_bots_list';
   static const String _botsTimeKey = 'cached_bots_timestamp';
   static const String _knownBotsDictKey = 'known_bots_dict';
+  static const String _chatTabCacheKey = 'cached_chat_tab_bots';
+  static const String _chatTabTimeKey = 'cached_chat_tab_timestamp';
 
   static Map<String, dynamic>? _knownBots;
 
@@ -19,6 +21,9 @@ class BotService {
   static List<Map<String, dynamic>>? _cachedBots;
   static DateTime? _lastBotsFetch;
   static Future<List<Map<String, dynamic>>>? _pendingFetch;
+
+  static List<Map<String, dynamic>>? _cachedChatTabBots;
+  static DateTime? _lastChatTabFetch;
 
   Future<List<Map<String, dynamic>>> getBots({
     bool forceRefresh = false,
@@ -274,9 +279,50 @@ class BotService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getCalendarBots() async {
+  static List<Map<String, dynamic>>? _cachedCalendarBots;
+  static DateTime? _lastCalendarFetch;
+  static const String _calendarCacheKey = 'cached_calendar_bots';
+  static const String _calendarTimeKey = 'cached_calendar_timestamp';
+
+  Future<List<Map<String, dynamic>>> getCalendarBots({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+
+    // 1. Memory cache — fresh < 30 minutes
+    bool isMemFresh = _lastCalendarFetch != null &&
+        now.difference(_lastCalendarFetch!).inMinutes < 30;
+    if (!forceRefresh && isMemFresh && _cachedCalendarBots != null) {
+      return _cachedCalendarBots!;
+    }
+
+    // 2. SharedPreferences cache
+    if (!forceRefresh) {
+      final prefs = await SharedPreferences.getInstance();
+      final localJson = prefs.getString(_calendarCacheKey);
+      final localTimeStr = prefs.getString(_calendarTimeKey);
+      if (localJson != null && localTimeStr != null) {
+        final localTime = DateTime.parse(localTimeStr);
+        _cachedCalendarBots = List<Map<String, dynamic>>.from(jsonDecode(localJson));
+        _lastCalendarFetch = localTime;
+        if (now.difference(localTime).inMinutes < 30) {
+          return _cachedCalendarBots!;
+        }
+        // Stale — return stale, fetch in background
+        _backgroundFetchCalendarBots();
+        return _cachedCalendarBots!;
+      }
+    }
+
+    // 3. API fetch
+    return await _fetchCalendarBots();
+  }
+
+  Future<void> _backgroundFetchCalendarBots() async {
+    try { await _fetchCalendarBots(); } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchCalendarBots() async {
     final token = await _authService.getToken();
-    if (token == null) return [];
+    if (token == null) return _cachedCalendarBots ?? [];
 
     try {
       final response = await http
@@ -291,7 +337,13 @@ class BotService {
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
-        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+        final result = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+        _cachedCalendarBots = result;
+        _lastCalendarFetch = DateTime.now();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_calendarCacheKey, jsonEncode(result));
+        await prefs.setString(_calendarTimeKey, DateTime.now().toIso8601String());
+        return result;
       } else if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
       }
@@ -300,12 +352,58 @@ class BotService {
         print('DEBUG: getCalendarBots Error: $e');
       }
     }
-    return [];
+    return _cachedCalendarBots ?? [];
   }
 
-  Future<List<Map<String, dynamic>>> getChatTabBots() async {
+  Future<List<Map<String, dynamic>>> getChatTabBots({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Memory Cache Check - FRESH (< 5 minutes)
+    bool isMemCacheFresh =
+        _lastChatTabFetch != null &&
+        now.difference(_lastChatTabFetch!).inMinutes < 5;
+
+    if (!forceRefresh && isMemCacheFresh && _cachedChatTabBots != null) {
+      return _cachedChatTabBots!;
+    }
+
+    // 2. Persistent Cache Check (SharedPreferences)
+    if (!forceRefresh) {
+      final localJson = prefs.getString(_chatTabCacheKey);
+      final localTimeStr = prefs.getString(_chatTabTimeKey);
+
+      if (localJson != null && localTimeStr != null) {
+        final localTime = DateTime.parse(localTimeStr);
+        _cachedChatTabBots = List<Map<String, dynamic>>.from(jsonDecode(localJson));
+        _lastChatTabFetch = localTime;
+
+        // Fresh (< 3 minutes) — return without re-fetch
+        if (now.difference(localTime).inMinutes < 3) {
+          return _cachedChatTabBots!;
+        }
+
+        // Stale (< 30 min) — return immediately, fetch in background
+        if (now.difference(localTime).inMinutes < 30) {
+          _backgroundFetchChatTabBots();
+          return _cachedChatTabBots!;
+        }
+      }
+    }
+
+    // 3. API Fetch
+    return await _fetchChatTabBots();
+  }
+
+  Future<void> _backgroundFetchChatTabBots() async {
+    try {
+      await _fetchChatTabBots();
+    } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchChatTabBots() async {
     final token = await _authService.getToken();
-    if (token == null) return [];
+    if (token == null) return _cachedChatTabBots ?? [];
 
     try {
       final response = await http
@@ -328,6 +426,13 @@ class BotService {
           _knownBots![bot['id'].toString()] = Map<String, dynamic>.from(bot);
         }
 
+        // Update cache
+        _cachedChatTabBots = result;
+        _lastChatTabFetch = DateTime.now();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_chatTabCacheKey, jsonEncode(result));
+        await prefs.setString(_chatTabTimeKey, DateTime.now().toIso8601String());
+
         return result;
       }
     } catch (e) {
@@ -335,7 +440,7 @@ class BotService {
         print('DEBUG: getChatTabBots Error: $e');
       }
     }
-    return [];
+    return _cachedChatTabBots ?? [];
   }
 
   Future<List<Map<String, dynamic>>> getRecruitedBots() async {

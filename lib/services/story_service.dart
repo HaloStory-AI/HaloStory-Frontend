@@ -12,14 +12,60 @@ class StoryService {
   final AuthService _authService = AuthService();
 
   static const String _seenPrefix = 'story_seen_';
+  static const String _storiesCacheKey = 'cached_stories_list';
+  static const String _storiesTimeKey = 'cached_stories_timestamp';
 
   static List<Map<String, dynamic>>? _cachedStories;
   static DateTime? _lastFetchTime;
 
-  Future<List<Map<String, dynamic>>> getStories() async {
+  Future<List<Map<String, dynamic>>> getStories({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+
+    // 1. Memory cache check — fresh < 5 minutes
+    bool isMemFresh = _lastFetchTime != null &&
+        now.difference(_lastFetchTime!).inMinutes < 5;
+    if (!forceRefresh && isMemFresh && _cachedStories != null) {
+      return _cachedStories!;
+    }
+
+    // 2. SharedPreferences cache check
+    if (!forceRefresh) {
+      final prefs = await SharedPreferences.getInstance();
+      final localJson = prefs.getString(_storiesCacheKey);
+      final localTimeStr = prefs.getString(_storiesTimeKey);
+
+      if (localJson != null && localTimeStr != null) {
+        final localTime = DateTime.parse(localTimeStr);
+        _cachedStories = List<Map<String, dynamic>>.from(jsonDecode(localJson));
+        _lastFetchTime = localTime;
+
+        // Fresh < 5 minutes — return without re-fetch
+        if (now.difference(localTime).inMinutes < 5) {
+          return _cachedStories!;
+        }
+
+        // Stale < 30 minutes — return immediately, refresh in background
+        if (now.difference(localTime).inMinutes < 30) {
+          _backgroundRefresh();
+          return _cachedStories!;
+        }
+      }
+    }
+
+    // 3. API fetch
+    return await _fetchStories();
+  }
+
+  Future<void> _backgroundRefresh() async {
+    try {
+      await _fetchStories();
+    } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchStories() async {
     final now = DateTime.now();
     final token = await _authService.getToken();
-    if (token == null) return [];
+    if (token == null) return _cachedStories ?? [];
 
     try {
       final response = await http
@@ -55,8 +101,12 @@ class StoryService {
           ).compareTo(DateTime.parse(b['created_at']));
         });
 
+        // Update caches
         _cachedStories = freshStories;
         _lastFetchTime = now;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_storiesCacheKey, jsonEncode(freshStories));
+        await prefs.setString(_storiesTimeKey, now.toIso8601String());
 
         return freshStories;
       }

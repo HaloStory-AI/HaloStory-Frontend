@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 class ConfigService {
   static const String _configUrl =
       'https://icy-recipe-89f8.r8kstudio.workers.dev/';
-  static const String _upUrl = 'https://api-hsaiapp.my-bini.my.id/up';
 
   static String? _baseUrl;
   static bool _isMaintenance = false;
@@ -16,6 +15,8 @@ class ConfigService {
   static String _remoteVersion = "0.0.0";
   static bool _needsUpdate = false;
   static bool _hasMinorUpdate = false;
+
+  static DateTime? _lastWorkerCheck;
 
   static String get baseUrl =>
       _baseUrl ??
@@ -36,28 +37,36 @@ class ConfigService {
     }
   }
 
-  /// Lightweight ping to check if server is up
+  /// Fetch CF Worker to check server status (throttled to once per 5 min)
   static Future<void> checkServerUp() async {
+    final now = DateTime.now();
+    if (_lastWorkerCheck != null &&
+        now.difference(_lastWorkerCheck!).inMinutes < 5) {
+      return;
+    }
+
     try {
+      final String url =
+          '$_configUrl?t=${now.millisecondsSinceEpoch}';
+
       final response = await http
-          .get(Uri.parse(_upUrl))
+          .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 503) {
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _lastWorkerCheck = now;
+        _applyConfig(data);
+        isAutoDetectedMaintenance = _isMaintenance;
+      } else if (response.statusCode == 503) {
+        _lastWorkerCheck = now;
         isAutoDetectedMaintenance = true;
         _maintenanceMsg =
             "Server on maintenance, No detail from Developer cause the auto detect, try again later.";
-      } else if (response.statusCode == 200) {
-        // If it was auto-detected before, reset it
-        if (isAutoDetectedMaintenance) {
-          isAutoDetectedMaintenance = false;
-          // Note: we don't reset _isMaintenance here because that depends on initConfig
-        }
       }
     } catch (e) {
-      // Background ping failures (timeout/socket) don't force maintenance unless it's 503
       if (kDebugMode) {
-        print('DEBUG: ConfigService Ping Error: $e');
+        print('DEBUG: ConfigService Worker Ping Error: $e');
       }
     }
   }

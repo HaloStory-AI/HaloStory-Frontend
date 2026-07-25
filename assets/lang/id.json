@@ -468,5 +468,8 @@
   "memories_worth_keeping_section": "Memori yang Perlu Disimpan",
   "summary_error_retry": "[Eh, ada yang salah, kami coba lagi dalam {interval}s]",
   "child_sfw_warning": "Ini karakter dibawah umur 16 tahun, patuhilah kebijakan Safe for Work kami atau akunmu bisa disuspend permanen",
-  "chat_retry_prompt": "[Klik tombol Ulangi untuk mencoba lagi]"
+  "chat_retry_prompt": "[Klik tombol Ulangi untuk mencoba lagi]",
+  "session_expired_title": "Sesi Habis",
+  "session_expired_message": "Waktu masuk sudah habis, silahkan login ulang.",
+  "session_expired_btn": "Login Ulang"
 }

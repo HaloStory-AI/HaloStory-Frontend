@@ -48,6 +48,9 @@ class StudentBioScreen extends StatefulWidget {
 }
 
 class _StudentBioScreenState extends State<StudentBioScreen> {
+  static final Map<String, Map<String, dynamic>?> _bondCache = {};
+  static final Map<String, Map<String, dynamic>> _bioCache = {};
+
   String? _translatedDescription;
   bool _isTranslating = false;
   late List<Map<String, dynamic>> _localMembers;
@@ -124,6 +127,21 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Future<void> _fetchBotBio() async {
+    final cached = _bioCache[widget.botId];
+    if (cached != null) {
+      if (mounted) {
+        setState(() {
+          _bioDescription = cached['description']?.toString();
+          if (cached['personality'] is Map) {
+            _personalityAttrs = (cached['personality'] as Map)
+                .map((k, v) => MapEntry(k.toString(), v.toString()));
+          }
+          _isBioLoading = false;
+        });
+      }
+      return;
+    }
+
     final authService = AuthService();
     final token = await authService.getToken();
     if (token == null || !mounted) return;
@@ -137,7 +155,8 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
         },
       );
       if (response.statusCode == 200 && mounted) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        _bioCache[widget.botId] = data;
         setState(() {
           _bioDescription = data['description']?.toString();
           if (data['personality'] is Map) {
@@ -193,6 +212,17 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Future<void> _fetchBondStats() async {
+    final cached = _bondCache[widget.botId];
+    if (cached != null) {
+      if (mounted) {
+        setState(() {
+          _bondData = cached;
+          _isBondLoading = false;
+        });
+      }
+      return;
+    }
+
     final authService = AuthService();
     final token = await authService.getToken();
     if (token == null || !mounted) return;
@@ -206,8 +236,10 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
         },
       );
       if (response.statusCode == 200 && mounted) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        _bondCache[widget.botId] = data;
         setState(() {
-          _bondData = jsonDecode(response.body);
+          _bondData = data;
           _isBondLoading = false;
         });
       } else {
@@ -219,6 +251,9 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Future<Map<String, dynamic>?> _fetchBondStatsFor(String botId) async {
+    final cached = _bondCache[botId];
+    if (cached != null) return cached;
+
     final authService = AuthService();
     final token = await authService.getToken();
     if (token == null || !mounted) return null;
@@ -232,7 +267,9 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
         },
       );
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        _bondCache[botId] = data;
+        return data;
       }
     } catch (_) {}
     return null;
@@ -243,37 +280,49 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
       if (mounted) setState(() => _isBondLoading = false);
       return;
     }
-    try {
-      final List<Map<String, dynamic>> updated = [];
-      for (final member in _localMembers) {
-        final memberId =
-            member['bot_id']?.toString() ?? member['id']?.toString();
-        if (memberId == null) {
-          updated.add(member);
-          continue;
-        }
-        final data = await _fetchBondStatsFor(memberId);
-        if (data != null) {
-          updated.add({
-            ...member,
-            'bond_hearts': data['bond_hearts'] ?? member['bond_hearts'],
-            'xp': data['xp'] ?? member['xp'],
-            'xp_into_level': data['xp_into_level'] ?? member['xp_into_level'],
-            'progress_percent':
-                data['progress_percent'] ?? member['progress_percent'],
-          });
-        } else {
-          updated.add(member);
-        }
+
+    // Determine which members need fetching (not in cache)
+    final List<Map<String, dynamic>> toFetch = [];
+    final List<int> fetchIndices = [];
+    for (int i = 0; i < _localMembers.length; i++) {
+      final member = _localMembers[i];
+      final memberId =
+          member['bot_id']?.toString() ?? member['id']?.toString();
+      if (memberId != null && !_bondCache.containsKey(memberId)) {
+        toFetch.add(member);
+        fetchIndices.add(i);
       }
+    }
+
+    // Parallel fetch all uncached members
+    if (toFetch.isNotEmpty) {
+      final results = await Future.wait(
+        toFetch.map((m) {
+          final mid = m['bot_id']?.toString() ?? m['id']?.toString();
+          return _fetchBondStatsFor(mid!);
+        }),
+      );
 
       if (mounted) {
         setState(() {
-          _localMembers = List<Map<String, dynamic>>.from(updated);
+          for (int j = 0; j < results.length; j++) {
+            final data = results[j];
+            if (data != null) {
+              final idx = fetchIndices[j];
+              _localMembers[idx] = {
+                ..._localMembers[idx],
+                'bond_hearts': data['bond_hearts'] ?? _localMembers[idx]['bond_hearts'],
+                'xp': data['xp'] ?? _localMembers[idx]['xp'],
+                'xp_into_level': data['xp_into_level'] ?? _localMembers[idx]['xp_into_level'],
+                'progress_percent': data['progress_percent'] ?? _localMembers[idx]['progress_percent'],
+              };
+            }
+          }
           _isBondLoading = false;
         });
       }
-    } catch (_) {
+    } else {
+      // All cached — no fetch needed
       if (mounted) setState(() => _isBondLoading = false);
     }
   }

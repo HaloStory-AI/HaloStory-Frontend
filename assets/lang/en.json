@@ -467,5 +467,8 @@
   "memories_worth_keeping_section": "Memory Worth Keeping",
   "summary_error_retry": "[Oops, something went wrong, retrying in {interval}s]",
   "child_sfw_warning": "This character is a minor (under 16). Please adhere to our Safe for Work policy or your account may be permanently suspended.",
-  "chat_retry_prompt": "[Click the retry button to try again]"
+  "chat_retry_prompt": "[Click the retry button to try again]",
+  "session_expired_title": "Session Expired",
+  "session_expired_message": "Your session has expired. Please log in again.",
+  "session_expired_btn": "Login Again"
 }

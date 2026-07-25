@@ -45,6 +45,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   bool _sortAscending = false;
   bool _showSyncNotice = true;
   StreamSubscription<String>? _chatUpdateSubscription;
+  Timer? _debounceTimer;
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
@@ -217,17 +218,21 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     _loadSyncNoticePreference();
     _loadSortPreferencesAndInit();
 
-    // Listen to real-time chat updates (new messages, deleted chats)
+    // Listen to real-time chat updates (new messages, deleted chats) — debounced
     _chatUpdateSubscription = LocalChatService.onChatUpdated.listen((chatId) {
-      if (mounted) {
-        initData(silent: true);
-      }
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(seconds: 1), () {
+        if (mounted) {
+          initData(silent: true);
+        }
+      });
     });
   }
 
   @override
   void dispose() {
     _chatUpdateSubscription?.cancel();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -248,7 +253,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadAvailableBots({bool force = false}) async {
-    final bots = await _botService.getChatTabBots();
+    final bots = await _botService.getChatTabBots(forceRefresh: force);
     if (mounted) {
       setState(() {
         _availableBots = bots;
