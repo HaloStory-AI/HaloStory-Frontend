@@ -59,6 +59,22 @@ class LocalChatService {
     await _repo.savePinnedChats(pins);
   }
 
+  Future<void> insertMessage(
+    String chatId,
+    Map<String, dynamic> message,
+  ) async {
+    final typed = ChatMessage.fromLegacyMap(chatId, message);
+    await _repo.insertMessage(typed);
+  }
+
+  Future<void> insertSummary(
+    String chatId,
+    int startIndex,
+    String text,
+  ) async {
+    await _repo.insertSummary(chatId, startIndex, text);
+  }
+
   Future<void> saveMemories(String botId, List<String> memories) async {
     await _repo.saveMemories(botId, memories);
   }

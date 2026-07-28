@@ -471,5 +471,8 @@
   "chat_retry_prompt": "[Klik tombol Ulangi untuk mencoba lagi]",
   "session_expired_title": "Sesi Habis",
   "session_expired_message": "Waktu masuk sudah habis, silahkan login ulang.",
-  "session_expired_btn": "Login Ulang"
+  "session_expired_btn": "Login Ulang",
+  "chat_list_typing": "Sedang mengetik...",
+  "chat_list_new_messages": "{count} pesan baru",
+  "chat_list_summarizing": "Meringkas ({current}/{total})"
 }

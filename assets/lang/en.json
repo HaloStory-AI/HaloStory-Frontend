@@ -470,5 +470,8 @@
   "chat_retry_prompt": "[Click the retry button to try again]",
   "session_expired_title": "Session Expired",
   "session_expired_message": "Your session has expired. Please log in again.",
-  "session_expired_btn": "Login Again"
+  "session_expired_btn": "Login Again",
+  "chat_list_typing": "Typing...",
+  "chat_list_new_messages": "{count} new messages",
+  "chat_list_summarizing": "Summarizing ({current}/{total})"
 }

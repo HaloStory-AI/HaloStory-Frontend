@@ -219,11 +219,13 @@ class SqliteChatRepository implements ChatRepository {
     );
   }
 
+  @override
   Future<void> insertMessage(ChatMessage message) async {
     final db = await _getDb();
     await db.insert('messages', message.toMap());
   }
 
+  @override
   Future<void> insertSummary(String chatId, int startIndex, String text) async {
     final db = await _getDb();
     await db.insert('summaries', {
