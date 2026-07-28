@@ -1347,6 +1347,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       await _startTypingEffect(partsLength);
     } else {
       await _localChatService.saveChat(widget.bot['id'], _messages);
+      _generateSummaries();
     }
     _scrollToBottom();
 
@@ -1385,6 +1386,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       _scrollToBottom();
     }
 
+    _generateSummaries();
     await _localChatService.saveChat(widget.bot['id'], _messages);
   }
 

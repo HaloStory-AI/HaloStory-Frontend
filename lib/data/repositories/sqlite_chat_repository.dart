@@ -124,6 +124,7 @@ class SqliteChatRepository implements ChatRepository {
       await txn.delete('summaries', where: 'chat_id = ?', whereArgs: [chatId]);
       await txn.delete('pinned_chats', where: 'chat_id = ?', whereArgs: [chatId]);
       await txn.delete('chats', where: 'id = ?', whereArgs: [chatId]);
+      await txn.delete('bot_memories', where: 'bot_id = ?', whereArgs: [chatId]);
     });
     _updateController.add(chatId);
   }
