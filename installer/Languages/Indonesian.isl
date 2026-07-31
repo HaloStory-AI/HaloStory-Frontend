@@ -1,218 +1,379 @@
-; Inno Setup Language File: Indonesian
+; Inno Setup version 6.5.0+ Language File: Indonesian
 ; Translated by R8KStudio
 
 [LangOptions]
 LanguageName=Indonesian
 LanguageID=$0421
+LanguageCodePage=0
 
 [Messages]
-; Welcome page
+; *** Application titles
+SetupAppTitle=Pemasangan
+SetupWindowTitle=Pemasangan - %1
+UninstallAppTitle=Pencopotan
+UninstallAppFullTitle=Pencopotan Pemasangan %1
+
+; *** Misc. common
+InformationTitle=Informasi
+ConfirmTitle=Konfirmasi
+ErrorTitle=Kesalahan
+
+; *** SetupLdr messages
+SetupLdrStartupMessage=Ini akan memasang %1. Apakah Anda ingin melanjutkan?
+LdrCannotCreateTemp=Tidak dapat membuat file sementara. Pemasangan dibatalkan.
+LdrCannotExecTemp=Tidak dapat menjalankan file di direktori sementara. Pemasangan dibatalkan.
+HelpTextNote=
+
+; *** Startup error messages
+LastErrorMessage=%1.%n%nKesalahan %2: %3
+SetupFileMissing=File %1 tidak ditemukan di direktori pemasangan. Harap perbaiki masalah ini atau dapatkan salinan baru program.
+SetupFileCorrupt=File pemasangan rusak. Harap dapatkan salinan baru program.
+SetupFileCorruptOrWrongVer=File pemasangan rusak atau tidak kompatibel dengan versi Pemasangan ini. Harap perbaiki masalah ini atau dapatkan salinan baru program.
+InvalidParameter=Parameter yang tidak valid diberikan pada baris perintah:%n%n%1
+SetupAlreadyRunning=Pemasangan sedang berjalan.
+WindowsVersionNotSupported=Program ini tidak mendukung versi Windows yang sedang Anda jalankan.
+WindowsServicePackRequired=Program ini memerlukan %1 Service Pack %2 atau lebih baru.
+NotOnThisPlatform=Program ini tidak akan berjalan di %1.
+OnlyOnThisPlatform=Program ini harus dijalankan di %1.
+OnlyOnTheseArchitectures=Program ini hanya dapat dipasang pada versi Windows yang dirancang untuk arsitektur prosesor berikut:%n%n%1
+WinVersionTooLowError=Program ini memerlukan %1 versi %2 atau lebih baru.
+WinVersionTooHighError=Program ini tidak dapat dipasang pada %1 versi %2 atau lebih baru.
+AdminPrivilegesRequired=Anda harus masuk sebagai administrator saat memasang program ini.
+PowerUserPrivilegesRequired=Anda harus masuk sebagai administrator atau anggota grup Power Users saat memasang program ini.
+SetupAppRunningError=Pemasangan mendeteksi bahwa %1 sedang berjalan.%n%nHarap tutup semua jendelanya sekarang, lalu klik OK untuk melanjutkan, atau Batal untuk keluar.
+UninstallAppRunningError=Pencopotan mendeteksi bahwa %1 sedang berjalan.%n%nHarap tutup semua jendelanya sekarang, lalu klik OK untuk melanjutkan, atau Batal untuk keluar.
+
+; *** Startup questions
+PrivilegesRequiredOverrideTitle=Pilih Mode Pemasangan
+PrivilegesRequiredOverrideInstruction=Pilih mode pemasangan
+PrivilegesRequiredOverrideText1=%1 dapat dipasang untuk semua pengguna (memerlukan hak administratif), atau hanya untuk Anda.
+PrivilegesRequiredOverrideText2=%1 dapat dipasang hanya untuk Anda, atau untuk semua pengguna (memerlukan hak administratif).
+PrivilegesRequiredOverrideAllUsers=Pasang untuk &semua pengguna
+PrivilegesRequiredOverrideAllUsersRecommended=Pasang untuk &semua pengguna (disarankan)
+PrivilegesRequiredOverrideCurrentUser=Pasang &hanya untuk saya
+PrivilegesRequiredOverrideCurrentUserRecommended=Pasang &hanya untuk saya (disarankan)
+
+; *** Misc. errors
+ErrorCreatingDir=Pemasangan tidak dapat membuat direktori "%1"
+ErrorTooManyFilesInDir=Tidak dapat membuat file di direktori "%1" karena berisi terlalu banyak file
+
+; *** Setup common messages
+ExitSetupTitle=Keluar dari Pemasangan
+ExitSetupMessage=Pemasangan belum selesai. Jika Anda keluar sekarang, program tidak akan dipasang.%n%nAnda dapat menjalankan Pemasangan lagi di lain waktu untuk menyelesaikan pemasangan.%n%nKeluar dari Pemasangan?
+AboutSetupMenuItem=&Tentang Pemasangan...
+AboutSetupTitle=Tentang Pemasangan
+AboutSetupMessage=%1 versi %2%n%3%n%nHalaman web %1:%n%4
+AboutSetupNote=
+TranslatorNote=
+
+; *** Buttons
+ButtonBack=< &Kembali
+ButtonNext=&Lanjut >
+ButtonInstall=&Pasang
+ButtonOK=OK
+ButtonCancel=&Batal
+ButtonYes=&Ya
+ButtonYesToAll=Ya ke &Semua
+ButtonNo=&Tidak
+ButtonNoToAll=Tidak ke &Semua
+ButtonFinish=&Selesai
+ButtonBrowse=&Jelajahi...
+ButtonWizardBrowse=&Jelajahi...
+ButtonNewFolder=&Buat Folder Baru
+
+; *** "Select Language" dialog messages
+SelectLanguageTitle=Pilih Bahasa Pemasangan
+SelectLanguageLabel=Pilih bahasa yang akan digunakan selama pemasangan.
+
+; *** Common wizard text
+ClickNext=Klik Lanjut untuk melanjutkan, atau Batal untuk keluar dari Pemasangan.
+BeveledLabel=
+BrowseDialogTitle=Jelajahi Folder
+BrowseDialogLabel=Pilih folder dalam daftar di bawah, lalu klik OK.
+NewFolderName=Folder Baru
+
+; *** "Welcome" wizard page
 WelcomeLabel1=Selamat datang di Wizard Pemasangan [name]
-WelcomeLabel2=Wizard ini akan memasang [name/ver] ke komputer Anda.%n%nDisarankan untuk menutup program lain sebelum melanjutkan.
-WelcomeLabel3=Selamat datang di Wizard Pemasangan [name]%n%nWizard ini akan memasang [name/ver] ke komputer Anda.
-; Finish page
-FinishedHeadingLabel=Pemasangan [name] Selesai
-FinishedLabel=Ikon program telah dibuat di menu Start.%n%nKlik Selesai untuk keluar dari wizard pemasangan.
-FinishedLabelNoIcons=Pemasangan [name] telah selesai.%n%nKlik Selesai untuk keluar dari wizard pemasangan.
-; Click Finish
-ClickFinish=Klik Selesai untuk keluar dari wizard pemasangan.
-; Uninstall
-ConfirmUninstall=Apakah Anda yakin ingin menghapus [name] dan semua komponennya?
-UninstalledAll=[name] telah berhasil dihapus dari komputer Anda.
-UninstallStatusLabel=Mencopot pemasangan [name] dari komputer Anda...
-UninstallStatusLabelHeading=Mencopot pemasangan...
+WelcomeLabel2=Ini akan memasang [name/ver] di komputer Anda.%n%nDisarankan untuk menutup semua aplikasi lain sebelum melanjutkan.
 
-; Button captions
-BtnBrowse=Browse...
-BtnInstall=&Pasang
-BtnOK=&OK
-BtnCancel=&Batal
-BtnYes=&Ya
-BtnNo=&Tidak
-BtnFinish=&Selesai
-BtnNext=&Lanjut >
-BtnBack=< &Kembali
-BtnNewFolder=Buat Folder Baru
+; *** "Password" wizard page
+WizardPassword=Kata Sandi
+PasswordLabel1=Pemasangan ini dilindungi kata sandi.
+PasswordLabel3=Harap berikan kata sandi, lalu klik Lanjut untuk melanjutkan. Kata sandi bersifat case-sensitive.
+PasswordEditLabel=&Kata Sandi:
+IncorrectPassword=Kata sandi yang Anda masukkan salah. Silakan coba lagi.
 
-; Installer messages
-SelectDirLabel3=Wizard akan memasang [name] ke folder berikut.
-SelectDirBrowseLabel=Untuk memasang ke folder yang berbeda, klik Browse dan pilih folder lain.
-SelectDirLabel=Folder Tujuan
-SelectDirLabel2=Pilih folder untuk memasang [name].
-DiskSpaceMBLabel=Ruang kosong di folder tujuan: [size]
-DiskSpaceAvailableLabel=Tersedia:
-DiskSpaceNeededLabel=Diperlukan:
-DiskSpaceSelectDirLabel=Folder terpilih:
+; *** "License Agreement" wizard page
+WizardLicense=Perjanjian Lisensi
+LicenseLabel=Harap baca informasi penting berikut sebelum melanjutkan.
+LicenseLabel3=Harap baca Perjanjian Lisensi berikut. Anda harus menerima persyaratan perjanjian ini sebelum melanjutkan pemasangan.
+LicenseAccepted=Saya &menerima perjanjian
+LicenseNotAccepted=Saya &tidak menerima perjanjian
 
-; Group/Start Menu
-SelectStartMenuFolderLabel3=Pilih folder di menu Start tempat wizard akan membuat pintasan program.
-SelectStartMenuFolderBrowseLabel=Untuk memilih folder lain, klik Browse.
-SelectStartMenuFolderLabel=Pilih Folder Menu Start
-SelectStartMenuFolderLabel2=Pilih folder untuk pintasan program.
-SelectStartMenuFolderNewFolderHint=Ketik nama folder baru jika ingin membuat folder baru.
-SelectStartMenuFolderEnterNewWarning=Ada kemungkinan folder yang Anda masukkan belum ada. Jika Anda ingin folder tersebut dibuat, pastikan folder dimulai dengan huruf atau nomor yang valid. Periksa bahwa nama folder tidak mengandung salah satu dari karakter berikut:%n%n[errorChars]
-SelectStartMenuFolderEnterRoot=Anda tidak dapat memilih akar (root) dari menu Start. Pilih subfolder atau ketik nama baru untuk membuat folder baru.
-
-; Ready page
-ReadyLabel1=Wizard siap memulai pemasangan [name].
-ReadyLabel2a=Klik Pasang untuk melanjutkan, atau klik Kembali jika ingin meninjau atau mengubah pengaturan.
-ReadyLabel2b=Klik Pasang untuk melanjutkan pemasangan.
-ReadyLabel3=[name] akan dipasang ke folder berikut.
-ReadyLikeInstall=dan juga:
-ReadyComponentList=Komponen yang akan dipasang
-ReadyTaskList=Tugas tambahan:
-ReadyMemoDir=Folder Tujuan:
-ReadyMemoGroup=Folder Menu Start:
-ReadyMemoTask=Tugas tambahan:
-
-; Installing page
-InstallingLabel=Memasang [name] ke komputer Anda...
-InstallingLabel2=Harap tunggu sementara wizard memasang [name].
-SetupAppRunningLabel=Harap tutup [name] sebelum melanjutkan.
-SetupAppRunningLabel2=Tidak dapat melanjutkan pemasangan karena [name] sedang berjalan.
-
-; Error messages
-ErrorReadingDrive=Kesalahan saat membaca drive [drive].
-ErrorGettingFileVersion=Kesalahan saat mendapatkan versi file: [filename]
-ErrorReadingVersionInfo=Kesalahan saat membaca informasi versi dari file: [filename]
-ErrorInvalidDrive=Drive yang dimasukkan tidak valid.
-ErrorFileAssocFailed=Gagal membuat asosiasi file.
-ErrorExecutingFile=Kesalahan saat menjalankan file: [filename]
-ErrorReadingRegistry=Kesalahan saat membaca registry.
-ErrorWritingRegistry=Kesalahan saat menulis ke registry.
-ErrorRegisteringServer=Kesalahan saat mendaftarkan server: [filename]
-ErrorRegisteringTypeLib=Kesalahan saat mendaftarkan tipe library: [filename]
-ErrorDeletingRegValue=Kesalahan saat menghapus nilai registry.
-
-; Disk space
-DiskSpaceWarning=Program ini membutuhkan [need] ruang kosong pada drive [drive] tetapi hanya [have] yang tersedia. Disarankan untuk mengosongkan ruang pada drive tersebut.%n%nApakah Anda ingin melanjutkan?
-DiskSpaceWarningTitle=Ruang Disk Tidak Mencukupi
-
-; Miscellaneous
-SetupAborted=Pemasangan dibatalkan.%n%nProses pemasangan belum selesai. Untuk memasang lagi di lain waktu, silakan jalankan program ini lagi.
-SetupCancelled=Pemasangan dibatalkan.
-AboutSetupLabel=[name] {version}%n%n[Halaman web: [url]]
-AboutSetupTitle=Tentang [name]
-AboutSetupMenuItem=&Tentang Pemasangan ini...
-ExitSetupTitle=Keluar
-ExitSetupMessage=Apakah Anda yakin ingin keluar dari wizard pemasangan?
-ExitSetupMessage2=Wizard pemasangan belum selesai. Jika Anda keluar sekarang, program tidak akan dipasang.%n%nAnda dapat menjalankan wizard ini lagi di lain waktu untuk menyelesaikan pemasangan.%n%nApakah Anda yakin ingin keluar?
-
-; File in Use
-FileInUseTitle=File Sedang Digunakan
-FileInUseLabel=File berikut sedang digunakan oleh proses lain:%n%n[filename]%n%nHarap tutup aplikasi lain dan klik Coba Lagi.
-FileInUseLabel2=File berikut sedang digunakan oleh proses lain:%n%n[filename]%n%nHarap tutup aplikasi lain dan klik Coba Lagi, atau klik Lewati untuk melewati file ini.
-FileInUse3Label=File berikut sedang digunakan oleh proses lain:%n%n[filename]%n%nHarap pilih tindakan yang diinginkan:
-FileInUse3ButtonTryAgain=&Coba Lagi
-FileInUse3ButtonKillProcess=&Tutup Proses
-FileInUse3ButtonIgnore=&Abaikan
-FileInUse3ButtonKillProcessFailed=Tidak dapat menutup proses secara otomatis. Harap tutup aplikasi yang menggunakan file tersebut secara manual, lalu klik Coba Lagi.
-
-; Password
-PasswordLabel1=Program ini dilindungi kata sandi.
-PasswordLabel2=Silakan masukkan kata sandi untuk melanjutkan.
-
-; Status messages
-StatusInstallDeleteFile=Menghapus file...
-StatusInstallCreateFolder=Membuat folder...
-StatusInstallCreateShortcut=Membuat pintasan...
-StatusInstallCreateFolderForFile=Membuat folder untuk file...
-StatusInstallExtractFile=Memasang file...
-StatusInstallInstallProgress=Progress Pemasangan
-StatusInstallRollBack=Mengembalikan perubahan...
-StatusInstallRegistering=Mendaftarkan...
-StatusInstallSavingUninstall=Menyimpan data pencopotan...
-StatusInstallRunningApp=Menjalankan aplikasi...
-StatusInstallPreparing=Menghitung ruang yang diperlukan...
-
-; Shutdown
-ShutdownBlockedByApp=Program lain menolak izin mematikan atau me-restart.
-ShutdownBlockedBySetup=Pemasangan menolak izin mematikan atau me-restart.
-
-; Restart
-RestartMessage=Anda harus me-restart komputer agar dapat menggunakan program ini. Apakah Anda ingin me-restart sekarang?
-RestartMessage2=Anda harus me-restart komputer agar dapat menyelesaikan pencopotan pemasangan. Apakah Anda ingin me-restart sekarang?
-RestartTitle=Restart Diperlukan
-
-; Select components
-SelectComponentsDesc=Deskripsi
-SelectComponentsLabel=Harap pilih komponen yang ingin dipasang.
-SelectComponentsLabel2=Centang komponen yang ingin dipasang, kosongkan yang tidak ingin dipasang.
-
-; Tasks
-SelectTasksLabel=Tugas Tambahan
-SelectTasksLabel2=Pilih tugas tambahan yang ingin dilakukan oleh wizard.
-SelectTasksDesc=Centang tugas tambahan yang ingin dilakukan.
-
-; Uninstall
-UninstallProgramLabel=Mencopot pemasangan [name] dari komputer Anda.
-UninstallProgramLabel2=Klik Copot untuk memulai pencopotan pemasangan.
-UninstallProgramLabel3=Centang komponen yang ingin dicopot:
-UninstallProgramLabel4=Klik Copot untuk mencopot pemasangan [name] dari komputer Anda.
-
-; Run
-RunListLabel2=Centang program yang ingin dijalankan:
-RunListLabel3=Jalankan program setelah selesai:
-RunListLabel4=Jalankan program berikut setelah wizard selesai:
-
-; License
-LicenseLabel=Harap tinjau persyaratan lisensi sebelum melanjutkan.
-LicenseLabel3=Harap tinjau persyaratan lisensi sebelum melanjutkan. Jika Anda menerima semua persyaratan, centang kotak di bawah ini.
-LicenseAccepted=I &Saya menerima persyaratan dalam Perjanjian Lisensi
-LicenseNotAccepted=Saya &tidak menerima persyaratan dalam Perjanjian Lisensi
-
-; Info
+; *** "Information" wizard pages
+WizardInfoBefore=Informasi
 InfoBeforeLabel=Harap baca informasi penting berikut sebelum melanjutkan.
-InfoBeforeClickLabel=Setelah selesai membaca, klik Lanjut untuk melanjutkan.
-InfoAfterLabel=Harap baca informasi penting berikut setelah pemasangan selesai.
-InfoAfterClickLabel=Setelah selesai membaca, klik Lanjut untuk melanjutkan.
+InfoBeforeClickLabel=Bila Anda siap melanjutkan Pemasangan, klik Lanjut.
+WizardInfoAfter=Informasi
+InfoAfterLabel=Harap baca informasi penting berikut sebelum melanjutkan.
+InfoAfterClickLabel=Bila Anda siap melanjutkan Pemasangan, klik Lanjut.
 
-; New Directory
-NewDirectory=Folder Baru
-NewDirectoryName=Masukkan nama folder baru:
-NewDirectoryAlreadyExists=Folder '[name]' sudah ada. Pilih folder lain atau ketik nama yang berbeda.
+; *** "User Information" wizard page
+WizardUserInfo=Informasi Pengguna
+UserInfoDesc=Harap masukkan informasi Anda.
+UserInfoName=&Nama Pengguna:
+UserInfoOrg=&Organisasi:
+UserInfoSerial=&Nomor Seri:
+UserInfoNameRequired=Anda harus memasukkan nama.
 
-; Select directory
-SelectDirectoryTitle=Pilih Folder
-SelectDirectoryLabel=Pilih folder:
+; *** "Select Destination Location" wizard page
+WizardSelectDir=Pilih Lokasi Tujuan
+SelectDirDesc=Di mana [name] harus dipasang?
+SelectDirLabel3=Pemasangan akan memasang [name] ke dalam folder berikut.
+SelectDirBrowseLabel=Untuk melanjutkan, klik Lanjut. Jika Anda ingin memilih folder lain, klik Jelajahi.
+DiskSpaceGBLabel=Setidaknya [gb] GB ruang disk kosong diperlukan.
+DiskSpaceMBLabel=Setidaknya [mb] MB ruang disk kosong diperlukan.
+CannotInstallToNetworkDrive=Pemasangan tidak dapat memasang ke drive jaringan.
+CannotInstallToUNCPath=Pemasangan tidak dapat memasang ke path UNC.
+InvalidPath=Anda harus memasukkan path lengkap dengan huruf drive; contohnya:%n%nC:\APP%n%natau path UNC dalam bentuk:%n%n\\server\share
+InvalidDrive=Drive atau share UNC yang Anda pilih tidak ada atau tidak dapat diakses. Silakan pilih yang lain.
+DiskSpaceWarningTitle=Ruang Disk Tidak Mencukupi
+DiskSpaceWarning=Pemasangan membutuhkan setidaknya %1 KB ruang kosong untuk memasang, tetapi drive yang dipilih hanya memiliki %2 KB tersedia.%n%nApakah Anda ingin tetap melanjutkan?
+DirNameTooLong=Nama folder atau path terlalu panjang.
+InvalidDirName=Nama folder tidak valid.
+BadDirName32=Nama folder tidak boleh mengandung karakter berikut ini:%n%n%1
+DirExistsTitle=Folder Sudah Ada
+DirExists=Folder:%n%n%1%n%nsudah ada. Apakah Anda ingin tetap memasang ke folder itu?
+DirDoesntExistTitle=Folder Tidak Ada
+DirDoesntExist=Folder:%n%n%1%n%ntidak ada. Apakah Anda ingin folder tersebut dibuat?
 
-; Components sizes
-ComponentsDiskSpaceLabel=[komponen] file akan dipasang dengan total [ukuran] ruang yang diperlukan.
-ComponentsDiskSpaceLabel2=Ruang yang diperlukan untuk komponen yang dipasang:
-AdditionalSizeMsg=[ukuran] tambahan
+; *** "Select Components" wizard page
+WizardSelectComponents=Pilih Komponen
+SelectComponentsDesc=Komponen mana yang harus dipasang?
+SelectComponentsLabel2=Pilih komponen yang ingin Anda pasang; kosongkan komponen yang tidak ingin Anda pasang. Klik Lanjut bila Anda siap melanjutkan.
+FullInstallation=Pemasangan lengkap
+CompactInstallation=Pemasangan kompak
+CustomInstallation=Pemasangan kustom
+NoUninstallWarningTitle=Komponen Sudah Ada
+NoUninstallWarning=Pemasangan mendeteksi bahwa komponen berikut sudah terpasang di komputer Anda:%n%n%1%n%nMenghilangkan tanda komponen ini tidak akan mencopotnya.%n%nApakah Anda ingin tetap melanjutkan?
+ComponentSize1=%1 KB
+ComponentSize2=%1 MB
+ComponentsDiskSpaceGBLabel=Pilihan saat ini membutuhkan setidaknya [gb] GB ruang disk.
+ComponentsDiskSpaceMBLabel=Pilihan saat ini membutuhkan setidaknya [mb] MB ruang disk.
 
-; Uninstall display
-UninstallDisplayName=[name]
-UninstallDisplayVersion=[version]
-UninstallDisplayPublisher=[publisher]
+; *** "Select Additional Tasks" wizard page
+WizardSelectTasks=Pilih Tugas Tambahan
+SelectTasksDesc=Tugas tambahan apa yang harus dilakukan?
+SelectTasksLabel2=Pilih tugas tambahan yang ingin dilakukan Pemasangan saat memasang [name], lalu klik Lanjut.
 
-; Shorcuts / Icons
-ShortcutManagerEntry= &Pintasan
-ShortcutManagerFolder=Buat &pintasan di folder Menu Start
-ShortcutDesktopEntry=Buat pintasan &desktop
-ShortcutDesktopFolder=Buat pintasan di &desktop
+; *** "Select Start Menu Folder" wizard page
+WizardSelectProgramGroup=Pilih Folder Menu Start
+SelectStartMenuFolderDesc=Di mana Pemasangan harus menempatkan pintasan program?
+SelectStartMenuFolderLabel3=Pemasangan akan membuat pintasan program di folder Menu Start berikut.
+SelectStartMenuFolderBrowseLabel=Untuk melanjutkan, klik Lanjut. Jika Anda ingin memilih folder lain, klik Jelajahi.
+MustEnterGroupName=Anda harus memasukkan nama folder.
+GroupNameTooLong=Nama folder atau path terlalu panjang.
+InvalidGroupName=Nama folder tidak valid.
+BadGroupName=Nama folder tidak boleh mengandung karakter berikut ini:%n%n%1
+NoProgramGroupCheck2=&Jangan buat folder Menu Start
 
-; Task names
-TaskDesktopIcon=&Buat pintasan desktop
-TaskQuicklaunchIcon=&Buat pintasan Quick Launch
-TaskStartupEntry=Buat pintasan di folder &Startup
+; *** "Ready to Install" wizard page
+WizardReady=Siap Memasang
+ReadyLabel1=Pemasangan sekarang siap untuk mulai memasang [name] di komputer Anda.
+ReadyLabel2a=Klik Pasang untuk melanjutkan pemasangan, atau klik Kembali jika Anda ingin meninjau atau mengubah pengaturan.
+ReadyLabel2b=Klik Pasang untuk melanjutkan pemasangan.
+ReadyMemoUserInfo=Informasi pengguna:
+ReadyMemoDir=Lokasi tujuan:
+ReadyMemoType=Jenis pemasangan:
+ReadyMemoComponents=Komponen yang dipilih:
+ReadyMemoGroup=Folder Menu Start:
+ReadyMemoTasks=Tugas tambahan:
 
-; Archived file
-OverwriteExistingFile=Tindih file yang sudah ada?
-OverwriteExistingFileReadOnly=Tindih file read-only yang sudah ada?
-OverwriteExistingFileSystem=Tindih file sistem yang sudah ada?
-OverwriteExistingFileSystemReadOnly=Tindih file sistem read-only yang sudah ada?
+; *** TDownloadWizardPage wizard page and DownloadTemporaryFile
+DownloadingLabel2=Mengunduh file...
+ButtonStopDownload=&Hentikan unduhan
+StopDownload=Apakah Anda yakin ingin menghentikan unduhan?
+ErrorDownloadAborted=Unduhan dibatalkan
+ErrorDownloadFailed=Unduhan gagal: %1 %2
+ErrorDownloadSizeFailed=Gagal mendapatkan ukuran: %1 %2
+ErrorProgress=Progres tidak valid: %1 dari %2
+ErrorFileSize=Ukuran file tidak valid: diharapkan %1, ditemukan %2
+
+; *** TExtractionWizardPage wizard page and ExtractArchive
+ExtractingLabel=Menyalin file...
+ButtonStopExtraction=&Hentikan penyalinan
+StopExtraction=Apakah Anda yakin ingin menghentikan penyalinan?
+ErrorExtractionAborted=Penyalinan dibatalkan
+ErrorExtractionFailed=Penyalinan gagal: %1
+
+; *** Archive extraction failure details
+ArchiveIncorrectPassword=Kata sandi salah
+ArchiveIsCorrupted=Arsip rusak
+ArchiveUnsupportedFormat=Format arsip tidak didukung
+
+; *** "Preparing to Install" wizard page
+WizardPreparing=Mempersiapkan Pemasangan
+PreparingDesc=Pemasangan sedang mempersiapkan untuk memasang [name] di komputer Anda.
+PreviousInstallNotCompleted=Pemasangan/penghapusan program sebelumnya belum selesai. Anda perlu me-restart komputer untuk menyelesaikan pemasangan itu.%n%nSetelah me-restart komputer, jalankan Pemasangan lagi untuk menyelesaikan pemasangan [name].
+CannotContinue=Pemasangan tidak dapat melanjutkan. Harap klik Batal untuk keluar.
+ApplicationsFound=Aplikasi berikut menggunakan file yang perlu diperbarui oleh Pemasangan. Disarankan agar Anda mengizinkan Pemasangan menutup aplikasi ini secara otomatis.
+ApplicationsFound2=Aplikasi berikut menggunakan file yang perlu diperbarui oleh Pemasangan. Disarankan agar Anda mengizinkan Pemasangan menutup aplikasi ini secara otomatis. Setelah pemasangan selesai, Pemasangan akan mencoba memulai ulang aplikasi.
+CloseApplications=&Tutup aplikasi secara otomatis
+DontCloseApplications=&Jangan tutup aplikasi
+ErrorCloseApplications=Pemasangan tidak dapat menutup semua aplikasi secara otomatis. Disarankan agar Anda menutup semua aplikasi yang menggunakan file yang perlu diperbarui oleh Pemasangan sebelum melanjutkan.
+PrepareToInstallNeedsRestart=Pemasangan harus me-restart komputer Anda. Setelah me-restart komputer, jalankan Pemasangan lagi untuk menyelesaikan pemasangan [name].%n%nApakah Anda ingin me-restart sekarang?
+
+; *** "Installing" wizard page
+WizardInstalling=Memasang
+InstallingLabel=Harap tunggu sementara Pemasangan memasang [name] di komputer Anda.
+
+; *** "Setup Completed" wizard page
+FinishedHeadingLabel=Wizard Pemasangan [name] Selesai
+FinishedLabelNoIcons=Pemasangan telah selesai memasang [name] di komputer Anda.
+FinishedLabel=Pemasangan telah selesai memasang [name] di komputer Anda. Aplikasi dapat dijalankan dengan memilih pintasan yang terpasang.
+ClickFinish=Klik Selesai untuk keluar dari Pemasangan.
+FinishedRestartLabel=Untuk menyelesaikan pemasangan [name], Pemasangan harus me-restart komputer Anda. Apakah Anda ingin me-restart sekarang?
+FinishedRestartMessage=Untuk menyelesaikan pemasangan [name], Pemasangan harus me-restart komputer Anda.%n%nApakah Anda ingin me-restart sekarang?
+ShowReadmeCheck=Ya, saya ingin melihat file README
+YesRadio=&Ya, restart komputer sekarang
+NoRadio=&Tidak, saya akan restart komputer nanti
+RunEntryExec=Jalankan %1
+RunEntryShellExec=Lihat %1
+
+; *** "Setup Needs the Next Disk" stuff
+ChangeDiskTitle=Pemasangan Membutuhkan Disk Berikutnya
+SelectDiskLabel2=Silakan masukkan Disk %1 dan klik OK.%n%nJika file di disk ini dapat ditemukan di folder selain yang ditampilkan di bawah, masukkan path yang benar atau klik Jelajahi.
+PathLabel=&Path:
+FileNotInDir2=File "%1" tidak dapat ditemukan di "%2". Silakan masukkan disk yang benar atau pilih folder lain.
+SelectDirectoryLabel=Harap tentukan lokasi disk berikutnya.
+
+; *** Installation phase messages
+SetupAborted=Pemasangan tidak selesai.%n%nHarap perbaiki masalah dan jalankan Pemasangan lagi.
+AbortRetryIgnoreSelectAction=Pilih tindakan
+AbortRetryIgnoreRetry=&Coba lagi
+AbortRetryIgnoreIgnore=&Abaikan kesalahan dan lanjutkan
+AbortRetryIgnoreCancel=Batalkan pemasangan
+RetryCancelSelectAction=Pilih tindakan
+RetryCancelRetry=&Coba lagi
+RetryCancelCancel=Batal
+
+; *** Installation status messages
+StatusClosingApplications=Menutup aplikasi...
+StatusCreateDirs=Membuat direktori...
+StatusExtractFiles=Menyalin file...
+StatusDownloadFiles=Mengunduh file...
+StatusCreateIcons=Membuat pintasan...
+StatusCreateIniEntries=Membuat entri INI...
+StatusCreateRegistryEntries=Membuat entri registry...
+StatusRegisterFiles=Mendaftarkan file...
+StatusSavingUninstall=Menyimpan informasi pencopotan...
+StatusRunProgram=Menyelesaikan pemasangan...
+StatusRestartingApplications=Memulai ulang aplikasi...
+StatusRollback=Mengembalikan perubahan...
+
+; *** Misc. errors
+ErrorInternal2=Kesalahan internal: %1
+ErrorFunctionFailedNoCode=%1 gagal
+ErrorFunctionFailed=%1 gagal; kode %2
+ErrorFunctionFailedWithMessage=%1 gagal; kode %2.%n%3
+ErrorExecutingProgram=Tidak dapat menjalankan file:%n%1
+
+; *** Registry errors
+ErrorRegOpenKey=Kesalahan membuka kunci registry:%n%1\%2
+ErrorRegCreateKey=Kesalahan membuat kunci registry:%n%1\%2
+ErrorRegWriteKey=Kesalahan menulis ke kunci registry:%n%1\%2
+
+; *** INI errors
+ErrorIniEntry=Kesalahan membuat entri INI di file "%1".
+
+; *** File copying errors
+FileAbortRetryIgnoreSkipNotRecommended=&Lewati file ini (tidak disarankan)
+FileAbortRetryIgnoreIgnoreNotRecommended=&Abaikan kesalahan dan lanjutkan (tidak disarankan)
+SourceIsCorrupted=File sumber rusak
+SourceDoesntExist=File sumber "%1" tidak ada
+SourceVerificationFailed=Verifikasi file sumber gagal: %1
+VerificationSignatureDoesntExist=File tanda tangan "%1" tidak ada
+VerificationSignatureInvalid=File tanda tangan "%1" tidak valid
+VerificationKeyNotFound=File tanda tangan "%1" menggunakan kunci yang tidak dikenal
+VerificationFileNameIncorrect=Nama file salah
+VerificationFileTagIncorrect=Tag file salah
+VerificationFileSizeIncorrect=Ukuran file salah
+VerificationFileHashIncorrect=Hash file salah
+ExistingFileReadOnly2=File yang ada tidak dapat diganti karena ditandai read-only.
+ExistingFileReadOnlyRetry=&Hapus atribut read-only dan coba lagi
+ExistingFileReadOnlyKeepExisting=&Pertahankan file yang ada
+ErrorReadingExistingDest=Terjadi kesalahan saat mencoba membaca file yang ada:
+FileExistsSelectAction=Pilih tindakan
+FileExists2=File sudah ada.
+FileExistsOverwriteExisting=&Timpa file yang ada
+FileExistsKeepExisting=&Pertahankan file yang ada
+FileExistsOverwriteOrKeepAll=&Lakukan ini untuk konflik berikutnya
+ExistingFileNewerSelectAction=Pilih tindakan
+ExistingFileNewer2=File yang ada lebih baru dari yang akan dipasang oleh Pemasangan.
+ExistingFileNewerOverwriteExisting=&Timpa file yang ada
+ExistingFileNewerKeepExisting=&Pertahankan file yang ada (disarankan)
+ExistingFileNewerOverwriteOrKeepAll=&Lakukan ini untuk konflik berikutnya
+ErrorChangingAttr=Terjadi kesalahan saat mencoba mengubah atribut file yang ada:
+ErrorCreatingTemp=Terjadi kesalahan saat mencoba membuat file di direktori tujuan:
+ErrorReadingSource=Terjadi kesalahan saat mencoba membaca file sumber:
+ErrorCopying=Terjadi kesalahan saat mencoba menyalin file:
+ErrorDownloading=Terjadi kesalahan saat mencoba mengunduh file:
+ErrorExtracting=Terjadi kesalahan saat mencoba menyalin arsip:
+ErrorReplacingExistingFile=Terjadi kesalahan saat mencoba mengganti file yang ada:
+ErrorRestartReplace=RestartReplace gagal:
+ErrorRenamingTemp=Terjadi kesalahan saat mencoba mengganti nama file di direktori tujuan:
+ErrorRegisterServer=Tidak dapat mendaftarkan DLL/OCX: %1
+ErrorRegSvr32Failed=RegSvr32 gagal dengan kode keluar %1
+ErrorRegisterTypeLib=Tidak dapat mendaftarkan type library: %1
+
+; *** Uninstall display name markings
+UninstallDisplayNameMark=%1 (%2)
+UninstallDisplayNameMarks=%1 (%2, %3)
+UninstallDisplayNameMark32Bit=32-bit
+UninstallDisplayNameMark64Bit=64-bit
+UninstallDisplayNameMarkAllUsers=Semua pengguna
+UninstallDisplayNameMarkCurrentUser=Pengguna saat ini
+
+; *** Post-installation errors
+ErrorOpeningReadme=Terjadi kesalahan saat mencoba membuka file README.
+ErrorRestartingComputer=Pemasangan tidak dapat me-restart komputer. Harap lakukan ini secara manual.
+
+; *** Uninstaller messages
+UninstallNotFound=File "%1" tidak ada. Tidak dapat mencopot.
+UninstallOpenError=File "%1" tidak dapat dibuka. Tidak dapat mencopot.
+UninstallUnsupportedVer=File log pencopotan "%1" dalam format yang tidak dikenal oleh versi pencopot ini. Tidak dapat mencopot.
+UninstallUnknownEntry=Entri tidak dikenal (%1) ditemukan di log pencopotan.
+ConfirmUninstall=Apakah Anda yakin ingin menghapus sepenuhnya %1 dan semua komponennya?
+UninstallOnlyOnWin64=Pemasangan ini hanya dapat dicopot pada Windows 64-bit.
+OnlyAdminCanUninstall=Pemasangan ini hanya dapat dicopot oleh pengguna dengan hak administratif.
+UninstallStatusLabel=Harap tunggu sementara %1 dihapus dari komputer Anda.
+UninstalledAll=%1 berhasil dihapus dari komputer Anda.
+UninstalledMost=Pencopotan %1 selesai.%n%nBeberapa elemen tidak dapat dihapus. Ini dapat dihapus secara manual.
+UninstalledAndNeedsRestart=Untuk menyelesaikan pencopotan %1, komputer Anda harus di-restart.%n%nApakah Anda ingin me-restart sekarang?
+UninstallDataCorrupted=File "%1" rusak. Tidak dapat mencopot.
+
+; *** Uninstallation phase messages
+ConfirmDeleteSharedFileTitle=Hapus File Bersama?
+ConfirmDeleteSharedFile2=Sistem menunjukkan bahwa file bersama berikut tidak lagi digunakan oleh program apa pun. Apakah Anda ingin Pencopot untuk menghapus file bersama ini?%n%nJika ada program yang masih menggunakan file ini dan dihapus, program tersebut mungkin tidak berfungsi dengan baik. Jika Anda tidak yakin, pilih Tidak. Membiarkan file di sistem Anda tidak akan menyebabkan kerusakan.
+SharedFileNameLabel=Nama file:
+SharedFileLocationLabel=Lokasi:
+WizardUninstalling=Status Pencopotan
+StatusUninstalling=Mencopot %1...
+
+; *** Shutdown block reasons
+ShutdownBlockReasonInstallingApp=Memasang %1.
+ShutdownBlockReasonUninstallingApp=Mencopot %1.
 
 [CustomMessages]
-NameAndVersion=%1 %2
-AdditionalIcons=Additional icons:
-CreateDesktopIcon=&Create a desktop shortcut
-CreateQuickLaunchIcon=Create a &Quick Launch shortcut
-ProgramOnTheWeb=%1 on the Web
-UninstallProgram=Uninstall %1
-LaunchProgram=Launch %1
-AssocFileAssociation=&Associate %1 with %2 file type
-AssocFileAssociationExt=&Associate %1 with %2 files
+NameAndVersion=%1 versi %2
+AdditionalIcons=Pintasan tambahan:
+CreateDesktopIcon=Buat pintasan &desktop
+CreateQuickLaunchIcon=Buat pintasan &Quick Launch
+ProgramOnTheWeb=%1 di Web
+UninstallProgram=Copot pemasangan %1
+LaunchProgram=Jalankan %1
+AssocFileExtension=&Asosiasikan %1 dengan ekstensi file %2
+AssocingFileExtension=Mengasosiasikan %1 dengan ekstensi file %2...
 AutoStartProgramGroupDescription=Startup:
-AutoStartProgram=Automatically start %1
-AddPath=Buat PATH environment variable
+AutoStartProgram=Secara otomatis mulai %1
+AddonHostProgramNotFound=%1 tidak dapat ditemukan di folder yang Anda pilih.%n%nApakah Anda ingin tetap melanjutkan?
