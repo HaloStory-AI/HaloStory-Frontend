@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
-import '../../services/chat_task_service.dart';
 import '../../services/localization_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -11,12 +10,6 @@ import '../../widgets/skeleton_loader.dart';
 import '../select_contact_screen.dart';
 
 enum ChatSortType { newest, name, bond }
-
-class _SummaryInfo {
-  final int current;
-  final int total;
-  const _SummaryInfo(this.current, this.total);
-}
 
 class ChatTab extends StatefulWidget {
   final Function(Map<String, dynamic>) onChatSelected;
@@ -53,13 +46,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   bool _showSyncNotice = true;
   StreamSubscription<String>? _chatUpdateSubscription;
   Timer? _debounceTimer;
-
-  // ChatTaskService tracking
-  StreamSubscription<ChatTaskEvent>? _chatTaskSub;
-  final Set<String> _typingBots = {};
-  final Map<String, int> _newMessageCounts = {};
-  final Map<String, _SummaryInfo> _summaryProgress = {};
-  final Map<String, String> _chatErrors = {};
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
@@ -241,68 +227,13 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         }
       });
     });
-
-    _chatTaskSub = ChatTaskService().events.listen(_onChatTaskEvent);
   }
 
   @override
   void dispose() {
     _chatUpdateSubscription?.cancel();
-    _chatTaskSub?.cancel();
     _debounceTimer?.cancel();
     super.dispose();
-  }
-
-  void _onChatTaskEvent(ChatTaskEvent event) {
-    if (!mounted) return;
-
-    if (event.type == TaskType.summary) {
-      switch (event.status) {
-        case TaskStatus.processing:
-          _typingBots.add(event.botId);
-          _summaryProgress[event.botId] = _SummaryInfo(0, event.data?['totalBatches'] as int? ?? 1);
-          break;
-        case TaskStatus.progress:
-          final batch = event.data?['batch'] as int? ?? 0;
-          final t = event.data?['total'] as int? ?? 1;
-          _summaryProgress[event.botId] = _SummaryInfo(batch, t);
-          break;
-        case TaskStatus.completed:
-        case TaskStatus.failed:
-          _typingBots.remove(event.botId);
-          _summaryProgress.remove(event.botId);
-          break;
-        default:
-          break;
-      }
-      if (mounted) setState(() {});
-      return;
-    }
-
-    switch (event.status) {
-      case TaskStatus.processing:
-      case TaskStatus.retrying:
-        _typingBots.add(event.botId);
-        _chatErrors.remove(event.botId);
-        break;
-      case TaskStatus.completed:
-        _typingBots.remove(event.botId);
-        _chatErrors.remove(event.botId);
-        final count = event.data?['_bubbleCount'] as int? ?? 1;
-        _newMessageCounts[event.botId] =
-            (_newMessageCounts[event.botId] ?? 0) + count;
-        break;
-      case TaskStatus.failed:
-        _typingBots.remove(event.botId);
-        _newMessageCounts.remove(event.botId);
-        final statusCode = event.data?['error_status_code'];
-        _chatErrors[event.botId] =
-            statusCode != null ? 'Error [$statusCode]' : 'Error';
-        break;
-      default:
-        break;
-    }
-    if (mounted) setState(() {});
   }
 
   Future<void> initData({bool force = false, bool silent = false}) async {
@@ -1457,7 +1388,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 ),
               ],
             ),
-            subtitle: _buildChatSubtitle(chat),
 
             trailing: isGroupChat
                 ? const SizedBox.shrink()
@@ -1496,8 +1426,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                 return;
               }
 
-              _newMessageCounts.remove(chatId);
-              _chatErrors.remove(chatId);
               widget.onChatSelected(chat);
             },
             onLongPress: () => _toggleChatSelection(chatId, forceSelect: true),
@@ -1505,54 +1433,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         );
       },
     );
-  }
-
-  Widget? _buildChatSubtitle(Map<String, dynamic> chat) {
-    final chatId = chat['id'].toString();
-    final error = _chatErrors[chatId];
-    if (error != null) {
-      return Text(
-        error,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.error,
-        ),
-      );
-    }
-    if (_typingBots.contains(chatId)) {
-      final summary = _summaryProgress[chatId];
-      if (summary != null && summary.total > 0) {
-        return Text(
-          tr('chat_list_summarizing').replaceAll('{current}', summary.current.toString()).replaceAll('{total}', summary.total.toString()),
-          style: TextStyle(
-            fontSize: 13,
-            fontStyle: FontStyle.italic,
-            color: _primaryTextColor(context),
-          ),
-        );
-      }
-      return Text(
-        tr('chat_list_typing'),
-        style: TextStyle(
-          fontSize: 13,
-          fontStyle: FontStyle.italic,
-          color: _primaryTextColor(context),
-        ),
-      );
-    }
-    final count = _newMessageCounts[chatId] ?? 0;
-    if (count > 0) {
-      return Text(
-        tr('chat_list_new_messages').replaceAll('{count}', count.toString()),
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      );
-    }
-    return null;
   }
 
   void _showProfilePreview(Map<String, dynamic> chat) {

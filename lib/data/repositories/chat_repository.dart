@@ -27,8 +27,4 @@ abstract class ChatRepository {
   Future<void> saveMemories(String botId, List<String> memories);
 
   Future<List<String>> loadMemories(String botId);
-
-  Future<void> insertMessage(ChatMessage message);
-
-  Future<void> insertSummary(String chatId, int startIndex, String text);
 }

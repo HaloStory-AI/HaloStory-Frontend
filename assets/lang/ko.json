@@ -471,8 +471,5 @@
   "chat_retry_prompt": "[재시도 버튼을 클릭하여 다시 시도하세요]",
   "session_expired_title": "세션 만료",
   "session_expired_message": "세션이 만료되었습니다. 다시 로그인해 주세요.",
-  "session_expired_btn": "다시 로그인",
-  "chat_list_typing": "입력 중...",
-  "chat_list_new_messages": "{count}개의 새 메시지",
-  "chat_list_summarizing": "요약 중 ({current}/{total})"
+  "session_expired_btn": "다시 로그인"
 }
