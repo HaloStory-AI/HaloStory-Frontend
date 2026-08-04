@@ -32,12 +32,48 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
     });
   }
 
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  Color _parseColor(dynamic color) {
+    if (color == null) return Colors.blueGrey;
+    if (color is Color) return color;
+    if (color is String) {
+      try {
+        return Color(int.parse(color));
+      } catch (_) {
+        return Colors.blueGrey;
+      }
+    }
+    return Colors.blueGrey;
+  }
+
   Future<void> _submitRequest() async {
     final name = _studentNameController.text.trim();
     if (name.isEmpty) return;
 
     setState(() => _isSubmitting = true);
     try {
+      final matches = await _requestService.checkStudent(name);
+
+      if (matches.isNotEmpty) {
+        if (!mounted) return;
+        final confirmed = await _showCheckBottomSheet(matches);
+        if (!mounted) return;
+        if (!confirmed) {
+          setState(() => _isSubmitting = false);
+          return;
+        }
+      }
+
       final success = await _requestService.submitRequest(name);
 
       if (success) {
@@ -60,15 +96,170 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.orange;
-    }
+  Future<bool> _showCheckBottomSheet(
+      List<Map<String, dynamic>> matches) async {
+    return await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final colorScheme = Theme.of(sheetContext).colorScheme;
+
+        return SafeArea(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Theme.of(sheetContext).dividerColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(
+                      tr('request_student_check_title'),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () =>
+                          Navigator.pop(sheetContext, false),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  tr('request_student_check_found')
+                      .replaceFirst('{count}', matches.length.toString()),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 200,
+                  child: ListView.separated(
+                    itemCount: matches.length,
+                      separatorBuilder: (context, index) => Divider(
+                      height: 1,
+                      color: Theme.of(sheetContext).dividerColor,
+                    ),
+                    itemBuilder: (context, index) {
+                      final bot = matches[index];
+                      final botName =
+                          bot['name'] as String? ?? '';
+                      final imageUrl =
+                          bot['image_url'] as String? ?? '';
+                      final colorStr =
+                          bot['color'] as String? ?? '0xFF607D8B';
+                      final isChild = bot['child'] as bool? ?? false;
+
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: CircleAvatar(
+                          radius: 28,
+                          backgroundColor: _parseColor(colorStr),
+                          backgroundImage: imageUrl.isNotEmpty
+                              ? NetworkImage(imageUrl)
+                              : null,
+                          child: imageUrl.isEmpty
+                              ? Text(
+                                  botName.isNotEmpty
+                                      ? botName[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        title: Text(
+                          botName.length > 15
+                              ? '${botName.substring(0, 15)}...'
+                              : botName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        trailing: isChild
+                            ? Icon(Icons.child_care,
+                                color: colorScheme.primary, size: 20)
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () =>
+                            Navigator.pop(sheetContext, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colorScheme.primary,
+                          side: BorderSide(
+                              color: colorScheme.outlineVariant),
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(tr('request_student_check_cancel')),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () =>
+                            Navigator.pop(sheetContext, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(tr('request_student_check_confirm')),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    ) ?? false;
   }
 
   @override

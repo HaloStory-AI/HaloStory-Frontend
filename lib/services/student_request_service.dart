@@ -56,4 +56,31 @@ class StudentRequestService {
       return false;
     }
   }
+
+  Future<List<Map<String, dynamic>>> checkStudent(String studentName) async {
+    final token = await _authService.getToken();
+    if (token == null) return [];
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/student-request/check'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'student_name': studentName}),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking student: $e');
+      }
+    }
+    return [];
+  }
 }
