@@ -1,8 +1,10 @@
+import 'package:bluetalk_frontend/notifier/bottomnav_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../services/localization_service.dart';
 import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
@@ -47,7 +49,6 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
   late final List<Widget> _tabs;
   final GlobalKey<ChatTabState> _chatTabKey = GlobalKey<ChatTabState>();
 
@@ -220,16 +221,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _onNavTap(int index) {
-    if (index == _currentIndex) return;
+  void _onNavTap(int index, BuildContext context) {
+    int oldIndex = context.read<BottomNavProvider>().currentIndex;
+    if (index == oldIndex) return;
     Navigator.maybePop(context);
-    setState(() => _currentIndex = index);
+    context.read<BottomNavProvider>().setIndex(index);
   }
 
-  void _onBottomNavTap(int index) {
-    if (index == _currentIndex) return;
+  void _onBottomNavTap(int index, BuildContext context) {
+    int oldIndex = context.read<BottomNavProvider>().currentIndex;
+    if (index == oldIndex) return;
 
-    setState(() => _currentIndex = index);
+    context.read<BottomNavProvider>().setIndex(index);
   }
 
   @override
@@ -241,6 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width >= 800;
+    final _currentIndex = context.watch<BottomNavProvider>().currentIndex;
 
     if (isDesktop) {
       return const DesktopHomeScreen();
@@ -347,6 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     selectedBackgroundColor: sidebarSelectedBg,
                     selectedColor: sidebarIconSelectedColor,
                     unselectedColor: sidebarIconColor,
+                    context: context,
                   ),
                   _buildSidebarNavItem(
                     iconAsset: 'assets/icon/sidebar_stories.svg',
@@ -355,6 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     selectedBackgroundColor: sidebarSelectedBg,
                     selectedColor: sidebarIconSelectedColor,
                     unselectedColor: sidebarIconColor,
+                    context: context,
                   ),
                   _buildSidebarNavItem(
                     iconAsset: 'assets/icon/sidebar_calendar.svg',
@@ -363,6 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     selectedBackgroundColor: sidebarSelectedBg,
                     selectedColor: sidebarIconSelectedColor,
                     unselectedColor: sidebarIconColor,
+                    context: context,
                   ),
                   const Spacer(),
                   PopupMenuButton<String>(
@@ -631,7 +638,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: BottomNavigationBar(
                   currentIndex: _currentIndex,
-                  onTap: _onBottomNavTap,
+                  onTap: (index) => _onBottomNavTap(index, context),
                   type: BottomNavigationBarType.fixed,
                   backgroundColor: isDark ? colorScheme.surface : Colors.white,
                   selectedItemColor: colorScheme.primary,
@@ -673,11 +680,12 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color selectedBackgroundColor,
     required Color selectedColor,
     required Color unselectedColor,
+    required BuildContext context,
   }) {
     final itemColor = isSelected ? selectedColor : unselectedColor;
 
     return InkWell(
-      onTap: () => _onNavTap(index),
+      onTap: () => _onNavTap(index, context),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 190),
         curve: Curves.easeOutCubic,

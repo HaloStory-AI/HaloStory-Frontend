@@ -1,11 +1,90 @@
+import 'package:bluetalk_frontend/screens/banned_screen.dart';
+import 'package:bluetalk_frontend/screens/home_screen.dart';
+import 'package:bluetalk_frontend/screens/setup_screen.dart';
+import 'package:bluetalk_frontend/services/auth_service.dart';
+import 'package:bluetalk_frontend/services/google_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/localization_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreen();
+}
+
+class _WelcomeScreen extends State<WelcomeScreen> {
+  final GoogleService _googleOauth = GoogleService();
+  final _authService = AuthService();
+
+  bool _gdLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initGoogle();
+  }
+
+  Future<void> _initGoogle() async {
+    await _googleOauth.init();
+  }
+
+  Future<void> _googleOauthSignIn() async {
+    setState(() => _gdLoading = true);
+
+    final authCode = await _googleOauth.getAuthCode();
+    if (!mounted) return;
+    if (authCode == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('login_failed'))));
+
+      if (!mounted) return;
+
+      setState(() {
+        _gdLoading = false;
+      });
+      return;
+    }
+
+    final result = await _authService.sendAuthCode(authCode, AuthType.EXCHANGE);
+    bool isSuccess = result['success'] == true;
+    if (isSuccess && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final bool isSetupCompleted =
+          prefs.getBool('is_setup_completed') ?? false;
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) =>
+              isSetupCompleted ? const HomeScreen() : const SetupScreen(),
+        ),
+        (route) => false,
+      );
+    } else if (result['banned'] == true) {
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const BannedScreen()),
+        (route) => false,
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? tr('login_failed'))),
+      );
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _gdLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +93,9 @@ class WelcomeScreen extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: isDesktop ? _buildDesktop(context, colorScheme) : _buildMobile(context, colorScheme),
+        child: isDesktop
+            ? _buildDesktop(context, colorScheme)
+            : _buildMobile(context, colorScheme),
       ),
     );
   }
@@ -36,10 +117,7 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: SvgPicture.asset(
-        'assets/icon/HaloStory.svg',
-        fit: BoxFit.contain,
-      ),
+      child: SvgPicture.asset('assets/icon/HaloStory.svg', fit: BoxFit.contain),
     );
   }
 
@@ -122,7 +200,9 @@ class WelcomeScreen extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
                           );
                         },
                         child: Text(tr('btn_login')),
@@ -135,7 +215,9 @@ class WelcomeScreen extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterScreen(),
+                            ),
                           );
                         },
                         style: OutlinedButton.styleFrom(
@@ -178,7 +260,74 @@ class WelcomeScreen extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton(
+                onPressed: _gdLoading
+                    ? null
+                    : () async {
+                        _googleOauthSignIn();
+                      },
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFF747775), width: 1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: _gdLoading
+                    ? const SizedBox(
+                        height: 25,
+                        width: 25,
+                        child: CircularProgressIndicator(),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/image/google_logo.png',
+                            height: 24,
+                            width: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            "Sign in with Google",
+                            style: TextStyle(
+                              color: Color(0xFF1F1F1F),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'Roboto',
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Divider(
+                    height: 1,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ),
+                const Text(
+                  "OR",
+                  style: TextStyle(fontSize: 10.0, fontWeight: FontWeight.bold),
+                ),
+                Expanded(
+                  child: Divider(
+                    height: 1,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 50,

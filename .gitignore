@@ -5,6 +5,8 @@
 *.swp
 .buildlog/
 .history
+CHANGE*.md
+diff.txt
 
 
 # packages file containing multi-root paths

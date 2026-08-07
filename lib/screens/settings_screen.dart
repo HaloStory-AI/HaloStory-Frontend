@@ -37,7 +37,7 @@ class SettingsScreen extends StatelessWidget {
               surfaceColor: surface,
               page: const GeneralSettingsPage(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 1),
             _buildCard(
               context: context,
               icon: Icons.palette,
@@ -46,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
               surfaceColor: surface,
               page: const AppearanceSettingsPage(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 1),
             _buildCard(
               context: context,
               icon: Icons.api,
@@ -55,7 +55,7 @@ class SettingsScreen extends StatelessWidget {
               surfaceColor: surface,
               page: const AIEngineSettingsPage(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 1),
             _buildCard(
               context: context,
               icon: Icons.cloud_sync,
@@ -64,7 +64,7 @@ class SettingsScreen extends StatelessWidget {
               surfaceColor: surface,
               page: const BackupSettingsPage(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 1),
             _buildCard(
               context: context,
               icon: Icons.privacy_tip,
@@ -73,7 +73,7 @@ class SettingsScreen extends StatelessWidget {
               surfaceColor: surface,
               page: const PrivacySettingsPage(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 1),
             _buildCard(
               context: context,
               icon: Icons.developer_mode,

@@ -93,6 +93,7 @@
   "profile_email_address": "メールアドレス",
   "profile_joined": "参加日",
   "profile_change_password": "パスワードを変更",
+  "profile_change_name": "名前を変更する",
   "profile_change_email": "メールを変更",
   "profile_current_password": "今のパスワード",
   "profile_new_password": "新しいパスワード",

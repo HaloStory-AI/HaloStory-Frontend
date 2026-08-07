@@ -93,6 +93,7 @@
   "profile_email_address": "이메일 주소",
   "profile_joined": "가입일",
   "profile_change_password": "비밀번호 변경",
+  "profile_change_name": "이름 변경",
   "profile_change_email": "이메일 변경",
   "profile_current_password": "현재 비밀번호",
   "profile_new_password": "새 비밀번호",

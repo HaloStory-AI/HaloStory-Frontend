@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'package:bluetalk_frontend/notifier/bottomnav_provider.dart';
+import 'package:bluetalk_frontend/screens/banned_screen.dart';
+import 'package:bluetalk_frontend/services/drive_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
 import '../../constants.dart';
 import '../../services/localization_service.dart';
 import '../../services/auth_service.dart';
@@ -14,8 +16,7 @@ import '../qr_host_screen.dart';
 import '../qr_scanner_screen.dart';
 import '../splash_screen.dart';
 import '../../services/local_backup_service.dart';
-import '../../services/google_drive_service.dart';
-
+import '../../services/google_service.dart';
 
 class BackupSettingsPage extends StatefulWidget {
   final bool isDesktop;
@@ -28,22 +29,70 @@ class BackupSettingsPage extends StatefulWidget {
 
 class _BackupSettingsPageState extends State<BackupSettingsPage> {
   final AuthService _authService = AuthService();
-  final GoogleDriveService _googleDrive = GoogleDriveService();
-  bool _gdSignedIn = false;
+  final GoogleService _googleOauth = GoogleService();
+  final DriveService _driveService = DriveService();
   String? _gdEmail;
   bool _gdLoading = false;
+  bool _isHasGoogleAuth = false;
 
   @override
   void initState() {
     super.initState();
-    _initGoogleDrive();
+    _initGoogleAuth();
   }
 
-  Future<void> _initGoogleDrive() async {
-    await _googleDrive.init();
+  Future<void> _initGoogleAuth() async {
+    await _googleOauth.init();
+    final googleAuth = await _authService.getUserOauthStatus();
     if (!mounted) return;
     setState(() {
-      _gdSignedIn = _googleDrive.isSignedIn;
+      _isHasGoogleAuth = googleAuth;
+    });
+  }
+
+  Future<void> _googleOauthSignIn() async {
+    setState(() => _gdLoading = true);
+
+    final authCode = await _googleOauth.getAuthCode();
+    if (!mounted) return;
+    if (authCode == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('login_failed'))));
+
+      if (!mounted) return;
+
+      setState(() {
+        _gdLoading = false;
+      });
+      return;
+    }
+
+    final result = await _authService.sendAuthCode(authCode, AuthType.LINK);
+    bool isSuccess = result['success'] == true;
+    if (isSuccess && mounted) {
+      if (!mounted) return;
+
+      setState(() {
+        _isHasGoogleAuth = true;
+        _gdEmail = result["email"];
+      });
+    } else if (result['banned'] == true) {
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const BannedScreen()),
+        (route) => false,
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? tr('login_failed'))),
+      );
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _gdLoading = false;
     });
   }
 
@@ -132,7 +181,10 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                                   onUploadReceived: (payload) async {
                                     await _processRestorePayload(payload);
                                     if (mounted) {
-                                      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                                      Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).pushAndRemoveUntil(
                                         MaterialPageRoute(
                                           builder: (_) => const SplashScreen(),
                                         ),
@@ -145,8 +197,9 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                             );
                           },
                           icon: const Icon(Icons.qr_code_scanner),
-                          label:
-                              Text(tr('settings_p2p_btn_receive_from_mobile')),
+                          label: Text(
+                            tr('settings_p2p_btn_receive_from_mobile'),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.orange),
                             foregroundColor: Colors.orange,
@@ -171,8 +224,9 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                                     mode: 'upload',
                                     payloadToUpload: payload,
                                     onComplete: (_) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: Text(
                                             tr('settings_p2p_success_mobile'),
@@ -187,8 +241,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                             }
                           },
                           icon: const Icon(Icons.upload_file),
-                          label:
-                              Text(tr('settings_p2p_btn_copy_to_desktop')),
+                          label: Text(tr('settings_p2p_btn_copy_to_desktop')),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange,
                             foregroundColor: Colors.white,
@@ -213,8 +266,10 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                                     if (payload != null) {
                                       await _processRestorePayload(payload);
                                       if (mounted) {
-                                        Navigator.of(context, rootNavigator: true)
-                                            .pushAndRemoveUntil(
+                                        Navigator.of(
+                                          context,
+                                          rootNavigator: true,
+                                        ).pushAndRemoveUntil(
                                           MaterialPageRoute(
                                             builder: (_) =>
                                                 const SplashScreen(),
@@ -230,7 +285,8 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                           },
                           icon: const Icon(Icons.download),
                           label: Text(
-                              tr('settings_p2p_btn_receive_from_desktop')),
+                            tr('settings_p2p_btn_receive_from_desktop'),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.orange),
                             foregroundColor: Colors.orange,
@@ -284,8 +340,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: colorScheme.primary,
                             foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -302,8 +357,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(color: colorScheme.primary),
                             foregroundColor: colorScheme.primary,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -410,37 +464,67 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    if (_gdLoading)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(),
-                      )
-                    else if (!_gdSignedIn) ...[
+                    if (!_isHasGoogleAuth) ...[
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _googleDriveSignIn,
-                          icon: const Icon(Icons.login),
-                          label: const Text('Sign in with Google'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4285F4),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                        height: 50,
+                        child: OutlinedButton(
+                          onPressed: _gdLoading
+                              ? null
+                              : () async {
+                                  _googleOauthSignIn();
+                                },
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(
+                              color: Color(0xFF747775),
+                              width: 1,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            elevation: 0,
                           ),
+                          child: _gdLoading
+                              ? const SizedBox(
+                                  height: 25,
+                                  width: 25,
+                                  child: CircularProgressIndicator(),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Image.asset(
+                                      'assets/image/google_logo.png',
+                                      height: 24,
+                                      width: 24,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      tr("google_oauth_status_notconnect"),
+                                      style: TextStyle(
+                                        color: Color(0xFF1F1F1F),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: 'Roboto',
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
                     ] else ...[
                       Row(
                         children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.green, size: 20),
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Connected as ${_gdEmail ?? "Google"}',
+                              'Connected as ${_gdEmail ?? BottomNavProvider().email ?? "Google"}',
                               style: TextStyle(
                                 color: textColor,
                                 fontWeight: FontWeight.w500,
@@ -460,8 +544,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: colorScheme.primary,
                             foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -478,26 +561,25 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(color: colorScheme.primary),
                             foregroundColor: colorScheme.primary,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: TextButton.icon(
-                          onPressed: _googleDriveSignOut,
-                          icon: const Icon(Icons.logout, size: 18),
-                          label: const Text('Sign Out'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                        ),
-                      ),
+                      // const SizedBox(height: 12),
+                      // SizedBox(
+                      //   width: double.infinity,
+                      //   child: TextButton.icon(
+                      //     onPressed: _googleDriveSignOut,
+                      //     icon: const Icon(Icons.logout, size: 18),
+                      //     label: const Text('Sign Out'),
+                      //     style: TextButton.styleFrom(
+                      //       foregroundColor: Colors.red,
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ],
                 ),
@@ -748,11 +830,13 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
           if (response.statusCode == 200) {
             final Map<String, dynamic> responseBody = jsonDecode(response.body);
-            if (responseBody['success'] == true && responseBody['data'] != null) {
+            if (responseBody['success'] == true &&
+                responseBody['data'] != null) {
               hasData = true;
               final String encryptedData = responseBody['data'];
-              final String plainJson =
-                  SecurityService.decryptData(encryptedData);
+              final String plainJson = SecurityService.decryptData(
+                encryptedData,
+              );
               final Map<String, dynamic> fullPayload = jsonDecode(plainJson);
 
               if (fullPayload.containsKey('settings')) {
@@ -778,8 +862,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 final chatService = LocalChatService();
                 for (var entry in chats.entries) {
                   final id = entry.key;
-                  final messages =
-                      List<Map<String, dynamic>>.from(entry.value);
+                  final messages = List<Map<String, dynamic>>.from(entry.value);
                   await chatService.saveChat(id, messages);
                 }
               }
@@ -824,9 +907,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => const SplashScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const SplashScreen()),
         (route) => false,
       );
     } else {
@@ -894,20 +975,20 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
   Future<void> _googleDriveSignIn() async {
     setState(() => _gdLoading = true);
-    final email = await _googleDrive.signIn();
+    // final email = await _googleOauth.signIn();
     if (!mounted) return;
-    setState(() {
+    setState(() async {
       _gdLoading = false;
-      _gdSignedIn = _googleDrive.isSignedIn;
-      _gdEmail = email;
+      // _gdSignedIn = await _googleOauth.isSignedIn;
+      // _gdEmail = email;
     });
   }
 
   Future<void> _googleDriveSignOut() async {
-    await _googleDrive.signOut();
+    await _googleOauth.signOut();
     if (!mounted) return;
     setState(() {
-      _gdSignedIn = false;
+      // _gdSignedIn = false;
       _gdEmail = null;
     });
   }
@@ -943,7 +1024,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
           final plainJson = jsonEncode(fullPayload);
           final encryptedJson = SecurityService.encryptData(plainJson);
 
-          final ok = await _googleDrive.uploadBackup(encryptedJson);
+          final ok = await _driveService.uploadtoDrive(encryptedJson);
           if (!ok) errorMsg = 'Upload failed';
         } catch (e) {
           errorMsg = 'Error: $e';
@@ -961,7 +1042,15 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
   }
 
   Future<void> _googleDriveRestore() async {
-    final backups = await _googleDrive.listBackups();
+    late final List<dynamic> backups;
+
+    await _runWithLoadingOverlay(
+      message: 'Loading...',
+      task: () async {
+        backups = await _driveService.listDriveFile();
+      },
+    );
+
     if (backups.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -973,7 +1062,9 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       return;
     }
 
-    final selected = await showDialog<drive.File>(
+    if (!mounted) return;
+
+    final selected = await showDialog<Map<String, dynamic>?>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Select Backup'),
@@ -983,9 +1074,9 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
             shrinkWrap: true,
             itemCount: backups.length,
             itemBuilder: (_, i) {
-              final f = backups[i];
-              final name = f.name ?? 'Unknown';
-              final time = f.createdTime?.toLocal().toString() ?? '';
+              final Map<String, dynamic> f = backups[i];
+              final name = f["name"] ?? 'Unknown';
+              final time = f["createdTime"]?.toLocal().toString() ?? '';
               return ListTile(
                 title: Text(name),
                 subtitle: Text(time),
@@ -1003,7 +1094,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       ),
     );
 
-    if (selected == null) return;
+    if (selected == null || !mounted) return;
 
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -1034,7 +1125,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       message: 'Restoring from Google Drive...',
       task: () async {
         try {
-          final encryptedData = await _googleDrive.downloadBackup(selected.id!);
+          final encryptedData = await _driveService.downloadDriveFile(selected["id"]!);
           if (encryptedData == null) {
             errorMsg = 'Download failed';
             return;
@@ -1063,6 +1154,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
+      BottomNavProvider().setIndex(0);
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const SplashScreen(),
@@ -1134,9 +1226,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => const SplashScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const SplashScreen()),
         (route) => false,
       );
     } else {

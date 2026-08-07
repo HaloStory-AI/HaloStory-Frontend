@@ -93,6 +93,7 @@
   "profile_email_address": "Email Address",
   "profile_joined": "Member Since",
   "profile_change_password": "Change Password",
+  "profile_change_name": "Change Name",
   "profile_change_email": "Change Email",
   "profile_current_password": "Current Password",
   "profile_new_password": "New Password",

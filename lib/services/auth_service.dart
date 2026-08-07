@@ -1,11 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:bluetalk_frontend/notifier/bottomnav_provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import 'config_service.dart';
 import 'ban_service.dart';
+
+enum AuthType {
+  EXCHANGE,
+  LINK
+}
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
@@ -103,6 +110,58 @@ class AuthService {
         print('DEBUG: Login error (timeout or network): $e');
       }
       return {'success': false, 'message': 'Terjadi kesalahan jaringan.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> sendAuthCode(String authCode, AuthType authType) async {
+    try {
+      final androidInfo = DeviceInfoPlugin();
+      final info = await androidInfo.androidInfo;
+
+      String authEndpoint = "exchange";
+      String bearer = AppConstants.staticToken;
+      if (authType == AuthType.LINK) {
+        authEndpoint = "link";
+        bearer = await getToken() ?? "";
+      }
+
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/auth/google/$authEndpoint'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $bearer',
+            },
+            body: jsonEncode({'authorization_code': authCode, 'device_id': info.id}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        await _saveToken(data['access_token']);
+        _userProfileCache = data['user'];
+        _lastProfileFetch = DateTime.now();
+        return {'success': true, 'message': data['message'] ?? 'Berhasil.', 'email': data["user"]["email"]};
+      }
+      if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
+      }
+      if (response.statusCode == 403 && data is Map && data['message']?.toString().contains('banned') == true) {
+        await BanService.handleBanFromResponse(response);
+        return {'success': false, 'banned': true, 'message': data['message'] ?? 'Akun dibanned.', 'email': ''};
+      }
+      if (kDebugMode) {
+        print(
+        'DEBUG: Login failed with status: ${response.statusCode}, body: ${response.body}',
+      );
+      }
+      return {'success': false, 'message': data['message'] ?? 'Gagal masuk.', 'email': ''};
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: Login error (timeout or network): $e');
+      }
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan.', 'email': ''};
     }
   }
 
@@ -365,6 +424,7 @@ class AuthService {
       if (response.statusCode == 200) {
         _userProfileCache = jsonDecode(response.body);
         _lastProfileFetch = DateTime.now();
+        BottomNavProvider().setEmail(_userProfileCache!["email"]);
         if (kDebugMode) {
           print("DEBUG: Fetched user profile from API");
         }
@@ -387,6 +447,86 @@ class AuthService {
       return _userProfileCache;
     }
     return null;
+  }
+
+  Future<bool> getUserHasLocalPassword() async {
+    final token = await getToken();
+    if (token == null) return true;
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}/user/has_local_password'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        return result["has_local_password"];
+      } else if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
+        if (kDebugMode) {
+          print("DEBUG: Failed to fetch profile: 503 (Maintenance)");
+        }
+      } else {
+        if (kDebugMode) {
+          print("DEBUG: Failed to fetch check has_local_password: ${response.statusCode}");
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("DEBUG: Error fetching has_local_password: $e");
+      }
+      // Return local cache if available during network issues
+      return true;
+    }
+
+    return true;
+  }
+
+  Future<bool> getUserOauthStatus() async {
+    final token = await getToken();
+    if (token == null) return true;
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('${AppConstants.baseUrl}/user/has_google_auth'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        return result["has_google_auth"];
+      } else if (response.statusCode == 503) {
+        ConfigService.enterMaintenance();
+        if (kDebugMode) {
+          print("DEBUG: Failed to fetch profile: 503 (Maintenance)");
+        }
+      } else {
+        if (kDebugMode) {
+          print("DEBUG: Failed to fetch check has_google_auth: ${response.statusCode}");
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("DEBUG: Error fetching has_google_auth: $e");
+      }
+      // Return local cache if available during network issues
+      return true;
+    }
+
+    return true;
   }
 
   Future<Map<String, dynamic>> updateEmail(

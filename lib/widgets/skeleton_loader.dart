@@ -167,8 +167,9 @@ class ChatMessagesSkeleton extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
-            mainAxisAlignment:
-                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: isUser
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (!isUser)
@@ -182,11 +183,13 @@ class ChatMessagesSkeleton extends StatelessWidget {
                 ),
               Flexible(
                 child: Column(
-                  crossAxisAlignment:
-                      isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  crossAxisAlignment: isUser
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
                   children: [
                     SkeletonWidget(
-                      width: MediaQuery.of(context).size.width *
+                      width:
+                          MediaQuery.of(context).size.width *
                           (isUser ? 0.5 : 0.65),
                       height: 16,
                       borderRadius: 12,
@@ -259,6 +262,28 @@ class ProfileSkeleton extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class InputSkeleton extends StatelessWidget {
+  final Color surfaceAltColor;
+
+  const InputSkeleton({super.key, required this.surfaceAltColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      obscureText: true,
+      enabled: false,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: surfaceAltColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
     );
   }
 }

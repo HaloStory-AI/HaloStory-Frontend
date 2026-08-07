@@ -5,7 +5,7 @@
   "tab_stories": "Cerita",
   "tab_calendar": "Kalender",
   "tab_more": "Lainnya",
-  "settings_title": "Seting",
+  "settings_title": "Pengaturan",
   "settings_language": "Bahasa",
   "settings_language_id": "Bahasa Indonesia",
   "settings_language_en": "English",
@@ -94,6 +94,7 @@
   "profile_joined": "Bergabung",
   "profile_change_password": "Ganti Password",
   "profile_change_email": "Ganti Email",
+  "profile_change_name": "Ganti Nama",
   "profile_current_password": "Password Saat Ini",
   "profile_new_password": "Password Baru",
   "profile_confirm_password": "Konfirmasi Password",
@@ -233,6 +234,7 @@
   "request_student_check_cancel": "Batal",
   "request_student_check_confirm": "Tetap Request",
   "profile_update_email_info": "Update email kamu untuk verifikasi versi 0.8.0",
+  "profile_update_email_info_warning": "*Catatan: Mengubah email berarti akun yang sekarang kamu kaitkan dengan Google akan terputus, sehingga harus login ulang atau kaitkan manual di pengaturan > backup.",
   "chat_fictional_disclaimer": "Sensei... murid di sini fiktif, mohon tidak dibawa ke dunia nyata ya!",
   "verify_email_title": "Verifikasi Email",
   "verify_email_subtitle": "Silakan masukkan kode OTP yang dikirim ke email kamu untuk memverifikasi akun.",
@@ -475,5 +477,6 @@
   "chat_retry_prompt": "[Klik tombol Ulangi untuk mencoba lagi]",
   "session_expired_title": "Sesi Habis",
   "session_expired_message": "Waktu masuk sudah habis, silahkan login ulang.",
-  "session_expired_btn": "Login Ulang"
+  "session_expired_btn": "Login Ulang",
+  "google_oauth_status_notconnect": "Kaitkan Ke Google"
 }

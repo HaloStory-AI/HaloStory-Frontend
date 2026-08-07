@@ -14,16 +14,25 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   late Future<Map<String, dynamic>?> _userProfile;
+  late Future<bool> _isUserHasLocalPassword;
 
   @override
   void initState() {
     super.initState();
     _userProfile = _authService.getUserProfile();
+    _isUserHasLocalPassword = _authService.getUserHasLocalPassword();
   }
 
   Future<void> _refreshProfile() async {
+    _refreshHasPassword();
     setState(() {
-      _userProfile = _authService.getUserProfile(forceRefresh: true);
+      _userProfile = _authService.getUserProfile();
+    });
+  }
+
+  Future<void> _refreshHasPassword() async {
+    setState(() {
+      _isUserHasLocalPassword = _authService.getUserHasLocalPassword();
     });
   }
 
@@ -226,7 +235,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? null
                       : () async {
                           if (nameController.text.trim().isEmpty) return;
-                          
+
                           final navigator = Navigator.of(context);
                           final messenger = ScaffoldMessenger.of(context);
 
@@ -329,19 +338,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              TextField(
-                controller: currentPasswordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: tr('profile_current_password'),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+              FutureBuilder(
+                future: _isUserHasLocalPassword,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return InputSkeleton(
+                      surfaceAltColor: _surfaceAltColor(context),
+                    );
+                  }
+
+                  bool isValid = snapshot.data ?? false;
+
+                  return isValid
+                      ? TextField(
+                          controller: currentPasswordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: tr('profile_current_password'),
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            filled: true,
+                            fillColor: _surfaceAltColor(context),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink();
+                },
               ),
               const SizedBox(height: 12),
               TextField(
@@ -394,6 +418,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           setDialogState(() => isLoading = false);
 
                           if (result['success']) {
+                            _refreshHasPassword();
                             navigator.pop();
                             messenger.showSnackBar(
                               SnackBar(
@@ -403,6 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             );
                           } else {
+                            navigator.pop();
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -504,20 +530,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: tr('profile_current_password'),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
+              FutureBuilder(
+                future: _isUserHasLocalPassword,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return InputSkeleton(
+                      surfaceAltColor: _surfaceAltColor(context),
+                    );
+                  }
+
+                  bool isValid = snapshot.data ?? false;
+
+                  return isValid
+                      ? TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: tr('profile_current_password'),
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            filled: true,
+                            fillColor: _surfaceAltColor(context),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink();
+                },
+              ),
+              Text(
+                tr('profile_update_email_info_warning'),
+                style: TextStyle(
+                  color: _secondaryTextColor(context),
+                  fontSize: 13,
                 ),
               ),
+              // TextField(
+              //   controller: passwordController,
+              //   obscureText: true,
+              //   decoration: InputDecoration(
+              //     labelText: tr('profile_current_password'),
+              //     prefixIcon: const Icon(Icons.lock_outline),
+              //     filled: true,
+              //     fillColor: _surfaceAltColor(context),
+              //     border: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(12),
+              //       borderSide: BorderSide.none,
+              //     ),
+              //   ),
+              // ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -548,6 +610,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             );
                           } else {
+                            navigator.pop();
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -717,9 +780,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: const Icon(Icons.edit),
-                    onTap: () => _showEditPersonaDialog(
-                      user['persona'] as String?,
-                    ),
+                    onTap: () =>
+                        _showEditPersonaDialog(user['persona'] as String?),
                   ),
 
                   const SizedBox(height: 30),

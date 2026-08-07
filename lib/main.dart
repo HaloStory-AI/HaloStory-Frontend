@@ -1,5 +1,7 @@
 import 'dart:async';
-import 'dart:io' show Platform, HttpClient, HttpOverrides, SecurityContext, X509Certificate;
+import 'dart:io'
+    show Platform, HttpClient, HttpOverrides, SecurityContext, X509Certificate;
+import 'package:bluetalk_frontend/notifier/bottomnav_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:bluetalk_frontend/screens/splash_screen.dart';
@@ -13,6 +15,7 @@ import 'package:bluetalk_frontend/services/ban_service.dart';
 import 'package:bluetalk_frontend/services/auth_service.dart';
 import 'package:bluetalk_frontend/screens/login_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
@@ -57,7 +60,7 @@ void main() async {
     }
   });
 
-  Connectivity().onConnectivityChanged.listen((
+  Connectivity().onConnectivityChanged.skip(1).listen((
     List<ConnectivityResult> result,
   ) {
     if (result.contains(ConnectivityResult.none)) {
@@ -109,8 +112,11 @@ void main() async {
                 ),
               ),
               const SizedBox(height: 24),
-              Icon(Icons.timer_off_rounded, size: 64,
-                  color: Theme.of(sheetContext).colorScheme.primary),
+              Icon(
+                Icons.timer_off_rounded,
+                size: 64,
+                color: Theme.of(sheetContext).colorScheme.primary,
+              ),
               const SizedBox(height: 16),
               Text(
                 tr('session_expired_title'),
@@ -136,16 +142,15 @@ void main() async {
                   onPressed: () {
                     Navigator.of(sheetContext).pop();
                     navigatorKey.currentState?.pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
                       (route) => false,
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        Theme.of(sheetContext).colorScheme.primary,
-                    foregroundColor:
-                        Theme.of(sheetContext).colorScheme.onPrimary,
+                    backgroundColor: Theme.of(sheetContext).colorScheme.primary,
+                    foregroundColor: Theme.of(
+                      sheetContext,
+                    ).colorScheme.onPrimary,
                     minimumSize: const Size(double.infinity, 50),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -162,7 +167,12 @@ void main() async {
     );
   });
 
-  runApp(const HaloStoryApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => BottomNavProvider(),
+      child: const HaloStoryApp(),
+    ),
+  );
 }
 
 class HaloStoryApp extends StatelessWidget {
@@ -171,13 +181,17 @@ class HaloStoryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([LocalizationService(), ThemeService(), WallpaperService()]),
+      listenable: Listenable.merge([
+        LocalizationService(),
+        ThemeService(),
+        WallpaperService(),
+      ]),
       builder: (context, child) {
         return MaterialApp(
           navigatorKey: navigatorKey,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           title: 'HaloStory',
-          debugShowCheckedModeBanner: false,
+          debugShowCheckedModeBanner: true,
           theme: AppTheme.lightTheme(),
           darkTheme: AppTheme.amoledTheme(),
           themeMode: ThemeService().themeMode,
@@ -192,9 +206,11 @@ class _ImageHostHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
-    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      return host.endsWith('coudinray.com') || host.endsWith('cloudinary.com');
-    };
+    client.badCertificateCallback =
+        (X509Certificate cert, String host, int port) {
+          return host.endsWith('coudinray.com') ||
+              host.endsWith('cloudinary.com');
+        };
     return client;
   }
 }

@@ -1,4 +1,9 @@
+import 'package:bluetalk_frontend/notifier/bottomnav_provider.dart';
+import 'package:bluetalk_frontend/screens/chat_screen.dart';
+import 'package:bluetalk_frontend/services/ai_service.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../services/student_request_service.dart';
 import '../services/localization_service.dart';
 
@@ -179,6 +184,17 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
                           horizontal: 16,
                           vertical: 8,
                         ),
+                        onTap: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          final provider = AIService.normalizeProvider(
+                            prefs.getString('default_provider'),
+                          );
+
+                          if (!context.mounted) return;
+
+                          context.read<BottomNavProvider>().setIndex(0);
+                          Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => ChatDetailScreen(bot: bot, provider: provider)), (route) => route.isFirst);
+                        },
                         leading: CircleAvatar(
                           radius: 28,
                           backgroundColor: _parseColor(colorStr),
