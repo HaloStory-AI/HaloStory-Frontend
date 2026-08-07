@@ -51,7 +51,13 @@ class _WelcomeScreen extends State<WelcomeScreen> {
       return;
     }
 
-    final result = await _authService.sendAuthCode(authCode, AuthType.EXCHANGE);
+    final result = await _authService.sendAuthCode(
+      authCode,
+      AuthType.EXCHANGE,
+      redirectUri: _googleOauth.lastRedirectUri,
+      clientId: _googleOauth.lastClientId,
+      clientSecret: _googleOauth.lastClientSecret,
+    );
     bool isSuccess = result['success'] == true;
     if (isSuccess && mounted) {
       final prefs = await SharedPreferences.getInstance();

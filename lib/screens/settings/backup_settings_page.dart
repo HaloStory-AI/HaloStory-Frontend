@@ -68,7 +68,13 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       return;
     }
 
-    final result = await _authService.sendAuthCode(authCode, AuthType.LINK);
+    final result = await _authService.sendAuthCode(
+      authCode,
+      AuthType.LINK,
+      redirectUri: _googleOauth.lastRedirectUri,
+      clientId: _googleOauth.lastClientId,
+      clientSecret: _googleOauth.lastClientSecret,
+    );
     bool isSuccess = result['success'] == true;
     if (isSuccess && mounted) {
       if (!mounted) return;

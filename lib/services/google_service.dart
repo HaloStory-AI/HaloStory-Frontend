@@ -9,6 +9,10 @@ class GoogleService {
   GoogleSignIn? _googleSignIn;
   bool _initialized = false;
 
+  String? lastRedirectUri;
+  String? get lastClientId => (kIsWeb || Platform.isAndroid || Platform.isIOS) ? GoogleConfig.webClientId : GoogleConfig.desktopClientId;
+  String? get lastClientSecret => (kIsWeb || Platform.isAndroid || Platform.isIOS) ? null : GoogleConfig.desktopClientSecret;
+
   static const List<String> _scopes = [
     'https://www.googleapis.com/auth/drive.appdata',
     'https://www.googleapis.com/auth/drive.file',
@@ -63,6 +67,7 @@ class GoogleService {
       redirectServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final redirectPort = redirectServer.port;
       final redirectUri = 'http://127.0.0.1:$redirectPort';
+      lastRedirectUri = redirectUri;
 
       final authUrl = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
         'client_id': GoogleConfig.desktopClientId,

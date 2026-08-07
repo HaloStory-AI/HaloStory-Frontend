@@ -5,7 +5,7 @@ class AppConstants {
   // Hardcoded string for development
   // static const String _devBaseUrl = 'https://backend-hsai.rafiq8k.my.id/api';
   // static const String _devBaseUrl = 'https://ccl9tclz-3000.asse.devtunnels.ms/api';
-  static const String _devBaseUrl = 'http://10.220.222.62:3000/api';
+  static const String _devBaseUrl = 'http://103.160.212.44:3000/api';
 
   // Use hardcoded for dev, and ConfigService (GitHub dynamic) for prod
   static String get baseUrl => kDebugMode ? _devBaseUrl : ConfigService.baseUrl;
@@ -20,5 +20,5 @@ class AppConstants {
 
   // This should match the API_STATIC_TOKEN in backend .env
   // static const String staticToken = 'BlueTalkImportantAccessToAllEndpoint';
-  static const String staticToken = 'dev';
+  static const String staticToken = 'BlueTalkImportantAccessToAllEndpoint';
 }

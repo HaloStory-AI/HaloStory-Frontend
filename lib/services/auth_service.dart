@@ -113,10 +113,49 @@ class AuthService {
     }
   }
 
-  Future<Map<String, dynamic>> sendAuthCode(String authCode, AuthType authType) async {
+  Future<String> _getDeviceId() async {
     try {
-      final androidInfo = DeviceInfoPlugin();
-      final info = await androidInfo.androidInfo;
+      final plugin = DeviceInfoPlugin();
+      if (kIsWeb) {
+        final webInfo = await plugin.webBrowserInfo;
+        return 'web-${webInfo.userAgent.hashCode}';
+      }
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.android:
+          final androidInfo = await plugin.androidInfo;
+          return androidInfo.id;
+        case TargetPlatform.iOS:
+          final iosInfo = await plugin.iosInfo;
+          return iosInfo.identifierForVendor ?? 'ios-unknown';
+        case TargetPlatform.windows:
+          final windowsInfo = await plugin.windowsInfo;
+          return windowsInfo.deviceId;
+        case TargetPlatform.linux:
+          final linuxInfo = await plugin.linuxInfo;
+          return linuxInfo.machineId ?? 'linux-unknown';
+        case TargetPlatform.macOS:
+          final macosInfo = await plugin.macOsInfo;
+          return macosInfo.systemGUID ?? 'macos-unknown';
+        default:
+          return 'unknown';
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('DEBUG: Error getting device ID: $e');
+      }
+      return 'unknown-${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+
+  Future<Map<String, dynamic>> sendAuthCode(
+    String authCode,
+    AuthType authType, {
+    String? redirectUri,
+    String? clientId,
+    String? clientSecret,
+  }) async {
+    try {
+      final deviceId = await _getDeviceId();
 
       String authEndpoint = "exchange";
       String bearer = AppConstants.staticToken;
@@ -124,6 +163,14 @@ class AuthService {
         authEndpoint = "link";
         bearer = await getToken() ?? "";
       }
+
+      final Map<String, dynamic> bodyParams = {
+        'authorization_code': authCode,
+        'device_id': deviceId,
+      };
+      if (redirectUri != null) bodyParams['redirect_uri'] = redirectUri;
+      if (clientId != null) bodyParams['client_id'] = clientId;
+      if (clientSecret != null) bodyParams['client_secret'] = clientSecret;
 
       final response = await http
           .post(
@@ -133,7 +180,7 @@ class AuthService {
               'Accept': 'application/json',
               'Authorization': 'Bearer $bearer',
             },
-            body: jsonEncode({'authorization_code': authCode, 'device_id': info.id}),
+            body: jsonEncode(bodyParams),
           )
           .timeout(const Duration(seconds: 30));
 
