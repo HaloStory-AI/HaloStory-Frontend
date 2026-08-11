@@ -48,7 +48,6 @@ class StudentBioScreen extends StatefulWidget {
 }
 
 class _StudentBioScreenState extends State<StudentBioScreen> {
-  static final Map<String, Map<String, dynamic>?> _bondCache = {};
   static final Map<String, Map<String, dynamic>> _bioCache = {};
 
   String? _translatedDescription;
@@ -212,17 +211,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Future<void> _fetchBondStats() async {
-    final cached = _bondCache[widget.botId];
-    if (cached != null) {
-      if (mounted) {
-        setState(() {
-          _bondData = cached;
-          _isBondLoading = false;
-        });
-      }
-      return;
-    }
-
     final authService = AuthService();
     final token = await authService.getToken();
     if (token == null || !mounted) return;
@@ -237,7 +225,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
       );
       if (response.statusCode == 200 && mounted) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        _bondCache[widget.botId] = data;
         setState(() {
           _bondData = data;
           _isBondLoading = false;
@@ -251,9 +238,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Future<Map<String, dynamic>?> _fetchBondStatsFor(String botId) async {
-    final cached = _bondCache[botId];
-    if (cached != null) return cached;
-
     final authService = AuthService();
     final token = await authService.getToken();
     if (token == null || !mounted) return null;
@@ -267,9 +251,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
         },
       );
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        _bondCache[botId] = data;
-        return data;
+        return jsonDecode(response.body) as Map<String, dynamic>;
       }
     } catch (_) {}
     return null;
@@ -281,49 +263,30 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
       return;
     }
 
-    // Determine which members need fetching (not in cache)
-    final List<Map<String, dynamic>> toFetch = [];
-    final List<int> fetchIndices = [];
-    for (int i = 0; i < _localMembers.length; i++) {
-      final member = _localMembers[i];
-      final memberId =
-          member['bot_id']?.toString() ?? member['id']?.toString();
-      if (memberId != null && !_bondCache.containsKey(memberId)) {
-        toFetch.add(member);
-        fetchIndices.add(i);
-      }
-    }
+    // Always fetch fresh bond stats for every member (no cache)
+    final results = await Future.wait(
+      _localMembers.map((m) {
+        final mid = m['bot_id']?.toString() ?? m['id']?.toString();
+        return _fetchBondStatsFor(mid!);
+      }),
+    );
 
-    // Parallel fetch all uncached members
-    if (toFetch.isNotEmpty) {
-      final results = await Future.wait(
-        toFetch.map((m) {
-          final mid = m['bot_id']?.toString() ?? m['id']?.toString();
-          return _fetchBondStatsFor(mid!);
-        }),
-      );
-
-      if (mounted) {
-        setState(() {
-          for (int j = 0; j < results.length; j++) {
-            final data = results[j];
-            if (data != null) {
-              final idx = fetchIndices[j];
-              _localMembers[idx] = {
-                ..._localMembers[idx],
-                'bond_hearts': data['bond_hearts'] ?? _localMembers[idx]['bond_hearts'],
-                'xp': data['xp'] ?? _localMembers[idx]['xp'],
-                'xp_into_level': data['xp_into_level'] ?? _localMembers[idx]['xp_into_level'],
-                'progress_percent': data['progress_percent'] ?? _localMembers[idx]['progress_percent'],
-              };
-            }
+    if (mounted) {
+      setState(() {
+        for (int i = 0; i < results.length; i++) {
+          final data = results[i];
+          if (data != null) {
+            _localMembers[i] = {
+              ..._localMembers[i],
+              'bond_hearts': data['bond_hearts'] ?? _localMembers[i]['bond_hearts'],
+              'xp': data['xp'] ?? _localMembers[i]['xp'],
+              'xp_into_level': data['xp_into_level'] ?? _localMembers[i]['xp_into_level'],
+              'progress_percent': data['progress_percent'] ?? _localMembers[i]['progress_percent'],
+            };
           }
-          _isBondLoading = false;
-        });
-      }
-    } else {
-      // All cached — no fetch needed
-      if (mounted) setState(() => _isBondLoading = false);
+        }
+        _isBondLoading = false;
+      });
     }
   }
 

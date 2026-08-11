@@ -27,6 +27,11 @@ class GoogleService {
     if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
       _googleSignIn = GoogleSignIn(
         scopes: _scopes,
+        clientId: kIsWeb
+            ? GoogleConfig.webClientId
+            : Platform.isIOS
+                ? GoogleConfig.iosClientId
+                : GoogleConfig.androidClientId,
         serverClientId: GoogleConfig.webClientId,
         forceCodeForRefreshToken: true,
       );
