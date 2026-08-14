@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../../constants.dart';
 import '../../services/localization_service.dart';
 import '../../services/auth_service.dart';
@@ -13,6 +14,8 @@ import '../qr_host_screen.dart';
 import '../qr_scanner_screen.dart';
 import '../splash_screen.dart';
 import '../../services/local_backup_service.dart';
+import '../../services/google_drive_service.dart';
+
 
 class BackupSettingsPage extends StatefulWidget {
   final bool isDesktop;
@@ -25,6 +28,24 @@ class BackupSettingsPage extends StatefulWidget {
 
 class _BackupSettingsPageState extends State<BackupSettingsPage> {
   final AuthService _authService = AuthService();
+  final GoogleDriveService _googleDrive = GoogleDriveService();
+  bool _gdSignedIn = false;
+  String? _gdEmail;
+  bool _gdLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initGoogleDrive();
+  }
+
+  Future<void> _initGoogleDrive() async {
+    await _googleDrive.init();
+    if (!mounted) return;
+    setState(() {
+      _gdSignedIn = _googleDrive.isSignedIn;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +378,127 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+            // ── Google Drive Section ──
+            const SizedBox(height: 32),
+            Text(
+              'Google Drive',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4285F4),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Backup dan restore data ke Google Drive.',
+              style: TextStyle(color: textColor.withValues(alpha: 0.8)),
+            ),
+            const SizedBox(height: 24),
+            Card(
+              elevation: 0,
+              color: isDark
+                  ? colorScheme.surface
+                  : colorScheme.surfaceContainerHighest,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    if (_gdLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      )
+                    else if (!_gdSignedIn) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _googleDriveSignIn,
+                          icon: const Icon(Icons.login),
+                          label: const Text('Sign in with Google'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4285F4),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Connected as ${_gdEmail ?? "Google"}',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _googleDriveBackup,
+                          icon: const Icon(Icons.cloud_upload),
+                          label: Text('Backup to Google Drive'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _googleDriveRestore,
+                          icon: const Icon(Icons.cloud_download),
+                          label: Text('Restore from Google Drive'),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: colorScheme.primary),
+                            foregroundColor: colorScheme.primary,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: _googleDriveSignOut,
+                          icon: const Icon(Icons.logout, size: 18),
+                          label: const Text('Sign Out'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -743,6 +885,195 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
         SnackBar(
           content: Text(tr('settings_local_backup_success')),
           backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  // ── Google Drive ──
+
+  Future<void> _googleDriveSignIn() async {
+    setState(() => _gdLoading = true);
+    final email = await _googleDrive.signIn();
+    if (!mounted) return;
+    setState(() {
+      _gdLoading = false;
+      _gdSignedIn = _googleDrive.isSignedIn;
+      _gdEmail = email;
+    });
+  }
+
+  Future<void> _googleDriveSignOut() async {
+    await _googleDrive.signOut();
+    if (!mounted) return;
+    setState(() {
+      _gdSignedIn = false;
+      _gdEmail = null;
+    });
+  }
+
+  Future<void> _googleDriveBackup() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Google Drive Backup'),
+        content: const Text('Upload backup ke Google Drive?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Backup'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    String? errorMsg;
+
+    await _runWithLoadingOverlay(
+      message: 'Uploading to Google Drive...',
+      task: () async {
+        try {
+          final fullPayload = await _getBackupPayload();
+          final plainJson = jsonEncode(fullPayload);
+          final encryptedJson = SecurityService.encryptData(plainJson);
+
+          final ok = await _googleDrive.uploadBackup(encryptedJson);
+          if (!ok) errorMsg = 'Upload failed';
+        } catch (e) {
+          errorMsg = 'Error: $e';
+        }
+      },
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorMsg ?? 'Backup uploaded to Google Drive'),
+        backgroundColor: errorMsg == null ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  Future<void> _googleDriveRestore() async {
+    final backups = await _googleDrive.listBackups();
+    if (backups.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No backups found in Google Drive'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final selected = await showDialog<drive.File>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select Backup'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: backups.length,
+            itemBuilder: (_, i) {
+              final f = backups[i];
+              final name = f.name ?? 'Unknown';
+              final time = f.createdTime?.toLocal().toString() ?? '';
+              return ListTile(
+                title: Text(name),
+                subtitle: Text(time),
+                onTap: () => Navigator.pop(ctx, f),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (selected == null) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore Backup'),
+        content: const Text(
+          'Data saat ini akan ditimpa. Lanjutkan?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    String? errorMsg;
+    bool success = false;
+
+    await _runWithLoadingOverlay(
+      message: 'Restoring from Google Drive...',
+      task: () async {
+        try {
+          final encryptedData = await _googleDrive.downloadBackup(selected.id!);
+          if (encryptedData == null) {
+            errorMsg = 'Download failed';
+            return;
+          }
+
+          final plainJson = SecurityService.decryptData(encryptedData);
+          final fullPayload = jsonDecode(plainJson) as Map<String, dynamic>;
+          await _processRestorePayload(fullPayload);
+          success = true;
+        } catch (e) {
+          errorMsg = 'Restore Error: $e';
+        }
+      },
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Restore successful'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const SplashScreen(),
+        ),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg ?? 'Restore failed'),
+          backgroundColor: Colors.red,
         ),
       );
     }

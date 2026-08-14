@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform, HttpClient, HttpOverrides, SecurityContext, X509Certificate;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:bluetalk_frontend/screens/splash_screen.dart';
@@ -12,7 +13,6 @@ import 'package:bluetalk_frontend/services/ban_service.dart';
 import 'package:bluetalk_frontend/services/auth_service.dart';
 import 'package:bluetalk_frontend/screens/login_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'dart:io' show Platform;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
@@ -28,6 +28,9 @@ void initSqlite() {
 }
 
 void main() async {
+  if (!kIsWeb) {
+    HttpOverrides.global = _ImageHostHttpOverrides();
+  }
   WidgetsFlutterBinding.ensureInitialized();
   initSqlite();
   await LocalizationService().init();
@@ -182,5 +185,16 @@ class HaloStoryApp extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _ImageHostHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+      return host.endsWith('coudinray.com') || host.endsWith('cloudinary.com');
+    };
+    return client;
   }
 }

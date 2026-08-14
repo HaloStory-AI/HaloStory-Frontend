@@ -7,7 +7,7 @@
 #define AppExe "bluetalk_frontend.exe"
 
 #ifndef AppVersion
-  #define AppVersion "1.13.0"
+  #define AppVersion "1.13.1"
 #endif
 
 [Setup]
