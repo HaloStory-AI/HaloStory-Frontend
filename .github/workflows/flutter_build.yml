@@ -148,7 +148,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --extra-front-end-options=-Ddart.vm.profile=false
 
       - name: Extract version
         id: version
