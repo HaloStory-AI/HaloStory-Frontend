@@ -287,63 +287,58 @@ class _HomeScreenState extends State<HomeScreen> {
           children: _tabs,
         ),
       ),
-      bottomNavigationBar: isDesktop
-          ? null
-          : SafeArea(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: BottomNavigationBar(
-                  currentIndex: _currentIndex,
-                  onTap: _onBottomNavTap,
-                  type: BottomNavigationBarType.fixed,
-                  backgroundColor: colorScheme.surface,
-                  selectedItemColor: colorScheme.primary,
-                  unselectedItemColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  selectedFontSize: 10,
-                  unselectedFontSize: 10,
-                  elevation: 0,
-                  items: [
-                    BottomNavigationBarItem(
-                      icon: const Icon(Icons.home_rounded),
-                      label: tr('tab_home'),
-                    ),
-                    BottomNavigationBarItem(
-                      icon: const Icon(Icons.chat_bubble_rounded),
-                      label: tr('tab_chat'),
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Container(
-                        width: 56,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.add_rounded, color: colorScheme.onPrimary, size: 22),
-                      ),
-                      label: '',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: const Icon(Icons.calendar_month_rounded),
-                      label: tr('tab_calendar'),
-                    ),
-                    BottomNavigationBarItem(
-                      icon: const Icon(Icons.person_rounded),
-                      label: tr('tab_profile'),
-                    ),
-                  ],
-                ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: _onBottomNavTap,
+        backgroundColor: colorScheme.surface,
+        indicatorColor: colorScheme.secondaryContainer,
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        height: 72,
+        elevation: 0,
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_rounded),
+            label: tr('tab_home'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            selectedIcon: const Icon(Icons.chat_bubble_rounded),
+            label: tr('tab_chat'),
+          ),
+          NavigationDestination(
+            icon: Container(
+              width: 56,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(Icons.add_rounded, color: colorScheme.onPrimary, size: 22),
             ),
+            selectedIcon: Container(
+              width: 56,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.add_rounded, color: colorScheme.onPrimary, size: 22),
+            ),
+            label: '',
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.calendar_today_outlined),
+            selectedIcon: const Icon(Icons.calendar_month_rounded),
+            label: tr('tab_calendar'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.person_outline_rounded),
+            selectedIcon: const Icon(Icons.person_rounded),
+            label: tr('tab_profile'),
+          ),
+        ],
+      ),
     );
   }
 
