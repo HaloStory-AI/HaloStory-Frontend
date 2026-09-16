@@ -464,5 +464,15 @@
   "session_expired_message": "セッションの有効期限が切れました。もう一度ログインしてください。",
   "session_expired_btn": "再ログイン",
   "tab_home": "ホーム",
-  "tab_profile": "プロフィール"
+  "tab_profile": "プロフィール",
+  "calendar_title": "カレンダー",
+  "calendar_segment_birthday": "誕生日",
+  "calendar_segment_event": "イベント",
+  "calendar_segment_calendar": "カレンダー",
+  "calendar_search_hint": "予定を検索...",
+  "calendar_filter_birthday": "誕生日",
+  "calendar_filter_event": "イベント",
+  "calendar_filter_other": "その他",
+  "calendar_empty": "予定なし",
+  "calendar_empty_action": "フィルターをリセット"
 }

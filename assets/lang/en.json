@@ -463,5 +463,15 @@
   "session_expired_message": "Your session has expired. Please log in again.",
   "session_expired_btn": "Login Again",
   "tab_home": "Home",
-  "tab_profile": "Profile"
+  "tab_profile": "Profile",
+  "calendar_title": "Calendar",
+  "calendar_segment_birthday": "Birthday",
+  "calendar_segment_event": "Event",
+  "calendar_segment_calendar": "Calendar",
+  "calendar_search_hint": "Search schedule...",
+  "calendar_filter_birthday": "Birthday",
+  "calendar_filter_event": "Event",
+  "calendar_filter_other": "Other",
+  "calendar_empty": "No schedule",
+  "calendar_empty_action": "Reset filters"
 }

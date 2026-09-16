@@ -464,5 +464,15 @@
   "session_expired_message": "Waktu masuk sudah habis, silahkan login ulang.",
   "session_expired_btn": "Login Ulang",
   "tab_home": "Beranda",
-  "tab_profile": "Profil"
+  "tab_profile": "Profil",
+  "calendar_title": "Kalender",
+  "calendar_segment_birthday": "Ulang Tahun",
+  "calendar_segment_event": "Event",
+  "calendar_segment_calendar": "Kalender",
+  "calendar_search_hint": "Cari jadwal...",
+  "calendar_filter_birthday": "Ulang Tahun",
+  "calendar_filter_event": "Event",
+  "calendar_filter_other": "Lainnya",
+  "calendar_empty": "Tidak ada jadwal",
+  "calendar_empty_action": "Atur ulang filter"
 }

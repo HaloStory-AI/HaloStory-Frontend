@@ -464,5 +464,15 @@
   "session_expired_message": "您的会话已过期，请重新登录。",
   "session_expired_btn": "重新登录",
   "tab_home": "首页",
-  "tab_profile": "我的"
+  "tab_profile": "我的",
+  "calendar_title": "日历",
+  "calendar_segment_birthday": "生日",
+  "calendar_segment_event": "活动",
+  "calendar_segment_calendar": "日历",
+  "calendar_search_hint": "搜索日程...",
+  "calendar_filter_birthday": "生日",
+  "calendar_filter_event": "活动",
+  "calendar_filter_other": "其他",
+  "calendar_empty": "暂无日程",
+  "calendar_empty_action": "重置筛选"
 }
