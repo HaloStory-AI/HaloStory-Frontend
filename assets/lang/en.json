@@ -126,7 +126,7 @@
   "tab_create_new_session": "New Manual Session",
   "tab_create_manual_chats": "Manual Chats",
   "tab_stories_channels": "Channels",
-  "coming_soon": "Coming Soon!",
+  "coming_soon": "Coming soon",
   "tab_stories_channels_soon_desc": "Channels are on the way, Sensei. Stay tuned~",
   "btn_reload_in": "Reload in",
   "loading": "Just a sec...",
@@ -461,5 +461,7 @@
   "chat_retry_prompt": "[Click the retry button to try again]",
   "session_expired_title": "Session Expired",
   "session_expired_message": "Your session has expired. Please log in again.",
-  "session_expired_btn": "Login Again"
+  "session_expired_btn": "Login Again",
+  "tab_home": "Home",
+  "tab_profile": "Profile"
 }

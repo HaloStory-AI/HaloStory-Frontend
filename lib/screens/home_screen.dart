@@ -1,22 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/localization_service.dart';
 import '../services/ai_service.dart';
 import 'chat_screen.dart';
-import 'admin_screen.dart';
-import 'student_request_screen.dart';
-import 'settings_screen.dart';
-
-import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
 import 'donation_screen.dart';
+import 'tabs/home_tab.dart';
 import 'tabs/chat_tab.dart';
-import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
-import 'tabs/more_tab.dart';
+import 'tabs/profile_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,10 +47,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _tabs = [
+      const _KeepAliveWrapper(child: HomeTab()),
       _KeepAliveWrapper(child: ChatTab(key: _chatTabKey, onChatSelected: _onChatSelected)),
-      const _KeepAliveWrapper(child: StoriesTab()),
+      const _KeepAliveWrapper(child: SizedBox.shrink()),
       const _KeepAliveWrapper(child: CalendarTab()),
-      const _KeepAliveWrapper(child: MoreTab()),
+      const _KeepAliveWrapper(child: ProfileTab()),
     ];
     _checkDonation();
   }
@@ -221,13 +215,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
-    Navigator.maybePop(context);
     setState(() => _currentIndex = index);
   }
 
   void _onBottomNavTap(int index) {
+    if (index == 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('coming_soon')),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (index == _currentIndex) return;
-
     setState(() => _currentIndex = index);
   }
 
@@ -247,16 +249,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final appBarBg = theme.scaffoldBackgroundColor;
-    final sidebarBg = colorScheme.surface;
-    final sidebarSelectedBg = colorScheme.surfaceContainerHighest;
-    final sidebarIconColor = colorScheme.onSurfaceVariant;
-    final sidebarIconSelectedColor = colorScheme.onSurface;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: appBarBg,
+        backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
         elevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 0,
@@ -264,333 +261,31 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 16),
-              child: SvgPicture.asset(
-                'assets/icon/HaloStory.svg',
+              child: Image.asset(
+                'assets/icon/mikazuki/mikazuki_192.png',
                 width: 20,
                 height: 20,
                 fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
               ),
             ),
-            const SizedBox(width: 4),
-            Text(
-              'HaloStory',
-              style: GoogleFonts.nunito(
-                color: colorScheme.onSurface,
+            const SizedBox(width: 8),
+            const Text(
+              'Mikazuki AI',
+              style: TextStyle(
+                color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 24,
+                fontSize: 20,
               ),
             ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: _showDisclaimer,
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: colorScheme.onSurface,
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: const [],
-                ),
-                child: Icon(
-                  Icons.question_mark_rounded,
-                  color: theme.scaffoldBackgroundColor,
-                  size: 18,
-                  weight: 900,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
-      body: Row(
-        children: [
-          if (isDesktop)
-            Container(
-              width: 55,
-              color: sidebarBg,
-              child: Column(
-                children: [
-                  _buildSidebarNavItem(
-                    iconAsset: 'assets/icon/sidebar_chat.svg',
-                    iconSize: 20,
-                    index: 0,
-                    isSelected: _currentIndex == 0,
-                    selectedBackgroundColor: sidebarSelectedBg,
-                    selectedColor: sidebarIconSelectedColor,
-                    unselectedColor: sidebarIconColor,
-                  ),
-                  _buildSidebarNavItem(
-                    iconAsset: 'assets/icon/sidebar_stories.svg',
-                    index: 1,
-                    isSelected: _currentIndex == 1,
-                    selectedBackgroundColor: sidebarSelectedBg,
-                    selectedColor: sidebarIconSelectedColor,
-                    unselectedColor: sidebarIconColor,
-                  ),
-                  _buildSidebarNavItem(
-                    iconAsset: 'assets/icon/sidebar_calendar.svg',
-                    index: 2,
-                    isSelected: _currentIndex == 2,
-                    selectedBackgroundColor: sidebarSelectedBg,
-                    selectedColor: sidebarIconSelectedColor,
-                    unselectedColor: sidebarIconColor,
-                  ),
-                  const Spacer(),
-                  PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_horiz_rounded,
-                      color: sidebarIconColor,
-                      size: 28,
-                    ),
-                    offset: const Offset(50, -120),
-                    color: colorScheme.surfaceContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: colorScheme.outlineVariant),
-                    ),
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'admin':
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AdminScreen(),
-                            ),
-                          );
-                          break;
-                        case 'suggest':
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const StudentRequestScreen(),
-                            ),
-                          );
-                          break;
-                        case 'donation':
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const DonationScreen(),
-                            ),
-                          );
-                          break;
-                        case 'contributor':
-                          launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-                          break;
-                        case 'help':
-                          launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
-                          break;
-                        case 'info':
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AppInfoScreen(),
-                            ),
-                          );
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'admin',
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.admin_panel_settings,
-                              color: Colors.amber,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('sidebar_admin_panel'),
-                              style: const TextStyle(
-                                color: Colors.amber,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'suggest',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.add_task_rounded,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('sidebar_suggest_student'),
-                              style: TextStyle(color: colorScheme.onSurface),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'donation',
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.favorite_rounded,
-                              color: Colors.pinkAccent,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('sidebar_donation'),
-                              style: TextStyle(color: colorScheme.onSurface),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'contributor',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.people_outline_rounded,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('sidebar_contributor'),
-                              style: TextStyle(color: colorScheme.onSurface),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'help',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.help_outline,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('sidebar_help'),
-                              style: TextStyle(color: colorScheme.onSurface),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'info',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('sidebar_info'),
-                              style: TextStyle(color: colorScheme.onSurface),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SettingsScreen(),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.settings_outlined,
-                          color: sidebarIconColor,
-                          size: 28,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          tr('sidebar_settings'),
-                          style: TextStyle(
-                            color: sidebarIconColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Logout'),
-                          content: const Text('Are you sure you want to logout?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text(
-                                'Logout',
-                                style: TextStyle(color: Colors.redAccent),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.logout,
-                          color: Colors.redAccent.withValues(alpha: 0.8),
-                          size: 24,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          tr('sidebar_logout'),
-                          style: TextStyle(
-                            color: Colors.redAccent.withValues(alpha: 0.8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          Expanded(
-            child: SafeArea(
-              child: IndexedStack(
-                index: _currentIndex,
-                children: _tabs,
-              ),
-            ),
-          ),
-        ],
+      body: SafeArea(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: _tabs,
+        ),
       ),
       bottomNavigationBar: isDesktop
           ? null
@@ -613,25 +308,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: colorScheme.surface,
                   selectedItemColor: colorScheme.primary,
                   unselectedItemColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  selectedFontSize: 12,
-                  unselectedFontSize: 12,
+                  selectedFontSize: 10,
+                  unselectedFontSize: 10,
                   elevation: 0,
                   items: [
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.home_rounded),
+                      label: tr('tab_home'),
+                    ),
                     BottomNavigationBarItem(
                       icon: const Icon(Icons.chat_bubble_rounded),
                       label: tr('tab_chat'),
                     ),
                     BottomNavigationBarItem(
-                      icon: const Icon(Icons.auto_stories),
-                      label: tr('tab_stories'),
+                      icon: Container(
+                        width: 56,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.add_rounded, color: colorScheme.onPrimary, size: 22),
+                      ),
+                      label: '',
                     ),
                     BottomNavigationBarItem(
                       icon: const Icon(Icons.calendar_month_rounded),
                       label: tr('tab_calendar'),
                     ),
                     BottomNavigationBarItem(
-                      icon: const Icon(Icons.grid_view_rounded),
-                      label: 'More',
+                      icon: const Icon(Icons.person_rounded),
+                      label: tr('tab_profile'),
                     ),
                   ],
                 ),

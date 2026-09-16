@@ -126,7 +126,7 @@
   "tab_create_new_session": "새 수동 세션",
   "tab_create_manual_chats": "수동 채팅",
   "tab_stories_channels": "채널",
-  "coming_soon": "곧 출시됩니다!",
+  "coming_soon": "출시 예정",
   "tab_stories_channels_soon_desc": "채널 기능이 곧 추가될 예정입니다, 선생님. 조금만 기다려 주세요~",
   "btn_reload_in": "다시 불러오기까지",
   "loading": "잠시만 기다려 주세요...",
@@ -462,5 +462,7 @@
   "chat_retry_prompt": "[재시도 버튼을 클릭하여 다시 시도하세요]",
   "session_expired_title": "세션 만료",
   "session_expired_message": "세션이 만료되었습니다. 다시 로그인해 주세요.",
-  "session_expired_btn": "다시 로그인"
+  "session_expired_btn": "다시 로그인",
+  "tab_home": "홈",
+  "tab_profile": "프로필"
 }

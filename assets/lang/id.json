@@ -126,7 +126,7 @@
   "tab_create_new_session": "Sesi Manual Baru",
   "tab_create_manual_chats": "Chat Manual",
   "tab_stories_channels": "Saluran",
-  "coming_soon": "Segera Hadir",
+  "coming_soon": "Segera hadir",
   "tab_stories_channels_soon_desc": "Fitur Channel akan segera hadir!",
   "btn_reload_in": "Reload dalam",
   "loading": "Memuat...",
@@ -462,5 +462,7 @@
   "chat_retry_prompt": "[Klik tombol Ulangi untuk mencoba lagi]",
   "session_expired_title": "Sesi Habis",
   "session_expired_message": "Waktu masuk sudah habis, silahkan login ulang.",
-  "session_expired_btn": "Login Ulang"
+  "session_expired_btn": "Login Ulang",
+  "tab_home": "Beranda",
+  "tab_profile": "Profil"
 }

@@ -126,7 +126,7 @@
   "tab_create_new_session": "新しい手動セッション",
   "tab_create_manual_chats": "手動チャット",
   "tab_stories_channels": "チャンネル",
-  "coming_soon": "もうすぐ来るよ！",
+  "coming_soon": "近日公開",
   "tab_stories_channels_soon_desc": "チャンネル機能はもうすぐ追加されるよ、先生。楽しみにしてね〜！",
   "btn_reload_in": "リロードまであと",
   "loading": "ちょっと待ってね...",
@@ -462,5 +462,7 @@
   "chat_retry_prompt": "[再試行ボタンをクリックして再試行してください]",
   "session_expired_title": "セッションの有効期限が切れました",
   "session_expired_message": "セッションの有効期限が切れました。もう一度ログインしてください。",
-  "session_expired_btn": "再ログイン"
+  "session_expired_btn": "再ログイン",
+  "tab_home": "ホーム",
+  "tab_profile": "プロフィール"
 }

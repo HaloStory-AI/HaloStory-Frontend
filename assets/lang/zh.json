@@ -126,7 +126,7 @@
   "tab_create_new_session": "新建手动对话",
   "tab_create_manual_chats": "手动聊天记录",
   "tab_stories_channels": "频道",
-  "coming_soon": "敬请期待",
+  "coming_soon": "即将上线",
   "tab_stories_channels_soon_desc": "频道功能即将上线，老师，请再等等哦~",
   "btn_reload_in": "秒后刷新",
   "loading": "加载中...",
@@ -462,5 +462,7 @@
   "chat_retry_prompt": "[点击重试按钮重新尝试]",
   "session_expired_title": "会话已过期",
   "session_expired_message": "您的会话已过期，请重新登录。",
-  "session_expired_btn": "重新登录"
+  "session_expired_btn": "重新登录",
+  "tab_home": "首页",
+  "tab_profile": "我的"
 }
