@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
+import '../widgets/auth/glass_auth_card.dart';
+import '../widgets/auth/starry_auth_scaffold.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
 import 'verify_email_screen.dart';
@@ -110,7 +111,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Widget _buildForm(ColorScheme colorScheme) {
+  Widget _buildForm() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,30 +120,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Text(
           tr('btn_register'),
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.primary,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         TextField(
           controller: _nameController,
           decoration: InputDecoration(
-            hintText: tr('register_full_name_hint'),
+            labelText: tr('register_full_name_hint'),
             prefixIcon: const Icon(Icons.person_outline),
-            filled: true,
-            fillColor: colorScheme.surfaceContainer,
           ),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _emailController,
           decoration: InputDecoration(
-            hintText: tr('login_email_hint'),
+            labelText: tr('login_email_hint'),
             prefixIcon: const Icon(Icons.email_outlined),
-            filled: true,
-            fillColor: colorScheme.surfaceContainer,
           ),
           keyboardType: TextInputType.emailAddress,
         ),
@@ -149,7 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         TextField(
           controller: _passwordController,
           decoration: InputDecoration(
-            hintText: tr('login_password_hint'),
+            labelText: tr('login_password_hint'),
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               icon: Icon(
@@ -157,8 +154,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
-            filled: true,
-            fillColor: colorScheme.surfaceContainer,
           ),
           obscureText: _obscurePassword,
         ),
@@ -166,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         TextField(
           controller: _confirmPasswordController,
           decoration: InputDecoration(
-            hintText: tr('register_confirm_password_hint'),
+            labelText: tr('register_confirm_password_hint'),
             prefixIcon: const Icon(Icons.lock_reset),
             suffixIcon: IconButton(
               icon: Icon(
@@ -174,8 +169,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
             ),
-            filled: true,
-            fillColor: colorScheme.surfaceContainer,
           ),
           obscureText: _obscureConfirmPassword,
           textInputAction: TextInputAction.done,
@@ -246,12 +239,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         SizedBox(
           height: 50,
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : ElevatedButton(
+              : FilledButton(
                   onPressed: _handleRegister,
                   child: Text(tr('btn_register')),
                 ),
@@ -268,88 +261,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildRightPanel(ColorScheme colorScheme) {
-    return Container(
-      color: colorScheme.surfaceContainer,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: SvgPicture.asset(
-                  'assets/icon/HaloStory.svg',
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                tr('welcome_title'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                tr('welcome_subtitle'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
-
-    return Scaffold(
-      body: SafeArea(
-        child: isDesktop
-            ? Row(
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(48),
-                        child: SizedBox(
-                          width: 400,
-                          child: _buildForm(colorScheme),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(width: 1, color: colorScheme.outlineVariant),
-                  Expanded(
-                    child: _buildRightPanel(colorScheme),
-                  ),
-                ],
-              )
-            : Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: _buildForm(colorScheme),
-                ),
-              ),
-      ),
+    return StarryAuthScaffold(
+      child: GlassAuthCard(child: _buildForm()),
     );
   }
 }

@@ -125,16 +125,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
+          child: FilledButton(
             onPressed: _saveSettings,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
             child: Text(
               tr('settings_save_btn'),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),

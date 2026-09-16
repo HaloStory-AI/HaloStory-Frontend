@@ -201,7 +201,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           height: 50,
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : ElevatedButton(
+              : FilledButton(
                   onPressed: _verify,
                   child: Text(tr('verify_email_btn')),
                 ),

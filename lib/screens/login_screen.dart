@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import '../widgets/auth/glass_auth_card.dart';
+import '../widgets/auth/starry_auth_scaffold.dart';
+import '../utils/no_animation_route.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
@@ -76,7 +78,9 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Widget _buildForm(ColorScheme colorScheme) {
+  Widget _buildForm() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -84,26 +88,23 @@ class _LoginScreenState extends State<LoginScreen> {
         Text(
           tr('login_welcome_back'),
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 28,
+          style: textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: colorScheme.primary,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           tr('login_please_sign_in'),
           textAlign: TextAlign.center,
-          style: TextStyle(color: colorScheme.onSurfaceVariant),
+          style: textTheme.bodyMedium?.copyWith(color: const Color(0xFF9CA8BC)),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 32),
         TextField(
           controller: _emailController,
           decoration: InputDecoration(
-            hintText: tr('login_email_hint'),
+            labelText: tr('login_email_hint'),
             prefixIcon: const Icon(Icons.email_outlined),
-            filled: true,
-            fillColor: colorScheme.surfaceContainer,
           ),
           keyboardType: TextInputType.emailAddress,
         ),
@@ -111,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
         TextField(
           controller: _passwordController,
           decoration: InputDecoration(
-            hintText: tr('login_password_hint'),
+            labelText: tr('login_password_hint'),
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               icon: Icon(
@@ -119,8 +120,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
-            filled: true,
-            fillColor: colorScheme.surfaceContainer,
           ),
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
@@ -131,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
           height: 50,
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : ElevatedButton(
+              : FilledButton(
                   onPressed: _handleLogin,
                   child: Text(tr('btn_login')),
                 ),
@@ -140,9 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
         TextButton(
           onPressed: () {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const ForgotPasswordScreen(),
-              ),
+              noAnimationRoute(const ForgotPasswordScreen()),
             );
           },
           child: Text(
@@ -156,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
         TextButton(
           onPressed: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RegisterScreen()),
+              noAnimationRoute(const RegisterScreen()),
             );
           },
           child: Text(
@@ -168,88 +165,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildRightPanel(ColorScheme colorScheme) {
-    return Container(
-      color: colorScheme.surfaceContainer,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: SvgPicture.asset(
-                  'assets/icon/HaloStory.svg',
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                tr('login_welcome_back'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                tr('login_please_sign_in'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
-
-    return Scaffold(
-      body: SafeArea(
-        child: isDesktop
-            ? Row(
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(48),
-                        child: SizedBox(
-                          width: 400,
-                          child: _buildForm(colorScheme),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(width: 1, color: colorScheme.outlineVariant),
-                  Expanded(
-                    child: _buildRightPanel(colorScheme),
-                  ),
-                ],
-              )
-            : Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: _buildForm(colorScheme),
-                ),
-              ),
-      ),
+    return StarryAuthScaffold(
+      child: GlassAuthCard(child: _buildForm()),
     );
   }
 }
