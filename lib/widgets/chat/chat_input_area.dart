@@ -16,6 +16,8 @@ class ChatInputArea extends StatelessWidget {
   final VoidCallback? onTogglePersona;
   final bool hasSystemError;
   final VoidCallback? onRetry;
+  final bool isStreaming;
+  final VoidCallback? onStop;
 
   const ChatInputArea({
     super.key,
@@ -32,6 +34,8 @@ class ChatInputArea extends StatelessWidget {
     this.onTogglePersona,
     this.hasSystemError = false,
     this.onRetry,
+    this.isStreaming = false,
+    this.onStop,
   });
 
   @override
@@ -186,6 +190,22 @@ class ChatInputArea extends StatelessWidget {
             Icons.refresh,
             color: colorScheme.primary,
             size: 24,
+          ),
+        ),
+      );
+    }
+
+    // Saat streaming: tombol kirim berubah menjadi tombol Stop (cara RisuAI).
+    if (isStreaming) {
+      return GestureDetector(
+        onTap: onStop,
+        child: Container(
+          margin: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.all(6),
+          child: const Icon(
+            Icons.stop_circle,
+            color: Colors.red,
+            size: 28,
           ),
         ),
       );

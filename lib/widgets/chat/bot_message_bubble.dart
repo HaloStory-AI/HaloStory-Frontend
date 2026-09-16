@@ -9,6 +9,7 @@ class BotMessageBubble extends StatelessWidget {
   final String? timestampStr;
   final int? visibleParts;
   final bool isTypingNext;
+  final bool isStreaming;
   final bool hideItalics;
   final double maxWidth;
   final String botName;
@@ -24,6 +25,7 @@ class BotMessageBubble extends StatelessWidget {
     this.timestampStr,
     this.visibleParts,
     this.isTypingNext = false,
+    this.isStreaming = false,
     required this.hideItalics,
     required this.maxWidth,
     required this.botName,
@@ -170,7 +172,7 @@ class BotMessageBubble extends StatelessWidget {
                     ),
                   );
                 }),
-                if (isTypingNext)
+                if (isTypingNext || isStreaming)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Container(
@@ -187,14 +189,22 @@ class BotMessageBubble extends StatelessWidget {
                           bottomRight: Radius.circular(12),
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          DotAnim(delay: 0),
-                          SizedBox(width: 4),
-                          DotAnim(delay: 0.2),
-                          SizedBox(width: 4),
-                          DotAnim(delay: 0.4),
+                          const DotAnim(delay: 0),
+                          const SizedBox(width: 4),
+                          const DotAnim(delay: 0.2),
+                          const SizedBox(width: 4),
+                          const DotAnim(delay: 0.4),
+                          if (isStreaming && !isTypingNext) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 2,
+                              height: 14,
+                              color: colorScheme.primary,
+                            ),
+                          ],
                         ],
                       ),
                     ),

@@ -7,6 +7,28 @@ import 'auth_service.dart';
 import 'localization_service.dart';
 import 'config_service.dart';
 
+/// Hasil konsumsi SSE /chat/stream/:uuid.
+enum StreamOutcomeKind {
+  /// Event `done` valid diterima (hasil akhir bersih, sudah di-unwrap).
+  done,
+  /// User menekan Stop: koneksi ditutup, teks parsial tetap tersimpan.
+  stopped,
+  /// Koneksi gagal/terputus: caller fallback ke polling.
+  failed,
+}
+
+class StreamOutcome {
+  final StreamOutcomeKind kind;
+  final Map<String, dynamic>? result;
+  const StreamOutcome._(this.kind, this.result);
+  const StreamOutcome.done(Map<String, dynamic> result)
+      : this._(StreamOutcomeKind.done, result);
+  const StreamOutcome.stopped()
+      : this._(StreamOutcomeKind.stopped, null);
+  const StreamOutcome.failed()
+      : this._(StreamOutcomeKind.failed, null);
+}
+
 class AIService {
   static const _removedProviders = {
     'groq', 'novel', 'horde', 'venus', 'nanogpt', 'chutes', 'featherless', 'mancer', 'arli',
@@ -78,6 +100,10 @@ class AIService {
         prefs.getInt('ai_history_depth') ?? _getDefault(mode, 'history_depth');
     final bool reasoningEnabled =
         prefs.getBool('ai_reasoning_enabled') ?? false;
+    // Response mode: stream=true -> worker publish delta SSE + frontend baca
+    // /chat/stream/:uuid; false/absen -> polling biasa via /chat/status/:uuid.
+    // Default true agar instalasi baru langsung streaming.
+    final bool streamEnabled = prefs.getBool('ai_stream_enabled') ?? true;
 
     final Map<String, dynamic> advancedParams = {
       'temperature': temp,
@@ -94,6 +120,7 @@ class AIService {
       'reasoning': {'enabled': reasoningEnabled},
       'reasoning_enabled':
           reasoningEnabled, // Send as flat property for generic controllers
+      'stream': streamEnabled,
     };
 
     try {
@@ -533,5 +560,150 @@ class AIService {
       }
     }
     return null;
+  }
+
+  /// SSE client untuk mode stream: GET /chat/stream/:uuid.
+  /// [onDelta] dipanggil tiap event `delta` dengan isi `content`.
+  /// [isCancelled] dicek tiap chunk: jika true, koneksi ditutup dan
+  /// dikembalikan [StreamOutcome.stopped] (teks parsial tetap tersimpan di
+  /// caller, tanpa fallback polling dan tanpa error).
+  /// Hasil `done` di-unwrap ke bentuk yang sama seperti [checkChatStatus].
+  Future<StreamOutcome> streamChatStatus(
+    String uuid, {
+    void Function(String delta)? onDelta,
+    bool Function()? isCancelled,
+    Duration timeout = const Duration(seconds: 210),
+  }) async {
+    final token = await _authService.getToken();
+    if (token == null) return const StreamOutcome.failed();
+
+    http.StreamedResponse? streamed;
+    try {
+      final client = http.Client();
+      try {
+        final request = http.Request(
+          'GET',
+          Uri.parse('${AppConstants.apiUrl}/chat/stream/$uuid'),
+        );
+        request.headers.addAll({
+          'Accept': 'text/event-stream',
+          'Authorization': 'Bearer $token',
+        });
+        streamed =
+            await client.send(request).timeout(const Duration(seconds: 60));
+
+        if (streamed.statusCode != 200) {
+          await streamed.stream.drain();
+          return const StreamOutcome.failed();
+        }
+
+        String? event;
+        final buffer = StringBuffer();
+        Map<String, dynamic>? doneEnvelope;
+
+        await for (final chunk
+            in streamed.stream.transform(utf8.decoder).timeout(
+                  timeout,
+                  onTimeout: (sink) => sink.close(),
+                )) {
+          if (isCancelled?.call() == true) {
+            return const StreamOutcome.stopped();
+          }
+          buffer.write(chunk);
+        var text = buffer.toString();
+        var idx = text.indexOf('\n\n');
+        while (idx != -1) {
+          final rawEvent = text.substring(0, idx);
+          text = text.substring(idx + 2);
+          for (final line in rawEvent.split('\n')) {
+            final trimmed = line.trim();
+            if (trimmed.startsWith('event:')) {
+              event = trimmed.substring(6).trim();
+            } else if (trimmed.startsWith('data:')) {
+              final data = trimmed.substring(5).trim();
+              if (event == 'delta' && onDelta != null) {
+                try {
+                  final parsed = jsonDecode(data);
+                  final content = parsed is Map
+                      ? parsed['content']?.toString() ?? ''
+                      : data;
+                  if (content.isNotEmpty) onDelta(content);
+                } catch (_) {
+                  if (data.isNotEmpty) onDelta(data);
+                }
+              } else if (event == 'done') {
+                try {
+                  final parsed = jsonDecode(data);
+                  if (parsed is Map<String, dynamic>) {
+                    doneEnvelope = _unwrapDoneEnvelope(parsed);
+                  } else if (parsed is Map) {
+                    doneEnvelope =
+                        _unwrapDoneEnvelope(Map<String, dynamic>.from(parsed));
+                  }
+                } catch (_) {
+                  doneEnvelope = {'uuid': uuid};
+                }
+              }
+            }
+          }
+          idx = text.indexOf('\n\n');
+        }
+        buffer.clear();
+        buffer.write(text);
+        if (doneEnvelope != null) break;
+      }
+      if (isCancelled?.call() == true) {
+        return const StreamOutcome.stopped();
+      }
+      if (doneEnvelope == null) return const StreamOutcome.failed();
+      return StreamOutcome.done(doneEnvelope);
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      if (isCancelled?.call() == true) {
+        return const StreamOutcome.stopped();
+      }
+      if (kDebugMode) {
+        print('DEBUG: AIService streamChatStatus Error: $e');
+      }
+    } finally {
+      try {
+        await streamed?.stream.drain();
+      } catch (_) {}
+    }
+    return const StreamOutcome.failed();
+  }
+
+  /// Unwrap envelope `done` dari GET /chat/stream/:uuid
+  /// ({status, response, status_code, ...}) ke bentuk yang sama seperti
+  /// GET /chat/status/:uuid (isi `response` di level atas + `status_code`).
+  /// Envelope tanpa key `response` (mis. fallback {uuid}) dikembalikan apa adanya.
+  Map<String, dynamic> _unwrapDoneEnvelope(Map<String, dynamic> envelope) {
+    final inner = envelope['response'];
+    if (inner is Map<String, dynamic>) {
+      final result = Map<String, dynamic>.from(inner);
+      result['status_code'] = _asInt(envelope['status_code']) ?? 200;
+      return result;
+    }
+    if (inner is Map) {
+      final result = Map<String, dynamic>.from(inner);
+      result['status_code'] = _asInt(envelope['status_code']) ?? 200;
+      return result;
+    }
+    return envelope;
+  }
+
+  int? _asInt(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  /// True jika mode stream aktif (default true untuk instalasi baru).
+  static Future<bool> isStreamEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('ai_stream_enabled') ?? true;
   }
 }

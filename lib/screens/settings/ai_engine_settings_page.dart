@@ -50,6 +50,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
       TextEditingController();
   final TextEditingController _aiHistoryDepthController =
       TextEditingController();
+  bool _streamEnabled = true;
 
   @override
   void initState() {
@@ -111,6 +112,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
           (prefs.getInt('ai_embed_budget') ?? 200).toString();
       _aiHistoryDepthController.text =
           (prefs.getInt('ai_history_depth') ?? 5).toString();
+      _streamEnabled = prefs.getBool('ai_stream_enabled') ?? true;
     });
   }
 
@@ -121,6 +123,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     await prefs.setString('byok_api_key', _byokApiKeyController.text);
     await prefs.setString('byok_model', _byokModelController.text);
     await prefs.setString('byok_base_url', _byokBaseUrlController.text);
+    await prefs.setBool('ai_stream_enabled', _streamEnabled);
 
     final syncPayload = {
       'ai_temp': double.tryParse(_aiTempController.text) ?? 0.7,
@@ -187,6 +190,54 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
             ),
             const SizedBox(height: 8),
             _buildHelpLink(),
+            const SizedBox(height: 12),
+            // ── Response Mode (Stream vs Polling) ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).colorScheme.surface
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).colorScheme.outline
+                      : Colors.grey.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.stream, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('settings_stream_title'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        Text(
+                          tr('settings_stream_desc'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _streamEnabled,
+                    onChanged: (v) => setState(() => _streamEnabled = v),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
             if (_selectedProvider == 'BYOK') ..._buildBYOKFields(),
             if (_selectedProvider != 'BYOK')

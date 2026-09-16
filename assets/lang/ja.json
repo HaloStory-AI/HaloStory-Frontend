@@ -63,6 +63,8 @@
   "settings_local_model_name_hint": "例: llama3, mistral",
   "settings_api_key_optional": "APIキー (任意)",
   "settings_system_mode_info": "システムモードは自動フォールバック付きの最適化されたモデルを使うよ。設定不要で、すぐ使えるね！",
+  "settings_stream_title": "ストリーミング応答",
+  "settings_stream_desc": "返答をリアルタイムに少しずつ表示するよ。オフにするとクラシックなポーリング＋入力遅延になるよ。",
   "settings_help_docs": "設定でわからないことがあれば、ドキュメントをチェックしてみてね〜",
   "update_title": "アップデートがあるよ、先生！",
   "update_desc": "HaloStoryの新バージョンが来たよ！最新機能を楽しむには今すぐアップデートしてね。",
@@ -394,7 +396,6 @@
   "pin_disable_confirm_title": "アプリロックを無効にしますか？",
   "pin_disable_confirm_body": "アプリロックを解除してもよろしいですか？",
   "settings_tab_developer": "開発者モード",
-
   "dev_mode_switch_title": "開発者モードを有効にする",
   "dev_mode_switch_on_subtitle": "開発者機能が有効です",
   "dev_mode_switch_off_subtitle": "デバッグ、ログ、設定ツールにアクセス",
@@ -407,12 +408,10 @@
   "dev_mode_proceed": "続行",
   "dev_mode_features_title": "開発者機能",
   "dev_mode_features_placeholder": "追加の開発者オプションはここに表示されます。",
-
   "dev_mode_copy_log_title": "BYOKログをコピー",
   "dev_mode_copy_log": "ログをコピー",
   "dev_mode_copy_log_copied": "エラーログをクリップボードにコピーしました！",
   "dev_mode_copy_log_toast": "設定の開発者モードでBYOKログのコピーを有効にする必要があります :)",
-
   "dev_mode_reset_migration": "移行フラグをリセット",
   "dev_mode_reset_migration_desc": "次回起動時に移行プロンプトを再度表示できるようにする",
   "dev_mode_reset_migration_done": "移行フラグをリセットしました。アプリを再起動して移行を再実行してください。",
@@ -420,7 +419,6 @@
   "dev_mode_clear_all_data_desc": "ローカルのチャット、要約、記憶をすべて削除し、移行フラグをリセット",
   "dev_mode_clear_all_data_confirm": "すべてのローカルデータが完全に削除されます。続行しますか？",
   "dev_mode_clear_all_data_done": "すべてのデータをクリアしました。アプリを再起動して新しく始めてください。",
-
   "ban_title": "アカウント停止",
   "ban_permanent": "永久",
   "ban_until": "まで",
@@ -448,7 +446,6 @@
   "migration_later": "後で",
   "migration_done": "移行完了！{chats} チャット、{messages} メッセージがアップグレードされました。",
   "migration_done_with_errors": "移行が完了しました（{chats} チャット、{messages} メッセージ）。一部のエラーが発生しました — 詳細を確認してください。",
-
   "migration_progress_title": "ストレージをアップグレード中",
   "migration_progress_pinned": "ピン留めチャットを移行中...",
   "migration_progress_chats": "チャット {current}/{total} を移行中",

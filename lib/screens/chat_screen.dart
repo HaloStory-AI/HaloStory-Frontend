@@ -96,6 +96,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   bool _isDisposed = false;
   bool _showScrollButton = false;
   bool _isPollingActive = false;
+  bool _streamStopRequested = false;
   String? _retryCountdownText;
   bool _hasSystemError = false;
   bool _showChildWarning = false;
@@ -1181,11 +1182,74 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
           });
 
           _isPollingActive = true;
-          final pollResult = await _pollLoopForResult(response['uuid']);
+          _streamStopRequested = false;
+          // Mode stream (default true): baca SSE /chat/stream/:uuid dengan
+          // render inkremental per kata. Gagal/terputus -> fallback polling.
+          // Mode false: polling biasa + bubble delay 2 detik (legacy).
+          Map<String, dynamic>? pollResult;
+          bool streamSkipTyping = false;
+          String? streamUuid;
+          if (await AIService.isStreamEnabled()) {
+            streamUuid = response['uuid'] as String?;
+            final outcome = await _streamForResult(
+              response['uuid'],
+              botIdForRequest,
+              aiTimestamp,
+            );
+            if (outcome.kind == StreamOutcomeKind.done) {
+              pollResult = outcome.result;
+              streamSkipTyping = true;
+            } else if (outcome.kind == StreamOutcomeKind.stopped) {
+              // User menekan Stop: finalisasi teks parsial, tetap tersimpan
+              // sebagai riwayat — tanpa error, tanpa retry.
+              _isPollingActive = false;
+              if (!mounted || _isDisposed) return;
+              if (!_hasStreamingTail()) {
+                // Belum ada delta sama sekali: fallback polling sekali,
+                // job mungkin selesai normal.
+                _isPollingActive = true;
+                _streamStopRequested = false;
+                if (mounted && !_isDisposed) {
+                  pollResult = await _pollLoopForResult(response['uuid']);
+                }
+                _isPollingActive = false;
+                if (!mounted || _isDisposed) return;
+                if (pollResult == null) {
+                  if (attempt >= _maxSummaryRetries) {
+                    _safeSetState(() {
+                      _isLoading = false;
+                      _activeBotId = null;
+                    });
+                    _addSystemError(aiTimestamp);
+                    return;
+                  }
+                  await _doRetryCountdown(15);
+                  continue;
+                }
+              } else {
+                _safeSetState(() {
+                  if (_messages.isNotEmpty &&
+                      _messages.last['role'] == 'user') {
+                    _messages.last['status'] = 'completed';
+                  }
+                });
+                await _finalizeStoppedStream();
+                return;
+              }
+            } else if (mounted && !_isDisposed) {
+              pollResult = await _pollLoopForResult(response['uuid']);
+            }
+          } else {
+            pollResult = await _pollLoopForResult(response['uuid']);
+          }
           _isPollingActive = false;
           if (!mounted || _isDisposed) return;
 
           if (pollResult == null) {
+            // Stream selesai tanpa done yang valid (mis. done {uuid} kosong):
+            // bersihkan bubble streaming parsial lalu fallback polling agar
+            // tidak tampil bubble menggantung.
+            if (streamUuid != null) _removeStreamingBubbles();
             if (attempt >= _maxSummaryRetries) {
               _safeSetState(() { _isLoading = false; _activeBotId = null; });
               _addSystemError(aiTimestamp);
@@ -1201,6 +1265,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
             final delay = _getRetryDelay(statusCode);
 
             if (delay < 0 || attempt >= _maxSummaryRetries) {
+              if (streamUuid != null) _removeStreamingBubbles();
               _safeSetState(() {
                 if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
                   _messages.last['status'] = 'completed';
@@ -1219,7 +1284,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
               _messages.last['status'] = 'completed';
             }
           });
-          await _handleAIResponseData(pollResult, botIdForRequest, aiTimestamp);
+          await _handleAIResponseData(
+            pollResult,
+            botIdForRequest,
+            aiTimestamp,
+            skipTypingEffect: streamSkipTyping,
+          );
           return;
         }
 
@@ -1249,6 +1319,146 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     }
   }
 
+  /// Mode stream (Opsi A): satu bubble live berisi seluruh teks sejauh ini
+  /// + kursor di ujung, update in-place. Batas paragraf tidak dipecah live —
+  /// pemecahan bubble per paragraf terjadi saat `done` via
+  /// [_handleAIResponseData] (skipTypingEffect).
+  /// [StreamOutcome.done]: hasil `done` yang sudah di-unwrap (bersih).
+  /// [StreamOutcome.stopped]: user menekan Stop — bubble live difinalisasi
+  /// oleh [_finalizeStoppedStream].
+  /// [StreamOutcome.failed]: SSE gagal -> caller fallback ke polling.
+  /// Bubble delay 2 detik (_startTypingEffect) dilewati via skipTypingEffect
+  /// karena teks sudah muncul bertahap selama streaming.
+  Future<StreamOutcome> _streamForResult(
+    String uuid,
+    String? botIdForRequest,
+    String aiTimestamp,
+  ) async {
+    final buffer = StringBuffer();
+    bool bubbleAdded = false;
+    bool renderPending = false;
+    Timer? coalesceTimer;
+
+    // Satu bubble live: dibuat sekali, lalu content-nya di-update in-place.
+    // Tidak pernah hapus-buat ulang agar kursor mengetik maju di tempat.
+    void renderStreaming() {
+      renderPending = false;
+      if (!mounted || _isDisposed || !_isPollingActive) return;
+      final full = buffer.toString();
+      if (full.isEmpty) return;
+      _safeSetState(() {
+        if (_messages.isNotEmpty && _messages.last['role'] == 'user') {
+          _messages.last['status'] = 'processing';
+        }
+        if (!bubbleAdded) {
+          _messages.add({
+            'role': 'assistant',
+            'content': full,
+            'timestamp': aiTimestamp,
+            'bot_id': botIdForRequest,
+            'bot_name': _resolveBotName(botIdForRequest),
+            'bot_avatar': _resolveBotAvatar(botIdForRequest),
+            // Milik stream: boleh dihapus/diganti cleanup.
+            'is_streaming': true,
+            // Masih berjalan: tampilkan kursor streaming.
+            'is_stream_live': true,
+          });
+          bubbleAdded = true;
+        } else {
+          for (var i = _messages.length - 1; i >= 0; i--) {
+            final m = _messages[i];
+            if (m['role'] != 'assistant') break;
+            if (m['is_streaming'] == true) {
+              m['content'] = full;
+              break;
+            }
+          }
+        }
+      });
+      _scrollToBottom();
+    }
+
+    void scheduleRender() {
+      if (renderPending) return;
+      renderPending = true;
+      coalesceTimer ??= Timer(const Duration(milliseconds: 100), () {
+        coalesceTimer = null;
+        renderStreaming();
+      });
+    }
+
+    void appendDelta(String delta) {
+      if (!mounted ||
+          _isDisposed ||
+          !_isPollingActive ||
+          _streamStopRequested) {
+        return;
+      }
+      buffer.write(delta);
+      scheduleRender();
+    }
+
+    final outcome = await _aiService.streamChatStatus(
+      uuid,
+      onDelta: appendDelta,
+      isCancelled: () => _streamStopRequested,
+    );
+    // Flush sisa delta yang belum sempat ter-render (penting untuk Stop).
+    coalesceTimer?.cancel();
+    coalesceTimer = null;
+    if (renderPending && mounted && !_isDisposed && _isPollingActive) {
+      renderStreaming();
+    }
+    if (!mounted || _isDisposed) return outcome;
+    return outcome;
+  }
+
+  /// Finalisasi stream yang dihentikan user: ubah bubble live menjadi bubble
+  /// final (tanpa kursor), simpan chat + generate summary dari teks yang ada.
+  /// Tanpa system error, tanpa retry — pesan parsial tetap tersimpan.
+  Future<void> _finalizeStoppedStream() async {
+    _safeSetState(() {
+      _isLoading = false;
+      _activeBotId = null;
+      for (var i = _messages.length - 1; i >= 0; i--) {
+        final m = _messages[i];
+        if (m['role'] != 'assistant') break;
+        if (m['is_streaming'] == true) {
+          m.remove('is_streaming');
+          m.remove('is_stream_live');
+        }
+      }
+    });
+    _scrollToBottom();
+    await _localChatService.saveChat(widget.bot['id'], _messages);
+    _generateSummaries();
+  }
+
+  /// Dipanggil tombol Stop: batalkan SSE yang sedang berjalan.
+  void _stopStreaming() {
+    if (!_isPollingActive) return;
+    _safeSetState(() {
+      _streamStopRequested = true;
+    });
+  }
+
+  bool _hasStreamingTail() {
+    for (var i = _messages.length - 1; i >= 0; i--) {
+      final m = _messages[i];
+      if (m['role'] != 'assistant') break;
+      if (m['is_stream_live'] == true) return true;
+    }
+    return false;
+  }
+
+  /// Hapus semua bubble streaming (parsial) — dipakai sebelum fallback
+  /// polling / tampilkan error agar tidak ada bubble menggantung.
+  void _removeStreamingBubbles() {
+    _safeSetState(() {
+      _messages.removeWhere((m) => m['is_streaming'] == true);
+    });
+  }
+
   Future<Map<String, dynamic>?> _pollLoopForResult(String uuid) async {
     int checks = 60;
     while (_isPollingActive && mounted && !_isDisposed && checks > 0) {
@@ -1274,8 +1484,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   Future<void> _handleAIResponseData(
     Map<String, dynamic>? response,
     String? botIdForRequest,
-    String aiTimestamp,
-  ) async {
+    String aiTimestamp, {
+    bool skipTypingEffect = false,
+  }) async {
     bool shouldStartTyping = false;
     int partsLength = 0;
 
@@ -1302,20 +1513,36 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
               .where((s) => s.trim().isNotEmpty)
               .toList();
 
-          _messages.add({
-            'role': 'assistant',
-            'content': aiContent,
-            'timestamp': aiTimestamp,
-            'bot_id': botIdForRequest,
-            'bot_name': _resolveBotName(botIdForRequest),
-            'bot_avatar': _resolveBotAvatar(botIdForRequest),
-            if (parts.length > 1) 'visible_parts': 1,
-            if (parts.length > 1) 'is_typing_next': true,
-          });
+          if (skipTypingEffect) {
+            // Mode stream: bubble-bubble inkremental sudah tampil live;
+            // hapus semuanya, bangun ulang dari konten final bersih
+            // (hasil ParseBondTags backend sebagai bubble per paragraf),
+            // tanpa bubble delay 2 detik.
+            _messages.removeWhere((m) => m['is_streaming'] == true);
+            _messages.add({
+              'role': 'assistant',
+              'content': aiContent,
+              'timestamp': aiTimestamp,
+              'bot_id': botIdForRequest,
+              'bot_name': _resolveBotName(botIdForRequest),
+              'bot_avatar': _resolveBotAvatar(botIdForRequest),
+            });
+          } else {
+            _messages.add({
+              'role': 'assistant',
+              'content': aiContent,
+              'timestamp': aiTimestamp,
+              'bot_id': botIdForRequest,
+              'bot_name': _resolveBotName(botIdForRequest),
+              'bot_avatar': _resolveBotAvatar(botIdForRequest),
+              if (parts.length > 1) 'visible_parts': 1,
+              if (parts.length > 1) 'is_typing_next': true,
+            });
 
-          if (parts.length > 1) {
-            shouldStartTyping = true;
-            partsLength = parts.length;
+            if (parts.length > 1) {
+              shouldStartTyping = true;
+              partsLength = parts.length;
+            }
           }
         } else {
           _addSystemError(aiTimestamp);
@@ -2379,16 +2606,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                                                 .width *
                                              0.7,
                                        )
-                                     : BotMessageBubble(
-                                         content:
-                                             msg['content']?.toString() ?? '',
-                                         timestampStr:
-                                             formatMessageTime(timestamp),
-                                         visibleParts:
-                                             msg['visible_parts'] as int?,
-                                         isTypingNext:
-                                             msg['is_typing_next'] == true,
-                                         hideItalics: _hideItalics,
+                                      : BotMessageBubble(
+                                          content:
+                                              msg['content']?.toString() ?? '',
+                                          timestampStr:
+                                              formatMessageTime(timestamp),
+                                          visibleParts:
+                                              msg['visible_parts'] as int?,
+                                          isTypingNext:
+                                              msg['is_typing_next'] == true,
+                                          isStreaming:
+                                              msg['is_stream_live'] == true,
+                                          hideItalics: _hideItalics,
                                          maxWidth: MediaQuery.of(context)
                                                  .size
                                                  .width *
@@ -2612,6 +2841,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                       onSend: _sendMessage,
                       hasSystemError: _hasSystemError,
                       onRetry: _retryAfterError,
+                      isStreaming: _isPollingActive && !_streamStopRequested,
+                      onStop: _stopStreaming,
                       isSystemNoteOpen: _isSystemNoteOpen,
                       isPersonaOpen: _isPersonaOpen,
                       onToggleSystemNote: () => _safeSetState(
