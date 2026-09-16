@@ -51,7 +51,6 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final bool isDark = theme.brightness == Brightness.dark;
     final Color textColor = colorScheme.onSurface;
 
     return Scaffold(
@@ -265,9 +264,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
               const SizedBox(height: 24),
               Card(
                 elevation: 0,
-                color: isDark
-                    ? colorScheme.surface
-                    : colorScheme.surfaceContainerHighest,
+                color: colorScheme.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -335,9 +332,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
             const SizedBox(height: 24),
             Card(
               elevation: 0,
-              color: isDark
-                  ? colorScheme.surface
-                  : colorScheme.surfaceContainerHighest,
+              color: colorScheme.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -400,9 +395,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
             const SizedBox(height: 24),
             Card(
               elevation: 0,
-              color: isDark
-                  ? colorScheme.surface
-                  : colorScheme.surfaceContainerHighest,
+              color: colorScheme.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),

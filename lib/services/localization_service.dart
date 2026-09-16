@@ -27,10 +27,6 @@ class LocalizationService extends ChangeNotifier {
     'system_notice_content':
         'Semua model AI sedang sibuk. Silakan coba lagi nanti.',
     'system_notice_btn': 'Mengerti',
-    'settings_theme': 'Tampilan',
-    'settings_theme_amoled_title': 'Aktifkan Mode Gelap AMOLED',
-    'settings_theme_amoled_desc':
-        'Gunakan latar hitam pekat untuk kontras lebih tinggi dan efisiensi baterai pada layar OLED.',
   };
 
   String get currentLocale => _currentLocale;

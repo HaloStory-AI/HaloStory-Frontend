@@ -15,8 +15,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final surface = isDark ? theme.colorScheme.surface : theme.colorScheme.surfaceContainer;
+    final surface = theme.colorScheme.surface;
 
     return Scaffold(
       appBar: AppBar(

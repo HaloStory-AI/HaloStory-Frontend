@@ -62,10 +62,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final bool isDark = theme.brightness == Brightness.dark;
-    final Color cardColor = isDark
-        ? colorScheme.surface
-        : colorScheme.surfaceContainer;
+    final Color cardColor = colorScheme.surface;
     final Color textColor = colorScheme.onSurface;
 
     return Scaffold(

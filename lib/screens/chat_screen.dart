@@ -2502,7 +2502,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                   ),
                 ),
               Container(
-                decoration: getWallpaperDecoration(context) ?? BoxDecoration(color: pageBackground(context)),
+                decoration: BoxDecoration(color: pageBackground(context)),
                 child: Column(
                   children: [
                     if (_showSafetyBar)
@@ -2629,14 +2629,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                                              _resolveBotAvatar(msg['bot_id']),
                                          botColor:
                                              _resolveBotColor(msg['bot_id']),
-                                         titleTextColor: textOnWallpaper(
-                                             context,
-                                             titleColor(context)),
-                                         timestampColor: subtextOnWallpaper(
-                                             context,
-                                             Theme.of(context)
-                                                 .colorScheme
-                                                 .onSurfaceVariant),
+                                          titleTextColor: titleColor(context),
+                                          timestampColor: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                          bubbleBgColor:
                                              botBubbleBackground(context),
                                        );

@@ -195,14 +195,10 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Theme.of(context).colorScheme.surface
-                    : Colors.white,
+                color: colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Theme.of(context).colorScheme.outline
-                      : Colors.grey.withValues(alpha: 0.2),
+                  color: colorScheme.outline,
                 ),
               ),
               child: Row(
@@ -366,14 +362,10 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Theme.of(context).colorScheme.surface
-              : Colors.white,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Theme.of(context).colorScheme.outline
-                : Colors.grey.withValues(alpha: 0.2),
+            color: colorScheme.outline,
           ),
         ),
         child: DropdownButtonHideUnderline(
@@ -628,9 +620,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     String label,
     String hint,
   ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final bool isDark = theme.brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Row(
       children: [
@@ -661,9 +651,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
                 hintText: hint,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 filled: true,
-                fillColor: isDark
-                    ? colorScheme.surface
-                    : colorScheme.surfaceContainer,
+                fillColor: colorScheme.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -683,9 +671,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     required IconData icon,
     bool obscure = false,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final bool isDark = theme.brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -707,9 +693,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
             hintText: hint,
             prefixIcon: Icon(icon, size: 20),
             filled: true,
-            fillColor: isDark
-                ? colorScheme.surface
-                : colorScheme.surfaceContainer,
+            fillColor: colorScheme.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

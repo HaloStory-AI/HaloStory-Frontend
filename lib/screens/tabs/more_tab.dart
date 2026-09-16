@@ -111,10 +111,7 @@ class _MoreTabState extends State<MoreTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final bool isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark
-        ? colorScheme.surface
-        : colorScheme.surfaceContainer;
+    final cardColor = colorScheme.surface;
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());

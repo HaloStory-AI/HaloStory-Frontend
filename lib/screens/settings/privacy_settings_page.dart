@@ -102,8 +102,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? colorScheme.surface : colorScheme.surfaceContainer;
+    final cardColor = colorScheme.surface;
 
     return Scaffold(
       appBar: widget.isDesktop

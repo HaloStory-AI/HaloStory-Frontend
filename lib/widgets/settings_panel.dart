@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 class SettingsPanel extends StatelessWidget {
   final String title;
@@ -16,10 +15,7 @@ class SettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final barColor = isDark
-        ? theme.scaffoldBackgroundColor
-        : AppTheme.momoLightTopBar;
+    final barColor = theme.scaffoldBackgroundColor;
 
     return Column(
       children: [

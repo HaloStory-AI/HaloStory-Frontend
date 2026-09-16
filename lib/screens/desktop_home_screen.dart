@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
 import '../services/localization_service.dart';
-import '../theme/app_theme.dart';
 import 'desktop/desktop_sidebar.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/stories_tab.dart';
@@ -208,10 +207,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
 
   Widget _buildChatColumnHeader() {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final barColor = isDark
-        ? theme.scaffoldBackgroundColor
-        : AppTheme.momoLightTopBar;
+    final barColor = theme.scaffoldBackgroundColor;
 
     return Material(
       color: barColor,
@@ -252,9 +248,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                 ),
                 child: Icon(
                   Icons.question_mark_rounded,
-                  color: isDark
-                      ? theme.scaffoldBackgroundColor
-                      : AppTheme.momoLightTopBar,
+                  color: theme.scaffoldBackgroundColor,
                   size: 14,
                   weight: 900,
                 ),
@@ -343,28 +337,25 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   Widget _buildMiddlePanel() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       width: 380,
       decoration: BoxDecoration(
         border: Border(
-          right: BorderSide(
-            color: isDark ? colorScheme.outlineVariant : Colors.grey.shade200,
-          ),
+          right: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
       child: Stack(
         children: [
-          _buildMainMiddleContent(isDark, colorScheme),
+          _buildMainMiddleContent(colorScheme),
           ?_middlePanelOverlay,
         ],
       ),
     );
   }
 
-  Widget _buildMainMiddleContent(bool isDark, ColorScheme colorScheme) {
+  Widget _buildMainMiddleContent(ColorScheme colorScheme) {
     switch (_middlePanelState) {
       case MiddlePanelState.settings:
         if (_currentSettingsPage != null) {

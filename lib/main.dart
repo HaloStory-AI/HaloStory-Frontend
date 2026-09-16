@@ -5,8 +5,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:bluetalk_frontend/screens/splash_screen.dart';
 import 'package:bluetalk_frontend/screens/banned_screen.dart';
 import 'package:bluetalk_frontend/services/localization_service.dart';
-import 'package:bluetalk_frontend/services/theme_service.dart';
-import 'package:bluetalk_frontend/services/wallpaper_service.dart';
 import 'package:bluetalk_frontend/theme/app_theme.dart';
 import 'package:bluetalk_frontend/services/config_service.dart';
 import 'package:bluetalk_frontend/services/ban_service.dart';
@@ -34,8 +32,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   initSqlite();
   await LocalizationService().init();
-  await ThemeService().init();
-  await WallpaperService().init();
 
   // Background server ping + ban check every 2 minutes
   Timer.periodic(const Duration(minutes: 2), (timer) async {
@@ -171,16 +167,14 @@ class HaloStoryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([LocalizationService(), ThemeService(), WallpaperService()]),
+      listenable: Listenable.merge([LocalizationService()]),
       builder: (context, child) {
         return MaterialApp(
           navigatorKey: navigatorKey,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           title: 'HaloStory',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme(),
-          darkTheme: AppTheme.amoledTheme(),
-          themeMode: ThemeService().themeMode,
+          theme: AppTheme.mzTheme(),
           home: const SplashScreen(),
         );
       },

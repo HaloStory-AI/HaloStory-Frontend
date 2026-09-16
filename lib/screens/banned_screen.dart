@@ -10,7 +10,6 @@ class BannedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     final reason = BanService.banReason ?? tr('ban_default_reason');
     final until = BanService.bannedUntil;
 
@@ -34,9 +33,7 @@ class BannedScreen extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: isDark
-                  ? [Colors.black, const Color(0xFF1a0000)]
-                  : [Colors.white, const Color(0xFFfce4e4)],
+              colors: [Colors.black, Color(0xFF1a0000)],
             ),
           ),
           child: SafeArea(

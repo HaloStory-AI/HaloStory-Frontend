@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/wallpaper_service.dart';
 import '../theme/app_theme.dart';
 
 Color parseColor(dynamic color) {
@@ -37,27 +36,10 @@ Color hintColor(BuildContext context) {
 }
 
 mixin ChatHelpers {
-  bool isDarkMode(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark;
-
-  Color textOnWallpaper(BuildContext context, Color defaultColor) {
-    if (WallpaperService().type == 'none') return defaultColor;
-    return Colors.white;
-  }
-
-  Color subtextOnWallpaper(BuildContext context, Color defaultColor) {
-    if (WallpaperService().type == 'none') return defaultColor;
-    return Colors.white70;
-  }
-
   Color pageBackground(BuildContext context) =>
       Theme.of(context).scaffoldBackgroundColor;
 
-  BoxDecoration? getWallpaperDecoration(BuildContext context) =>
-      WallpaperService().getBoxDecoration(context);
-
-  Color botBubbleBackground(BuildContext context) =>
-      isDarkMode(context) ? AppTheme.botBubbleDark : AppTheme.botBubbleLight;
+  Color botBubbleBackground(BuildContext context) => AppTheme.botBubbleDark;
 
   String formatMessageTime(DateTime? dt) {
     if (dt == null) return "";

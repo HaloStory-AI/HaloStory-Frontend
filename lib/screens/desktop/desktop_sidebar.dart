@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../services/localization_service.dart';
-import '../../theme/app_theme.dart';
 
 class DesktopSidebar extends StatelessWidget {
   final int currentIndex;
@@ -17,16 +16,10 @@ class DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
-    final railBg = isDark ? cs.surface : AppTheme.momoRailBackground;
-    final selectedBg = isDark
-        ? cs.surfaceContainerHighest
-        : AppTheme.momoRailSelected;
-    final iconSelected = isDark ? cs.onSurface : Colors.white;
-    final iconUnselected = isDark
-        ? cs.onSurfaceVariant
-        : Colors.white.withValues(alpha: 0.7);
+    final railBg = cs.surface;
+    final selectedBg = cs.surfaceContainerHighest;
+    final iconSelected = cs.onSurface;
+    final iconUnselected = cs.onSurfaceVariant;
     final labelSelected = iconSelected;
     final labelUnselected = iconUnselected;
 

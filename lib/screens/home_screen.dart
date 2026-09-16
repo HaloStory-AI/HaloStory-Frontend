@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/localization_service.dart';
 import '../services/ai_service.dart';
-import '../theme/app_theme.dart';
 import 'chat_screen.dart';
 import 'admin_screen.dart';
 import 'student_request_screen.dart';
@@ -248,22 +247,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final appBarBg = isDark
-        ? theme.scaffoldBackgroundColor
-        : AppTheme.momoLightTopBar;
-    final sidebarBg = isDark
-        ? colorScheme.surface
-        : AppTheme.momoRailBackground;
-    final sidebarSelectedBg = isDark
-        ? colorScheme.surfaceContainerHighest
-        : AppTheme.momoRailSelected;
-    final sidebarIconColor = isDark
-        ? colorScheme.onSurfaceVariant
-        : Colors.white.withValues(alpha: 0.7);
-    final sidebarIconSelectedColor = isDark
-        ? colorScheme.onSurface
-        : Colors.white;
+    final appBarBg = theme.scaffoldBackgroundColor;
+    final sidebarBg = colorScheme.surface;
+    final sidebarSelectedBg = colorScheme.surfaceContainerHighest;
+    final sidebarIconColor = colorScheme.onSurfaceVariant;
+    final sidebarIconSelectedColor = colorScheme.onSurface;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -287,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'HaloStory',
               style: GoogleFonts.nunito(
-                color: Colors.white,
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w900,
                 fontSize: 24,
               ),
@@ -305,24 +293,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 28,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   borderRadius: BorderRadius.circular(6),
-                  boxShadow: isDark
-                      ? const []
-                      : [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.16),
-                            blurRadius: 0,
-                            spreadRadius: 0,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                  boxShadow: const [],
                 ),
                 child: Icon(
                   Icons.question_mark_rounded,
-                  color: isDark
-                      ? theme.scaffoldBackgroundColor
-                      : AppTheme.momoLightTopBar,
+                  color: theme.scaffoldBackgroundColor,
                   size: 18,
                   weight: 900,
                 ),
@@ -372,7 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       size: 28,
                     ),
                     offset: const Offset(50, -120),
-                    color: isDark ? colorScheme.surfaceContainer : Colors.white,
+                    color: colorScheme.surfaceContainer,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(color: colorScheme.outlineVariant),
@@ -620,7 +597,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : SafeArea(
               child: Container(
                 decoration: BoxDecoration(
-                  color: isDark ? colorScheme.surface : Colors.white,
+                  color: colorScheme.surface,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -633,11 +610,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentIndex: _currentIndex,
                   onTap: _onBottomNavTap,
                   type: BottomNavigationBarType.fixed,
-                  backgroundColor: isDark ? colorScheme.surface : Colors.white,
+                  backgroundColor: colorScheme.surface,
                   selectedItemColor: colorScheme.primary,
-                  unselectedItemColor: isDark
-                      ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
-                      : Colors.grey,
+                  unselectedItemColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   selectedFontSize: 12,
                   unselectedFontSize: 12,
                   elevation: 0,

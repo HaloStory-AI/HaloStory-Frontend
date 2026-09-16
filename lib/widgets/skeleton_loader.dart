@@ -41,17 +41,13 @@ class _SkeletonWidgetState extends State<SkeletonWidget>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return FadeTransition(
       opacity: _animation,
       child: Container(
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color:
-              widget.color ??
-              (isDark ? Colors.grey.shade800 : Colors.grey.shade300),
+          color: widget.color ?? Colors.grey.shade800,
           borderRadius: BorderRadius.circular(widget.borderRadius),
         ),
       ),
@@ -112,7 +108,6 @@ class BotGridSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -128,10 +123,10 @@ class BotGridSkeleton extends StatelessWidget {
       itemBuilder: (context, index) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? theme.colorScheme.surface : Colors.white,
+            color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark ? theme.colorScheme.outline : Colors.grey.shade100,
+              color: theme.colorScheme.outline,
             ),
           ),
           child: const Column(
@@ -155,8 +150,7 @@ class ChatMessagesSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bubbleColor = isDark ? Colors.grey.shade800 : Colors.grey.shade300;
+    final bubbleColor = Colors.grey.shade800;
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

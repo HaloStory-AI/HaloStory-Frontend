@@ -1120,12 +1120,8 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: isDark
-          ? theme.scaffoldBackgroundColor
-          : const Color(0xFF92C7FD),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1155,7 +1151,7 @@ class _SplashScreenState extends State<SplashScreen>
                   style: GoogleFonts.nunito(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? colorScheme.onSurface : Colors.white,
+                    color: colorScheme.onSurface,
                     letterSpacing: 0.5,
                   ),
                 ),

@@ -152,7 +152,6 @@ class _CalendarTabState extends State<CalendarTab>
   Widget _buildEventList() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     final events = _getEventsForDay(_selectedDay!);
 
     if (events.isEmpty) {
@@ -189,15 +188,7 @@ class _CalendarTabState extends State<CalendarTab>
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: isDark
-                ? const []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+            boxShadow: const [],
           ),
           child: Row(
             children: [

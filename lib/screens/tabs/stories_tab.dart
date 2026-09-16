@@ -72,12 +72,8 @@ class _StoriesTabState extends State<StoriesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
-      color: isDark
-          ? Theme.of(context).scaffoldBackgroundColor
-          : const Color.fromRGBO(243, 247, 248, 1),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
         child: Column(

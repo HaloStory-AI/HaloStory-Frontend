@@ -95,9 +95,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     }
   }
 
-  bool _isDark(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark;
-
   Color _surfaceColor(BuildContext context) {
     return Theme.of(context).colorScheme.surface;
   }
@@ -124,11 +121,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   }
 
   TextStyle _bondCountStyle(BuildContext context) {
-    final isDark = _isDark(context);
     final colorScheme = Theme.of(context).colorScheme;
-    final shadowColor = isDark
-        ? Colors.black.withValues(alpha: 0.45)
-        : Colors.white;
+    final shadowColor = Colors.black.withValues(alpha: 0.45);
 
     return TextStyle(
       color: colorScheme.primary,
@@ -410,9 +404,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
             final titleTextColor = _primaryTextColor(dialogContext);
             final solidModalShadow = [
               BoxShadow(
-                color: _isDark(dialogContext)
-                    ? Colors.black.withValues(alpha: 0.58)
-                    : Colors.black.withValues(alpha: 0.2),
+                color: Colors.black.withValues(alpha: 0.58),
                 offset: const Offset(0, 3),
                 blurRadius: 0,
                 spreadRadius: 0,
@@ -440,9 +432,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _isDark(dialogContext)
-                            ? Colors.black.withValues(alpha: 0.42)
-                            : Colors.black.withValues(alpha: 0.12),
+                        color: Colors.black.withValues(alpha: 0.42),
                         offset: const Offset(0, 2),
                         blurRadius: 0,
                         spreadRadius: 0,
@@ -691,9 +681,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                   borderRadius: BorderRadius.circular(4),
                   boxShadow: [
                     BoxShadow(
-                      color: _isDark(context)
-                          ? Colors.black.withValues(alpha: 0.6)
-                          : Colors.black.withValues(alpha: 0.24),
+                      color: Colors.black.withValues(alpha: 0.6),
                       blurRadius: 0,
                       spreadRadius: 0,
                       offset: const Offset(0, 3),
@@ -792,31 +780,17 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
       vertical: 6,
     ),
   }) {
-    final isDark = _isDark(context);
     final colorScheme = Theme.of(context).colorScheme;
-    const lightControlColor = Color(0xFF424242);
     const slant = 0.174533;
 
-    final fillColor = isDark
-        ? colorScheme.onSurface.withValues(alpha: accent ? 0.12 : 0.09)
-        : Colors.white;
+    final fillColor =
+        colorScheme.onSurface.withValues(alpha: accent ? 0.12 : 0.09);
 
-    final cornerArrowColor = isDark
-        ? colorScheme.onSurfaceVariant
-        : lightControlColor;
+    final cornerArrowColor = colorScheme.onSurfaceVariant;
 
-    final boxShadows = isDark
-        ? [
+    final boxShadows = [
             BoxShadow(
               color: Colors.black.withValues(alpha: accent ? 0.6 : 0.54),
-              offset: const Offset(0, 3),
-              blurRadius: 0,
-              spreadRadius: 0,
-            ),
-          ]
-        : [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: accent ? 0.24 : 0.2),
               offset: const Offset(0, 3),
               blurRadius: 0,
               spreadRadius: 0,
@@ -878,14 +852,10 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
   Widget _buildBody() {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDark = _isDark(context);
-    const lightControlColor = Color(0xFF424242);
-    final controlTextColor = isDark ? colorScheme.onSurface : lightControlColor;
-    final orderListColor = isDark
-        ? colorScheme.onSurfaceVariant
-        : lightControlColor;
-    final orderArrowColor = isDark ? colorScheme.onSurface : lightControlColor;
-    final actionIconColor = isDark ? colorScheme.primary : lightControlColor;
+    final controlTextColor = colorScheme.onSurface;
+    final orderListColor = colorScheme.onSurfaceVariant;
+    final orderArrowColor = colorScheme.onSurface;
+    final actionIconColor = colorScheme.primary;
 
     final Widget chatContent;
     final String chatContentKey;
@@ -1090,9 +1060,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: isDark
-                                  ? FontWeight.w500
-                                  : FontWeight.w700,
+                              fontWeight: FontWeight.w500,
                               fontFamily: _chatHeaderPopupFont,
                               color: controlTextColor,
                             ),
@@ -1223,7 +1191,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         final chatId = chat['id'].toString();
         final isSelected = _selectedChatIds.contains(chatId);
         final selectedChatBgColor = colorScheme.surfaceContainerHighest
-            .withValues(alpha: _isDark(context) ? 0.52 : 0.95);
+            .withValues(alpha: 0.52);
         final bondLevel = (chat['bond_hearts'] ?? 0).toString();
 
         final bool isGroupChat = chatId.startsWith('group_');

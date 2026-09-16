@@ -83,7 +83,6 @@ class _DonationScreenState extends State<DonationScreen> {
     }
 
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     final content = Container(
       width: double.infinity,
@@ -91,14 +90,9 @@ class _DonationScreenState extends State<DonationScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
-              ? [
+          colors: [
                   Colors.blueGrey.shade900,
-                  const Color(0xFF1A1A2E),
-                ]
-              : [
-                  const Color(0xFFF0F4FF),
-                  const Color(0xFFFFF0F5),
+                  Color(0xFF1A1A2E),
                 ],
         ),
       ),
@@ -144,7 +138,7 @@ class _DonationScreenState extends State<DonationScreen> {
                 tr('donation_title'),
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.blueGrey.shade800,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 10),
@@ -152,7 +146,7 @@ class _DonationScreenState extends State<DonationScreen> {
                 tr('donation_content'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: isDark ? Colors.grey.shade400 : Colors.blueGrey.shade600,
+                  color: Colors.grey.shade400,
                 ),
               ),
               const SizedBox(height: 40),
@@ -262,7 +256,7 @@ class _DonationScreenState extends State<DonationScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
-                    color: isDark ? Colors.grey.shade500 : Colors.blueGrey.shade400,
+                    color: Colors.grey.shade500,
                   ),
                 ),
               ),
@@ -349,8 +343,8 @@ class _DonationScreenState extends State<DonationScreen> {
             const SizedBox(height: 8),
             Text(
               tr('vip_status_expires').replaceAll('{date}', expiryDate),
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.05),
                 fontSize: 13,
               ),
             ),
@@ -361,17 +355,14 @@ class _DonationScreenState extends State<DonationScreen> {
   }
 
   Widget _buildModernCard(BuildContext context, {required Widget child}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark 
-          ? Colors.white.withValues(alpha: 0.05) 
-          : Colors.white.withValues(alpha: 0.7),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
+          color: Colors.white.withValues(alpha: 0.1),
           width: 1,
         ),
         boxShadow: [
@@ -402,8 +393,6 @@ class _BenefitItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
     return Row(
       children: [
         Container(
@@ -430,7 +419,7 @@ class _BenefitItem extends StatelessWidget {
                 subtitle,
                 style: TextStyle(
                   fontSize: 13,
-                  color: isDark ? Colors.grey.shade400 : Colors.blueGrey.shade600,
+                  color: Colors.grey.shade400,
                 ),
               ),
             ],
