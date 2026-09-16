@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../services/localization_service.dart';
 import '../../screens/login_screen.dart';
 import '../../screens/register_screen.dart';
@@ -15,6 +14,7 @@ class WelcomeHeadlineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const kLogo = 'assets/icon/mikazuki/mikazuki_512.png';
     final textTheme = Theme.of(context).textTheme;
 
     return ClipRRect(
@@ -44,15 +44,12 @@ class WelcomeHeadlineCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  SvgPicture.asset(
-                    'assets/icon/mikazuki_mark.svg',
-                    width: 44,
-                    height: 44,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
+                  Image.asset(kLogo, width: 44, height: 44, filterQuality: FilterQuality.high),
+                  const SizedBox(width: 12),
+                  Flexible(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           'Mikazuki AI',
@@ -64,6 +61,7 @@ class WelcomeHeadlineCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           tr('welcome_subtitle'),
+                          softWrap: true,
                           style: textTheme.bodySmall?.copyWith(
                             color: const Color(0xFF9CA8BC),
                             fontWeight: FontWeight.w500,
