@@ -12,30 +12,20 @@ Future<void> showMessageOptionsSheet({
 }) {
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     builder: (ctx) {
       final scheme = Theme.of(ctx).colorScheme;
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).dividerColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            if (canRegenerate) ...[
-              ListTile(
-                tileColor: Colors.transparent,
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: scheme.outlineVariant, borderRadius: BorderRadius.circular(10))),
+              const SizedBox(height: 16),
+              if (canRegenerate) ...[
+                ListTile(
                 leading: CircleAvatar(
                   backgroundColor: scheme.primaryContainer,
                   child: Icon(
@@ -62,7 +52,6 @@ Future<void> showMessageOptionsSheet({
               const Divider(height: 1),
             ],
             ListTile(
-              tileColor: Colors.transparent,
               leading: CircleAvatar(
                 backgroundColor: scheme.secondaryContainer,
                 child: Icon(
@@ -88,7 +77,6 @@ Future<void> showMessageOptionsSheet({
             ),
             const Divider(height: 1),
             ListTile(
-              tileColor: Colors.transparent,
               leading: CircleAvatar(
                 backgroundColor: scheme.primaryContainer,
                 child: Icon(
@@ -107,7 +95,6 @@ Future<void> showMessageOptionsSheet({
             ),
             const Divider(height: 1),
             ListTile(
-              tileColor: Colors.transparent,
               leading: CircleAvatar(
                 backgroundColor: scheme.tertiaryContainer,
                 child: Icon(
@@ -127,6 +114,7 @@ Future<void> showMessageOptionsSheet({
             const SizedBox(height: 8),
           ],
         ),
+      ),
       );
     },
   );

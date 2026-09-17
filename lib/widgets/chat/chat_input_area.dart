@@ -97,11 +97,7 @@ class ChatInputArea extends StatelessWidget {
                 Text(
                   tr('chat_fictional_disclaimer'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: subtitleColor(context),
-                    fontStyle: FontStyle.italic,
-                  ),
+                  style: (Theme.of(context).textTheme.labelSmall ?? const TextStyle(fontSize: 10)).copyWith(color: subtitleColor(context), fontStyle: FontStyle.italic),
                 ),
               ],
             ),
@@ -112,46 +108,29 @@ class ChatInputArea extends StatelessWidget {
   }
 
   Widget _buildTextField(BuildContext context, ColorScheme colorScheme) {
+    final textTheme = Theme.of(context).textTheme;
     return TextField(
       controller: messageController,
-      style: TextStyle(
-        color: colorScheme.onSurface,
-        fontSize: 14,
-      ),
+      style: (textTheme.bodyMedium ?? const TextStyle(fontSize: 14)).copyWith(color: colorScheme.onSurface),
       decoration: InputDecoration(
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest,
         hintText: hintText,
-        hintStyle: TextStyle(
-          color:
-              colorScheme.onSurfaceVariant.withValues(
-            alpha: 0.7,
-          ),
-          fontSize: 14,
-        ),
+        hintStyle: (textTheme.bodyMedium ?? const TextStyle(fontSize: 14)).copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(50),
-          borderSide: const BorderSide(
-            color: Colors.transparent,
-          ),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(50),
-          borderSide: const BorderSide(
-            color: Colors.transparent,
-          ),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(50),
-          borderSide: const BorderSide(
-            color: Colors.transparent,
-          ),
+          borderSide: BorderSide.none,
         ),
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 8,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       ),
       onSubmitted: (_) {
         if (isSendEnabled) {
@@ -162,18 +141,16 @@ class ChatInputArea extends StatelessWidget {
   }
 
   Widget _buildRetryPrompt(BuildContext context, ColorScheme colorScheme) {
+    final textTheme = Theme.of(context).textTheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(50),
       ),
       child: Text(
         tr('chat_retry_prompt'),
-        style: TextStyle(
-          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-          fontSize: 14,
-        ),
+        style: (textTheme.bodyMedium ?? const TextStyle(fontSize: 14)).copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -181,50 +158,31 @@ class ChatInputArea extends StatelessWidget {
 
   Widget _buildSendOrRetryButton(ColorScheme colorScheme) {
     if (hasSystemError) {
-      return GestureDetector(
-        onTap: onRetry,
-        child: Container(
-          margin: const EdgeInsets.only(right: 4),
-          padding: const EdgeInsets.all(6),
-          child: Icon(
-            Icons.refresh,
-            color: colorScheme.primary,
-            size: 24,
-          ),
+      return Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: IconButton(
+          onPressed: onRetry,
+          icon: Icon(Icons.refresh, color: colorScheme.primary),
+          style: IconButton.styleFrom(minimumSize: const Size(40, 40)),
         ),
       );
     }
-
-    // Saat streaming: tombol kirim berubah menjadi tombol Stop (cara RisuAI).
     if (isStreaming) {
-      return GestureDetector(
-        onTap: onStop,
-        child: Container(
-          margin: const EdgeInsets.only(right: 4),
-          padding: const EdgeInsets.all(6),
-          child: const Icon(
-            Icons.stop_circle,
-            color: Colors.red,
-            size: 28,
-          ),
+      return Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: IconButton.filled(
+          onPressed: onStop,
+          icon: const Icon(Icons.stop_rounded),
+          style: IconButton.styleFrom(backgroundColor: colorScheme.error, foregroundColor: colorScheme.onError, minimumSize: const Size(40, 40)),
         ),
       );
     }
-
-    return GestureDetector(
-      onTap: isSendEnabled ? onSend : null,
-      child: Container(
-        margin: const EdgeInsets.only(right: 4),
-        padding: const EdgeInsets.all(6),
-        child: Icon(
-          Icons.send,
-          color: isSendEnabled
-              ? colorScheme.primary
-              : colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.5,
-                ),
-          size: 24,
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: IconButton.filled(
+        onPressed: isSendEnabled ? onSend : null,
+        icon: const Icon(Icons.send_rounded),
+        style: IconButton.styleFrom(minimumSize: const Size(40, 40)),
       ),
     );
   }

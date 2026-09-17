@@ -368,18 +368,8 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
           tr('group_confirm_kick_body').replaceAll('{name}', name),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('group_kick_confirm_no')),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(tr('group_kick_confirm_yes')),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('group_kick_confirm_no'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error, foregroundColor: Theme.of(ctx).colorScheme.onError), child: Text(tr('group_kick_confirm_yes'))),
         ],
       ),
     );
@@ -533,26 +523,14 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
       appBar: widget.isPanel
           ? null
           : AppBar(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              scrolledUnderElevation: 1,
+              surfaceTintColor: Colors.transparent,
               elevation: 0,
-              title: Text(
-                displayName,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              iconTheme: IconThemeData(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+              title: Text(displayName, style: (Theme.of(context).textTheme.titleLarge ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)).copyWith(color: Theme.of(context).colorScheme.onSurface)),
+              iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
               actions: [
-                if (widget.isGroup)
-                  IconButton(
-                    icon: const Icon(Icons.edit_note_rounded),
-                    onPressed: _showEditGroupInfoDialog,
-                    tooltip: 'Edit Group Info',
-                  ),
+                if (widget.isGroup) IconButton(icon: const Icon(Icons.edit_note_rounded), onPressed: _showEditGroupInfoDialog, tooltip: 'Edit Group Info'),
               ],
             ),
       body: SingleChildScrollView(
@@ -562,53 +540,23 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
             const SizedBox(height: 24),
             CircleAvatar(
               radius: 60,
-              backgroundColor: _parseColor(widget.bot['color']),
-              backgroundImage: widget.bot['image_url'] != null
-                  ? CachedNetworkImageProvider(widget.bot['image_url'])
-                  : null,
+              backgroundColor: _parseColor(widget.bot['color']) == Colors.blueGrey ? Theme.of(context).colorScheme.surfaceVariant : _parseColor(widget.bot['color']),
+              backgroundImage: widget.bot['image_url'] != null ? CachedNetworkImageProvider(widget.bot['image_url']) : null,
               child: widget.bot['image_url'] == null
-                  ? Text(
-                      displayName[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
+                  ? Text(displayName[0].toUpperCase(), style: (Theme.of(context).textTheme.displaySmall ?? const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)).copyWith(color: Colors.white))
                   : null,
             ),
             const SizedBox(height: 16),
-            Text(
-              displayName,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
+            Text(displayName, style: (Theme.of(context).textTheme.headlineSmall ?? const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)).copyWith(color: Theme.of(context).colorScheme.onSurface)),
             if (_isBirthday(widget.bot['birthday']))
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Text(
-                  '🎂 Birthday Today!',
-                  style: TextStyle(
-                    color: Colors.pinkAccent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('🎂 Birthday Today!', style: (Theme.of(context).textTheme.labelMedium ?? const TextStyle(fontWeight: FontWeight.w600)).copyWith(color: Colors.pinkAccent)),
               ),
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                description.isNotEmpty ? description : tr('bio_no_description'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
+              child: Text(description.isNotEmpty ? description : tr('bio_no_description'), textAlign: TextAlign.center, style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 15)).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant, fontStyle: FontStyle.italic)),
             ),
             if (!widget.isGroup &&
                 description.isNotEmpty)
@@ -637,18 +585,9 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
                               : 'Translate',
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          foregroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                          side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                          foregroundColor: Theme.of(context).colorScheme.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         ),
                       )
                     : TextButton.icon(
@@ -674,17 +613,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               if (!_isBondLoading) const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    tr('personality_title_label'),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
+                child: Align(alignment: Alignment.centerLeft, child: Text(tr('personality_title_label'), style: (Theme.of(context).textTheme.titleMedium ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)).copyWith(color: Theme.of(context).colorScheme.primary))),
               ),
               const SizedBox(height: 12),
               _buildPersonalitySection(),
@@ -713,110 +642,61 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(
-                      Icons.favorite,
-                      color: Color(0xFFFBB6CE),
-                      size: 48,
-                    ),
-                    Text(
-                      '$hearts',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: Card.filled(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Text(
-                        'Lv. $hearts',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _relationshipColor(bondStatus)
-                              .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: _relationshipColor(bondStatus)
-                                .withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Text(
-                          relationship,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _relationshipColor(bondStatus),
-                          ),
-                        ),
-                      ),
+                      const Icon(Icons.favorite, color: Color(0xFFFBB6CE), size: 48),
+                      Text('$hearts', style: (Theme.of(context).textTheme.labelLarge ?? const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)).copyWith(color: Theme.of(context).colorScheme.primary)),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Progress to Lv. ${hearts + 1}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Lv. $hearts', style: (Theme.of(context).textTheme.titleMedium ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)).copyWith(color: Theme.of(context).colorScheme.primary)),
+                        const SizedBox(height: 4),
+                        Chip(
+                          label: Text(relationship, style: (Theme.of(context).textTheme.labelSmall ?? const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)).copyWith(color: _relationshipColor(bondStatus))),
+                          backgroundColor: _relationshipColor(bondStatus).withValues(alpha: 0.15),
+                          side: BorderSide(color: _relationshipColor(bondStatus).withValues(alpha: 0.4)),
+                          shape: const StadiumBorder(),
+                          labelPadding: const EdgeInsets.symmetric(horizontal: 0),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Text(
-                  '$xpInto / $xpPer XP',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Progress to Lv. ${hearts + 1}', style: (Theme.of(context).textTheme.labelSmall ?? const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text('$xpInto / $xpPer XP', style: (Theme.of(context).textTheme.labelSmall ?? const TextStyle(fontSize: 11)).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
                 minHeight: 8,
-                backgroundColor: Colors.pink.shade50,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFFB6F9D),
-                ),
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFB6F9D)),
+                borderRadius: BorderRadius.circular(8),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -825,31 +705,19 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   Widget _buildBondDisabledPlaceholder() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.favorite_border,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              size: 32,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                tr('bond_disabled_placeholder'),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontStyle: FontStyle.italic,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
+      child: Card.filled(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.favorite_border, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32),
+              const SizedBox(width: 12),
+              Expanded(child: Text(tr('bond_disabled_placeholder'), style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 14)).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant, fontStyle: FontStyle.italic))),
+            ],
+          ),
         ),
       ),
     );
@@ -857,119 +725,48 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
 
   Widget _buildPersonalitySection() {
     if (_isBioLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 24),
-        child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
+      return const Padding(padding: EdgeInsets.symmetric(horizontal: 24), child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))));
     }
-
     if (_personalityAttrs == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Text(
-          tr('bio_no_personality'),
-          style: TextStyle(
-            fontSize: 15,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+      return Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: Text(tr('bio_no_personality'), style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: 15)).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)));
     }
-
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
-        children: _personalityAttrs!.entries.map((entry) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 90,
-                  child: Text(
-                    entry.key,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: cs.onSurfaceVariant,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    entry.value,
-                    style: TextStyle(
-                      color: cs.onSurface,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+        children: _personalityAttrs!.entries.map((entry) => Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: Text(entry.key, style: (tt.labelLarge ?? const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)).copyWith(color: cs.onSurfaceVariant)),
+            subtitle: Text(entry.value, style: (tt.bodyMedium ?? const TextStyle(fontSize: 14)).copyWith(color: cs.onSurface)),
+          ),
+        )).toList(),
       ),
     );
   }
 
   Widget _buildMemoriesSection() {
     if (_memories.isEmpty) return const SizedBox.shrink();
-
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            tr('memories_title'),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: cs.primary,
-            ),
-          ),
+          Text(tr('memories_title'), style: (tt.titleMedium ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)).copyWith(color: cs.primary)),
           const SizedBox(height: 12),
-          Text(
-            tr('memories_worth_keeping_section'),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
+          Text(tr('memories_worth_keeping_section'), style: (tt.titleSmall ?? const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)).copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 8),
           ..._memories.map((item) => Card(
                 margin: const EdgeInsets.only(bottom: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '- $item',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.delete_forever, color: Colors.red),
-                        iconSize: 20,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => _deleteMemory(item),
-                      ),
-                    ],
-                  ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: ListTile(
+                  title: Text('- $item', style: tt.bodyMedium ?? const TextStyle(fontSize: 13)),
+                  trailing: IconButton(icon: Icon(Icons.delete_forever, color: cs.error), onPressed: () => _deleteMemory(item), tooltip: 'Delete'),
                 ),
               )),
         ],
@@ -978,59 +775,22 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
   Widget _buildGroupMembersSection() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              tr('group_members_title'),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
+          Text(tr('group_members_title'), style: (tt.titleMedium ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)).copyWith(color: cs.primary)),
           if (_bondDisabled)
             Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.favorite_border,
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    tr('bond_disabled_placeholder'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+              child: Row(children: [Icon(Icons.favorite_border, size: 14, color: cs.onSurfaceVariant), const SizedBox(width: 6), Text(tr('bond_disabled_placeholder'), style: (tt.labelSmall ?? const TextStyle(fontSize: 12)).copyWith(color: cs.onSurfaceVariant, fontStyle: FontStyle.italic))]),
             ),
           const SizedBox(height: 12),
           if (_localMembers.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: Text(
-                  tr('group_no_members'),
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            )
+            Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Center(child: Text(tr('group_no_members'), style: (tt.bodyMedium ?? const TextStyle(fontSize: 15)).copyWith(color: cs.onSurfaceVariant, fontStyle: FontStyle.italic))))
           else
             ..._localMembers.asMap().entries.map((entry) {
               final index = entry.key;
@@ -1039,92 +799,36 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               final memberColor = _parseColor(member['color']);
               final memberAvatar = member['image_url'] ?? member['avatar'];
               final hearts = member['bond_hearts'] ?? 0;
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: memberColor,
-                      backgroundImage: memberAvatar != null
-                          ? CachedNetworkImageProvider(memberAvatar)
-                          : null,
-                      child: memberAvatar == null
-                          ? Text(
-                              memberName[0].toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        memberName,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                    if (!_isBondLoading && !_bondDisabled)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.favorite,
-                              color: Color(0xFFFBB6CE),
-                              size: 16,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '$hearts',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.remove_circle_outline,
-                        color: Theme.of(context).colorScheme.error,
-                        size: 22,
-                      ),
-                      onPressed: () => _confirmKickMember(index),
-                      tooltip: tr('group_kick_member'),
-                    ),
-                  ],
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: memberColor,
+                    backgroundImage: memberAvatar != null ? CachedNetworkImageProvider(memberAvatar) : null,
+                    child: memberAvatar == null ? Text(memberName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)) : null,
+                  ),
+                  title: Text(memberName, style: (tt.bodyLarge ?? const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)).copyWith(color: cs.onSurface)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!_isBondLoading && !_bondDisabled) ...[
+                        const Icon(Icons.favorite, color: Color(0xFFFBB6CE), size: 16),
+                        const SizedBox(width: 2),
+                        Text('$hearts', style: (tt.labelMedium ?? const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)).copyWith(color: cs.primary)),
+                        const SizedBox(width: 8),
+                      ],
+                      IconButton(icon: Icon(Icons.remove_circle_outline, color: cs.error, size: 22), onPressed: () => _confirmKickMember(index), tooltip: tr('group_kick_member')),
+                    ],
+                  ),
                 ),
               );
             }),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _navigateToAddMember,
-              icon: const Icon(Icons.person_add),
-              label: Text(tr('group_add_member')),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
+            child: FilledButton.tonalIcon(onPressed: _navigateToAddMember, icon: const Icon(Icons.person_add), label: Text(tr('group_add_member'))),
           ),
         ],
       ),

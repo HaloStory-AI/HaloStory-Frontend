@@ -1,0 +1,89 @@
+name: Android arm64 Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - develop
+          - dev
+          - staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-arm64-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  build-arm64:
+    name: Build Android arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Decode Keystore
+        working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p app
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > app/upload-keystore.jks
+
+      - name: Create key.properties
+        working-directory: android
+        env:
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          cat > key.properties <<- EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+
+      - name: Build Android APK (split-per-abi)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Extract version
+        run: |
+          VER=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
+          echo "VERSION_NAME=$VER" >> $GITHUB_ENV
+          echo "Branch: ${{ inputs.branch }} -> $VER"
+
+      - name: Rename APKs (keep arm64 only for artifact)
+        run: |
+          cd build/app/outputs/flutter-apk
+          for f in app-*-release.apk; do
+            cpu=$(echo "$f" | sed 's/app-\(.*\)-release\.apk/\1/')
+            mv "$f" "HaloStory_AI-V${VERSION_NAME}-$cpu.apk"
+          done
+          ls -lh
+          echo "Keeping only arm64-v8a for artifact upload"
+
+      - name: Upload arm64 APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-arm64-${{ inputs.branch }}-${{ env.VERSION_NAME }}
+          path: build/app/outputs/flutter-apk/HaloStory_AI-V*arm64-v8a.apk
+          retention-days: 14
+          if-no-files-found: error

@@ -19,6 +19,11 @@ class BotMessageBubble extends StatelessWidget {
   final Color titleTextColor;
   final Color timestampColor;
   final Color bubbleBgColor;
+  final VoidCallback? onCopy;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRewind;
+  final VoidCallback? onRegenerate;
+  final bool canRegenerate;
 
   const BotMessageBubble({
     super.key,
@@ -35,11 +40,17 @@ class BotMessageBubble extends StatelessWidget {
     required this.titleTextColor,
     required this.timestampColor,
     required this.bubbleBgColor,
+    this.onCopy,
+    this.onEdit,
+    this.onRewind,
+    this.onRegenerate,
+    this.canRegenerate = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final parts = content
         .split('\n\n')
         .where((s) => s.trim().isNotEmpty)
@@ -75,11 +86,7 @@ class BotMessageBubble extends StatelessWidget {
               children: [
                 Text(
                   botName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: titleTextColor,
-                  ),
+                  style: (textTheme.titleSmall ?? const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)).copyWith(color: titleTextColor),
                 ),
                 const SizedBox(height: 6),
                 ...partsToRender.asMap().entries.map((entry) {
@@ -91,83 +98,78 @@ class BotMessageBubble extends StatelessWidget {
                     padding: EdgeInsets.only(
                       bottom: idx == partsToRender.length - 1 ? 0 : 4,
                     ),
-                    child: IntrinsicWidth( // <-- PERUBAHAN DI SINI
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: bubbleBgColor,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: Card(
+                        color: bubbleBgColor,
+                        elevation: 0,
+                        margin: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.only(
                             topLeft: isFirst
-                                ? const Radius.circular(2)
-                                : const Radius.circular(12),
-                            topRight: const Radius.circular(12),
-                            bottomLeft: const Radius.circular(12),
-                            bottomRight: const Radius.circular(12),
+                                ? const Radius.circular(4)
+                                : const Radius.circular(16),
+                            topRight: const Radius.circular(16),
+                            bottomLeft: const Radius.circular(16),
+                            bottomRight: const Radius.circular(16),
                           ),
                         ),
-                        constraints: BoxConstraints(maxWidth: maxWidth),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            MarkdownBody(
-                              data: filterItalics(part, hideItalics),
-                              selectable: false,
-                              extensionSet: md.ExtensionSet(
-                                md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                                <md.InlineSyntax>[
-                                  md.EmojiSyntax(),
-                                  ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
-                                ],
-                              ),
-                              styleSheet: MarkdownStyleSheet(
-                                p: TextStyle(
-                                  color: colorScheme.onSurface,
-                                  fontSize: 14,
-                                  height: 1.4,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              MarkdownBody(
+                                data: filterItalics(part, hideItalics),
+                                selectable: false,
+                                extensionSet: md.ExtensionSet(
+                                  md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                                  <md.InlineSyntax>[
+                                    md.EmojiSyntax(),
+                                    ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                                  ],
                                 ),
-                                strong: TextStyle(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                em: TextStyle(
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.86,
+                                styleSheet: MarkdownStyleSheet(
+                                  p: (textTheme.bodyMedium ?? const TextStyle(fontSize: 14)).copyWith(color: colorScheme.onSurface, height: 1.4),
+                                  strong: (textTheme.bodyMedium ?? const TextStyle()).copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold),
+                                  em: (textTheme.bodyMedium ?? const TextStyle()).copyWith(color: colorScheme.onSurface.withValues(alpha: 0.86), fontStyle: FontStyle.italic),
+                                  code: (textTheme.bodySmall ?? const TextStyle(fontSize: 14)).copyWith(color: colorScheme.primary, backgroundColor: colorScheme.surfaceContainer),
+                                  codeblockDecoration: BoxDecoration(
+                                    color: colorScheme.surfaceContainer,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  fontStyle: FontStyle.italic,
-                                ),
-                                code: TextStyle(
-                                  color: colorScheme.primary,
-                                  backgroundColor: colorScheme.surfaceContainer,
-                                  fontSize: 14,
-                                ),
-                                codeblockDecoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainer,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                listBullet: TextStyle(
-                                  color: colorScheme.onSurface,
+                                  listBullet: TextStyle(color: colorScheme.onSurface),
                                 ),
                               ),
-                            ),
-                            if (timestampStr != null &&
-                                idx == partsToRender.length - 1)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
+                              if (timestampStr != null &&
+                                  idx == partsToRender.length - 1)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
                                   child: Text(
                                     timestampStr!,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: timestampColor,
-                                    ),
+                                    style: (textTheme.labelSmall ?? const TextStyle(fontSize: 11)).copyWith(color: timestampColor),
                                   ),
                                 ),
-                              ),
-                          ],
+                              if (idx == partsToRender.length - 1 && (onCopy != null || onEdit != null || onRewind != null || (canRegenerate && onRegenerate != null)))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Wrap(
+                                    spacing: 6,
+                                    children: [
+                                      if (onCopy != null)
+                                        _bubbleAction(context, Icons.copy_rounded, onCopy!),
+                                      if (onEdit != null)
+                                        _bubbleAction(context, Icons.edit_rounded, onEdit!),
+                                      if (onRewind != null)
+                                        _bubbleAction(context, Icons.fast_rewind_rounded, onRewind!),
+                                      if (canRegenerate && onRegenerate != null)
+                                        _bubbleAction(context, Icons.refresh_rounded, onRegenerate!, isPrimary: true),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -176,37 +178,27 @@ class BotMessageBubble extends StatelessWidget {
                 if (isTypingNext || isStreaming)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: bubbleBgColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          topRight: Radius.circular(12),
-                          bottomLeft: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const DotAnim(delay: 0),
-                          const SizedBox(width: 4),
-                          const DotAnim(delay: 0.2),
-                          const SizedBox(width: 4),
-                          const DotAnim(delay: 0.4),
-                          if (isStreaming && !isTypingNext) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 2,
-                              height: 14,
-                              color: colorScheme.primary,
-                            ),
+                    child: Card(
+                      color: bubbleBgColor,
+                      elevation: 0,
+                      margin: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const DotAnim(delay: 0),
+                            const SizedBox(width: 4),
+                            const DotAnim(delay: 0.2),
+                            const SizedBox(width: 4),
+                            const DotAnim(delay: 0.4),
+                            if (isStreaming && !isTypingNext) ...[
+                              const SizedBox(width: 8),
+                              Container(width: 2, height: 14, color: colorScheme.primary),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -214,6 +206,22 @@ class BotMessageBubble extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _bubbleAction(BuildContext context, IconData icon, VoidCallback onTap, {bool isPrimary = false}) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isPrimary ? cs.primaryContainer : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 14, color: isPrimary ? cs.onPrimaryContainer : cs.onSurfaceVariant),
       ),
     );
   }

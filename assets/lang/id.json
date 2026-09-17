@@ -328,8 +328,6 @@
   "vip_benefit_priority": "Prioritas Gemini AI",
   "vip_benefit_fallback": "Multi-key Fallback",
   "vip_benefit_badge": "Badge Eksklusif",
-  "chat_bug_notice_title": "Pemberitahuan Penting Perbaikan Bug",
-  "chat_bug_notice_body": "Update sebelumnya ada bug dimana AI mudah lupa, untuk memperbaikinya, tekan titik tiga lalu klik 'Re-Summary'.",
   "chat_resummary_loading": "Meringkas ulang riwayat chat...",
   "tutorial_chat_title": "Cara Memulai Chat",
   "tutorial_single_chat": "Personal Chat: Pilih 1 murid dari daftar untuk langsung ngobrol berdua.",

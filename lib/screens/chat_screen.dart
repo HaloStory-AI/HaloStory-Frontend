@@ -84,7 +84,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   final AIService _aiService = AIService();
   final LocalChatService _localChatService = LocalChatService();
 
-  static bool _hasShownSystemAiWarning = false;
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = false;
   Map<int, String> _summaries = {};
@@ -149,13 +148,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _loadHistory();
     _loadSystemNote();
     _loadPersona();
-    _showBugNoticeIfNeeded();
     _loadSelectedBot();
     _loadItalicsSetting();
-    if (widget.provider == 'System' && !_hasShownSystemAiWarning) {
-      _showSystemAiWarning();
-      _hasShownSystemAiWarning = true;
-    }
   }
 
   Future<void> _loadSelectedBot() async {
@@ -258,164 +252,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       'persona_${widget.bot['id']}',
       _personaController.text,
     );
-  }
-
-  void _showSystemAiWarning() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isDisposed) return;
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: surfaceBackground(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/image/notice_image.png',
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('system_notice_title'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                tr('system_notice_content'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: subtitleColor(context),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: surfaceAltBackground(context),
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(tr('system_notice_btn')),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      );
-    });
-  }
-
-  Future<void> _showBugNoticeIfNeeded() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenNotice = prefs.getBool('has_seen_chat_bug_notice') ?? false;
-
-    if (!hasSeenNotice) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _isDisposed) return;
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: surfaceBackground(context),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).dividerColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    'assets/image/info.png',
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  tr('chat_bug_notice_title'),
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  tr('chat_bug_notice_body'),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: subtitleColor(context),
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await prefs.setBool('has_seen_chat_bug_notice', true);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: surfaceAltBackground(context),
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(tr('system_notice_btn')),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
-        );
-      });
-    }
   }
 
   void _toggleDebugOverlay() {
@@ -2211,7 +2047,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
           },
           child: Scaffold(
           appBar: AppBar(
-            backgroundColor: pageBackground(context),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            scrolledUnderElevation: 1,
+            surfaceTintColor: Colors.transparent,
             elevation: 0,
             automaticallyImplyLeading: false,
             leading: widget.isDesktopMode
@@ -2260,12 +2098,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                                     ? '${raw.substring(0, 15)}...'
                                     : raw;
                               }(),
-                              style: TextStyle(
-                                color: titleColor(context),
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: _chatHeaderFont,
-                              ),
+                              style: (Theme.of(context).textTheme.titleMedium ?? const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)).copyWith(color: titleColor(context)),
                             ),
                             if (_isBirthday(widget.bot['birthday']))
                               const Padding(
@@ -2593,158 +2426,120 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                                 final content =
                                     msg['content']?.toString() ?? '';
 
+                                final isLastAssistant = index == _messages.length - 1 && (msg['role'] == 'assistant' || msg['role'] == 'system');
                                 final bubble = isUser
                                     ? UserMessageBubble(
-                                        content: filterItalics(
-                                          content,
-                                          _hideItalics,
-                                        ),
-                                        timestampStr:
-                                            formatMessageTime(timestamp),
+                                        content: filterItalics(content, _hideItalics),
+                                        timestampStr: formatMessageTime(timestamp),
                                         status: msg['status']?.toString(),
-                                        maxWidth: MediaQuery.of(context)
-                                                .size
-                                                .width *
-                                             0.7,
-                                       )
-                                      : BotMessageBubble(
-                                          content:
-                                              msg['content']?.toString() ?? '',
-                                          timestampStr:
-                                              formatMessageTime(timestamp),
-                                          visibleParts:
-                                              msg['visible_parts'] as int?,
-                                          isTypingNext:
-                                              msg['is_typing_next'] == true,
-                                          isStreaming:
-                                              msg['is_stream_live'] == true,
-                                          hideItalics: _hideItalics,
-                                         maxWidth: MediaQuery.of(context)
-                                                 .size
-                                                 .width *
-                                             0.65,
-                                         botName: _resolveBotName(
-                                                 msg['bot_id']) ??
-                                             widget.bot['name'],
-                                         botAvatarUrl:
-                                             _resolveBotAvatar(msg['bot_id']),
-                                         botColor:
-                                             _resolveBotColor(msg['bot_id']),
-                                          titleTextColor: titleColor(context),
-                                          timestampColor: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                         bubbleBgColor:
-                                             botBubbleBackground(context),
-                                       );
-
-                                return GestureDetector(
-                                  onLongPress: () =>
-                                      showMessageOptionsSheet(
-                                        context: context,
-                                        content: content,
-                                        canRegenerate: index ==
-                                                _messages.length - 1 &&
-                                            (_messages[index]['role'] ==
-                                                    'assistant' ||
-                                                _messages[index]['role'] ==
-                                                    'system'),
-                                        onRegenerate: _regenerateResponse,
+                                        maxWidth: MediaQuery.of(context).size.width * 0.7,
+                                        onCopy: () {
+                                          Clipboard.setData(ClipboardData(text: content));
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('chat_copy_success')), duration: const Duration(seconds: 2)));
+                                        },
+                                        onEdit: () => showEditMessageDialog(
+                                          context: context,
+                                          initialContent: _messages[index]['content'],
+                                          onSave: (newContent) async {
+                                            _safeSetState(() => _messages[index]['content'] = newContent);
+                                            final trimmed = _messages.sublist(0, index + 1);
+                                            _safeSetState(() {
+                                              _messages = trimmed;
+                                              _summaries.removeWhere((k, v) => k >= trimmed.length);
+                                            });
+                                            await _localChatService.saveChat(widget.bot['id'], _messages);
+                                            await _localChatService.saveSummaries(widget.bot['id'], _summaries);
+                                            _regenerateResponse();
+                                          },
+                                        ),
+                                        onDelete: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (dCtx) => AlertDialog(
+                                              title: const Text('Hapus pesan?'),
+                                              content: const Text('Pesan ini dan balasan setelahnya akan dihapus.'),
+                                              actions: [
+                                                TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Batal')),
+                                                FilledButton(onPressed: () => Navigator.pop(dCtx, true), child: const Text('Hapus')),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm != true) return;
+                                          final newList = List<Map<String, dynamic>>.from(_messages);
+                                          newList.removeAt(index);
+                                          if (index < newList.length && newList[index]['role'] == 'assistant') newList.removeAt(index);
+                                          _safeSetState(() {
+                                            _messages = newList;
+                                            _summaries.removeWhere((k, v) => k >= newList.length);
+                                          });
+                                          await _localChatService.saveChat(widget.bot['id'], _messages);
+                                          await _localChatService.saveSummaries(widget.bot['id'], _summaries);
+                                        },
+                                      )
+                                    : BotMessageBubble(
+                                        content: msg['content']?.toString() ?? '',
+                                        timestampStr: formatMessageTime(timestamp),
+                                        visibleParts: msg['visible_parts'] as int?,
+                                        isTypingNext: msg['is_typing_next'] == true,
+                                        isStreaming: msg['is_stream_live'] == true,
+                                        hideItalics: _hideItalics,
+                                        maxWidth: MediaQuery.of(context).size.width * 0.65,
+                                        botName: _resolveBotName(msg['bot_id']) ?? widget.bot['name'],
+                                        botAvatarUrl: _resolveBotAvatar(msg['bot_id']),
+                                        botColor: _resolveBotColor(msg['bot_id']),
+                                        titleTextColor: titleColor(context),
+                                        timestampColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        bubbleBgColor: botBubbleBackground(context),
+                                        canRegenerate: isLastAssistant,
+                                        onCopy: () {
+                                          Clipboard.setData(ClipboardData(text: content));
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('chat_copy_success')), duration: const Duration(seconds: 2)));
+                                        },
+                                        onEdit: () => showEditMessageDialog(
+                                          context: context,
+                                          initialContent: _messages[index]['content'],
+                                          onSave: (newContent) async {
+                                            _safeSetState(() => _messages[index]['content'] = newContent);
+                                            await _localChatService.saveChat(widget.bot['id'], _messages);
+                                          },
+                                        ),
                                         onRewind: () async {
-                                          final trimmed =
-                                              _messages.sublist(0, index + 1);
-
+                                          final trimmed = _messages.sublist(0, index + 1);
                                           _safeSetState(() {
                                             _messages = trimmed;
-                                            _summaries.removeWhere(
-                                              (key, value) =>
-                                                  key >= trimmed.length,
-                                            );
+                                            _summaries.removeWhere((k, v) => k >= trimmed.length);
                                           });
-
-                                          await _localChatService.saveChat(
-                                            widget.bot['id'],
-                                            _messages,
-                                          );
-                                          await _localChatService
-                                              .saveSummaries(
-                                            widget.bot['id'],
-                                            _summaries,
-                                          );
+                                          await _localChatService.saveChat(widget.bot['id'], _messages);
+                                          await _localChatService.saveSummaries(widget.bot['id'], _summaries);
                                           _scrollToBottom();
                                         },
-                                        onCopy: () {
-                                          Clipboard.setData(
-                                            ClipboardData(text: content),
-                                          );
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                tr('chat_copy_success'),
-                                              ),
-                                              duration:
-                                                  const Duration(seconds: 2),
-                                            ),
-                                          );
-                                        },
-                                        onEdit: () =>
-                                            showEditMessageDialog(
-                                              context: context,
-                                              initialContent:
-                                                  _messages[index]
-                                                      ['content'],
-                                              onSave: (newContent) async {
-                                                _safeSetState(() {
-                                                  _messages[index]
-                                                          ['content'] =
-                                                      newContent;
-                                                });
-                                                await _localChatService
-                                                    .saveChat(
-                                                  widget.bot['id'],
-                                                  _messages,
-                                                );
-                                              },
-                                            ),
-                                      ),
-                                  child: bubble,
-                                );
+                                        onRegenerate: _regenerateResponse,
+                                      );
+
+                                return bubble;
                               },
                             ),
                           if (_showScrollButton)
                             Positioned(
                               bottom: 16,
                               right: 16,
-                              child: FloatingActionButton(
-                                mini: true,
-                                elevation: 4,
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
+                              child: FloatingActionButton.small(
+                                elevation: 3,
+                                backgroundColor: Theme.of(context).colorScheme.primary,
                                 onPressed: _scrollToBottom,
-                                child: Icon(
-                                  Icons.arrow_downward_rounded,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimary,
-                                  size: 20,
-                                ),
+                                child: Icon(Icons.arrow_downward_rounded, color: Colors.white, size: 20),
                               ),
                             ),
                           if (kDebugMode)
                             Positioned(
                               bottom: 72,
                               right: 16,
-                              child: FloatingActionButton(
-                                mini: true,
+                              child: FloatingActionButton.small(
                                 heroTag: "bond_simulator",
-                                backgroundColor: Colors.orange.shade700,
+                                backgroundColor: Theme.of(context).colorScheme.tertiary,
+                                foregroundColor: Theme.of(context).colorScheme.onTertiary,
                                 onPressed: _showBondSimulator,
-                                child: const Icon(
-                                  Icons.bug_report,
-                                  color: Colors.white,
-                                ),
+                                child: const Icon(Icons.bug_report),
                               ),
                             ),
                           if (_isCharacterMenuOpen)
@@ -2909,45 +2704,38 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   }
 
   Widget _buildChildWarningBanner(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: Colors.amber.shade100,
+      color: cs.errorContainer,
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+          Icon(Icons.warning_amber_rounded, color: cs.onErrorContainer, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text.rich(
               TextSpan(
-                style: TextStyle(fontSize: 12, color: Colors.black87),
+                style: (tt.bodySmall ?? const TextStyle(fontSize: 12)).copyWith(color: cs.onErrorContainer),
                 children: [
                   TextSpan(text: tr('child_sfw_warning')),
                   const TextSpan(text: ' '),
                   TextSpan(
                     text: 'https://s.my-bini.my.id/hs-sfw-policy',
-                    style: TextStyle(
-                      color: Colors.blue.shade700,
-                      decoration: TextDecoration.underline,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: cs.onErrorContainer, decoration: TextDecoration.underline, fontSize: 12, fontWeight: FontWeight.bold),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () {
-                        launchUrl(
-                          Uri.parse('https://s.my-bini.my.id/hs-sfw-policy'),
-                          mode: LaunchMode.externalApplication,
-                        );
+                        launchUrl(Uri.parse('https://s.my-bini.my.id/hs-sfw-policy'), mode: LaunchMode.externalApplication);
                       },
                   ),
                 ],
               ),
             ),
           ),
-          GestureDetector(
-            onTap: () => _safeSetState(() => _showChildWarning = false),
-            child: const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Icon(Icons.close, color: Colors.black54, size: 16),
-            ),
+          IconButton(
+            onPressed: () => _safeSetState(() => _showChildWarning = false),
+            icon: Icon(Icons.close, color: cs.onErrorContainer, size: 18),
+            style: IconButton.styleFrom(minimumSize: const Size(28, 28), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           ),
         ],
       ),

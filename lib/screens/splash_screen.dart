@@ -17,7 +17,6 @@ import '../services/ban_service.dart';
 import 'banned_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/database/app_database.dart';
 import '../data/database/database_migration_service.dart';
@@ -30,12 +29,10 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _iconController;
-  late AnimationController _textController;
-  late Animation<double> _iconScale;
-  late Animation<double> _iconOpacity;
-  late Animation<double> _iconRotate;
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _logoScale;
+  late Animation<double> _logoMove;
   late Animation<double> _textOpacity;
   late Animation<Offset> _textSlide;
 
@@ -45,54 +42,40 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    _iconController = AnimationController(
+    _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 1100),
     );
 
-    _textController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    );
-
-    _iconScale = Tween<double>(begin: 0.0, end: 1.0).animate(
+    // Logo 96 -> 72 (0.75) and centered -> left within 0-50% 550ms
+    _logoScale = Tween<double>(begin: 1.0, end: 0.75).animate(
       CurvedAnimation(
-        parent: _iconController,
-        curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+        parent: _animController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeInOutCubic),
+      ),
+    );
+    _logoMove = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeInOutCubic),
       ),
     );
 
-    _iconOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _iconController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-      ),
-    );
-
-    _iconRotate = Tween<double>(begin: 0.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _iconController,
-        curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
-      ),
-    );
-
+    // Text slides left->right 50-100% 550ms + 200ms hold handled via _initializeApp delay
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-        parent: _textController,
-        curve: const Interval(0.25, 0.75, curve: Curves.easeIn),
+        parent: _animController,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+    _textSlide = Tween<Offset>(begin: const Offset(-0.3, 0), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOutCubic),
       ),
     );
 
-    _textSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _textController,
-            curve: const Interval(0.25, 0.85, curve: Curves.easeOutCubic),
-          ),
-        );
-
-    _iconController.forward();
-    _textController.forward();
+    _animController.forward();
     _initializeApp();
   }
 
@@ -154,10 +137,11 @@ class _SplashScreenState extends State<SplashScreen>
       await _initDatabaseAndMigrate();
     }
 
+    // keep animation 1100ms + 200ms hold = 1300ms; ensure splash stays long enough even if checks are instant (maintenance etc handled before this wait)
     final results = await Future.wait([
       _authService.isLoggedIn(),
       kIsWeb ? Future.value(false) : SecurityService.isDeviceCompromised(),
-      Future.delayed(Duration(seconds: kIsWeb ? 1 : 2)),
+      Future.delayed(Duration(milliseconds: kIsWeb ? 1400 : 1500)),
     ]);
 
     final bool isLoggedIn = results[0] as bool;
@@ -1035,14 +1019,13 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
               const SizedBox(height: 24),
-              ScaleTransition(
-                scale: _iconScale,
-                child: SvgPicture.asset(
-                  'assets/icon/HaloStory.svg',
-                  height: 90,
-                  width: 90,
-                  fit: BoxFit.contain,
-                ),
+              Image.asset(
+                'assets/icon/mikazuki/mikazuki_512.png',
+                height: 90,
+                width: 90,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
+                cacheWidth: 180,
               ),
               const SizedBox(height: 24),
               Text(
@@ -1111,53 +1094,65 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _iconController.dispose();
-    _textController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FadeTransition(
-              opacity: _iconOpacity,
-              child: ScaleTransition(
-                scale: _iconScale,
-                child: Transform.rotate(
-                  angle: _iconRotate.value,
-                  child: SvgPicture.asset(
-                    'assets/icon/HaloStory.svg',
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.contain,
+        child: AnimatedBuilder(
+          animation: _animController,
+          builder: (context, _) {
+            final move = _logoMove.value;
+            // centered (0) -> shift left so Row starts centered then drifts left
+            final rowAlign = move < 0.01 ? MainAxisAlignment.center : MainAxisAlignment.center;
+            return Row(
+              mainAxisAlignment: rowAlign,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                // offset left after 50%
+                Transform.translate(
+                  offset: Offset(-move * 24, 0),
+                  child: Transform.scale(
+                    scale: _logoScale.value * (1 + (1 - _logoScale.value) * 0.0),
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      'assets/icon/mikazuki/mikazuki_512.png',
+                      width: 96 * _logoScale.value,
+                      height: 96 * _logoScale.value,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.medium,
+                      cacheWidth: 144,
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            SlideTransition(
-              position: _textSlide,
-              child: FadeTransition(
-                opacity: _textOpacity,
-                child: Text(
-                  'HaloStory',
-                  style: GoogleFonts.nunito(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: colorScheme.onSurface,
-                    letterSpacing: 0.5,
+                if (_textOpacity.value > 0.01) ...[
+                  const SizedBox(width: 12),
+                  ClipRect(
+                    child: SlideTransition(
+                      position: _textSlide,
+                      child: FadeTransition(
+                        opacity: _textOpacity,
+                        child: Text(
+                          'Mikazuki AI',
+                          style: GoogleFonts.nunito(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ],
+                ],
+              ],
+            );
+          },
         ),
       ),
     );

@@ -20,6 +20,7 @@ class TypingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -43,36 +44,33 @@ class TypingIndicator extends StatelessWidget {
             children: [
               Text(
                 botName,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: titleColor,
-                ),
+                style: (textTheme.titleSmall ?? const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)).copyWith(color: titleColor),
               ),
               const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: bubbleBgColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    topRight: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
+              Card(
+                color: bubbleBgColor,
+                elevation: 0,
+                margin: EdgeInsets.zero,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
                   ),
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DotAnim(delay: 0),
-                    SizedBox(width: 4),
-                    DotAnim(delay: 0.2),
-                    SizedBox(width: 4),
-                    DotAnim(delay: 0.4),
-                  ],
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DotAnim(delay: 0),
+                      SizedBox(width: 4),
+                      DotAnim(delay: 0.2),
+                      SizedBox(width: 4),
+                      DotAnim(delay: 0.4),
+                    ],
+                  ),
                 ),
               ),
             ],

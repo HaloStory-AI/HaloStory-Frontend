@@ -327,8 +327,6 @@
   "vip_benefit_priority": "Priority Gemini AI",
   "vip_benefit_fallback": "Multi-key Fallback",
   "vip_benefit_badge": "Exclusive Badge",
-  "chat_bug_notice_title": "Important Bug Fix Notice",
-  "chat_bug_notice_body": "Previous update had a bug where AI forgot easily. To fix it, tap the three dots and click 'Re-Summary'.",
   "chat_resummary_loading": "Re-summarizing chat history...",
   "tutorial_chat_title": "How to Start a Chat",
   "tutorial_single_chat": "Single Chat: Select 1 student from the list to start a private chat.",

@@ -13,10 +13,10 @@ class AppTheme {
 
   static ThemeData mzTheme() {
     const darkColorScheme = ColorScheme.dark(
-      primary: Color(0xFF7CB3FF),
-      onPrimary: Colors.black,
-      secondary: Color(0xFF90BFFF),
-      onSecondary: Colors.black,
+      primary: Color(0xFF5A8DEE),
+      onPrimary: Colors.white,
+      secondary: Color(0xFF7AA8FF),
+      onSecondary: Colors.white,
       surface: amoledSurface,
       onSurface: Color(0xFFEDEDED),
       onSurfaceVariant: Color(0xFF9CA8BC),

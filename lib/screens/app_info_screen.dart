@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../services/localization_service.dart';
 
 class AppInfoScreen extends StatefulWidget {
@@ -46,20 +45,18 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SvgPicture.asset(
-              'assets/icon/HaloStory.svg',
+            Image.asset(
+              'assets/icon/mikazuki/mikazuki_512.png',
               width: 100,
               height: 100,
               fit: BoxFit.contain,
-              colorFilter: ColorFilter.mode(
-                colorScheme.primary,
-                BlendMode.srcIn,
-              ),
+              filterQuality: FilterQuality.medium,
+              cacheWidth: 200,
             ),
             const SizedBox(height: 24),
 
             Text(
-              'HaloStory',
+              'Mikazuki AI',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -90,19 +87,17 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
               onPressed: () {
                 showLicensePage(
                   context: context,
-                  applicationName: 'HaloStory',
+                  applicationName: 'Mikazuki AI',
                   applicationVersion: _version,
                   applicationIcon: Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: SvgPicture.asset(
-                      'assets/icon/HaloStory.svg',
+                    child: Image.asset(
+                      'assets/icon/mikazuki/mikazuki_512.png',
                       width: 64,
                       height: 64,
                       fit: BoxFit.contain,
-                      colorFilter: ColorFilter.mode(
-                        colorScheme.primary,
-                        BlendMode.srcIn,
-                      ),
+                      filterQuality: FilterQuality.medium,
+                      cacheWidth: 128,
                     ),
                   ),
                 );

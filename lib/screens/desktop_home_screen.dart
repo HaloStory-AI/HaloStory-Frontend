@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
@@ -215,16 +214,18 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: SvgPicture.asset(
-                'assets/icon/HaloStory.svg',
+              child: Image.asset(
+                'assets/icon/mikazuki/mikazuki_512.png',
                 width: 20,
                 height: 20,
                 fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
+                cacheWidth: 40,
               ),
             ),
             const SizedBox(width: 4),
             Text(
-              'HaloStory',
+              'Mikazuki AI',
               style: GoogleFonts.nunito(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
