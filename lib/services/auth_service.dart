@@ -9,11 +9,14 @@ import 'ban_service.dart';
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
+  static const String _refreshTokenKey = 'refresh_token';
   static const String _loginDateKey = 'login_date';
 
   static final StreamController<void> _sessionExpiredController =
       StreamController<void>.broadcast();
   static Stream<void> get onSessionExpired => _sessionExpiredController.stream;
+
+  Completer<bool>? _refreshing;
 
   Future<Map<String, dynamic>> register(
     String name,
@@ -41,7 +44,7 @@ class AuthService {
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        await _saveToken(data['access_token']);
+        await _saveTokens(data['access_token'], data['refresh_token']);
         _userProfileCache = data['user'];
         _lastProfileFetch = DateTime.now();
         return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
@@ -80,7 +83,7 @@ class AuthService {
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        await _saveToken(data['access_token']);
+        await _saveTokens(data['access_token'], data['refresh_token']);
         _userProfileCache = data['user'];
         _lastProfileFetch = DateTime.now();
         return {'success': true, 'message': data['message'] ?? 'Berhasil.'};
@@ -168,7 +171,8 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> sendVerificationOtp() async {
-    final token = await getToken();
+    final token = await getValidAccessToken();
+    if (token == null) return {'success': false, 'message': 'Sesi habis, silakan login kembali.'};
     try {
       final response = await http
           .post(
@@ -195,7 +199,8 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> verifyEmail(String otp) async {
-    final token = await getToken();
+    final token = await getValidAccessToken();
+    if (token == null) return {'success': false, 'message': 'Sesi habis, silakan login kembali.'};
     try {
       final response = await http
           .post(
@@ -234,6 +239,115 @@ class AuthService {
     }
   }
 
+  Future<void> _saveTokens(dynamic accessToken, dynamic refreshToken) async {
+    if (accessToken is String && accessToken.isNotEmpty) {
+      await _saveToken(accessToken);
+    }
+    if (refreshToken is String && refreshToken.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_refreshTokenKey, refreshToken);
+    }
+  }
+
+  Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
+  }
+
+  int? _jwtExpiryMs(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      var payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+      switch (payload.length % 4) {
+        case 1:
+          payload += '===';
+          break;
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
+      }
+      final decoded = utf8.decode(base64.decode(payload));
+      final map = jsonDecode(decoded) as Map<String, dynamic>;
+      final exp = map['exp'];
+      if (exp is int) return exp * 1000;
+      if (exp is num) return exp.toInt() * 1000;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> refreshTokens() async {
+    if (_refreshing != null) return _refreshing!.future;
+    final completer = Completer<bool>();
+    _refreshing = completer;
+    try {
+      final rt = await getRefreshToken();
+      if (rt == null || rt.isEmpty) {
+        completer.complete(false);
+        return false;
+      }
+      final response = await http
+          .post(
+            Uri.parse('${AppConstants.baseUrl}/refresh'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'refresh_token': rt}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newAccess = data['access_token'];
+        final newRefresh = data['refresh_token'];
+        await _saveTokens(newAccess, newRefresh);
+        if (data['user'] != null) {
+          _userProfileCache = data['user'] is Map<String, dynamic>
+              ? data['user'] as Map<String, dynamic>
+              : Map<String, dynamic>.from(data['user'] as Map);
+          _lastProfileFetch = DateTime.now();
+        }
+        completer.complete(true);
+        return true;
+      } else {
+        // 401 expired/revoked/reuse or other error → force logout
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          if (kDebugMode) print('DEBUG: refresh failed ${response.statusCode}: ${response.body}');
+          await logout();
+          _sessionExpiredController.add(null);
+        }
+        completer.complete(false);
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) print('DEBUG: refreshTokens network error: $e');
+      if (!completer.isCompleted) completer.complete(false);
+      return false;
+    } finally {
+      _refreshing = null;
+    }
+  }
+
+  Future<String?> getValidAccessToken() async {
+    var token = await getToken();
+    if (token == null) return null;
+    final expMs = _jwtExpiryMs(token);
+    if (expMs != null) {
+      final remaining = expMs - DateTime.now().millisecondsSinceEpoch;
+      if (remaining < 60000) {
+        final ok = await refreshTokens();
+        if (ok) token = await getToken();
+      }
+    }
+    return token;
+  }
+
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
@@ -243,20 +357,43 @@ class AuthService {
       final loginDate = DateTime.parse(loginDateStr);
       final now = DateTime.now();
 
-      // Check if it has been more than 30 days
+      // Check if it has been more than 30 days (legacy guard, keep for sync)
       if (now.difference(loginDate).inDays > 30) {
         await logout();
         return null;
       }
       return token;
     }
+    // Legacy: token tanpa loginDate (sebelumnya tidak ada) → tetap kembalikan
+    if (token != null) return token;
     return null;
   }
 
   Future<void> logout() async {
+    // Best-effort revoke di server (jangan blokir logout lokal jika gagal)
+    try {
+      final rt = await getRefreshToken();
+      final at = await getToken();
+      if (rt != null && rt.isNotEmpty) {
+        await http
+            .post(
+              Uri.parse('${AppConstants.baseUrl}/logout'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                if (at != null && at.isNotEmpty) 'Authorization': 'Bearer $at',
+              },
+              body: jsonEncode({'refresh_token': rt}),
+            )
+            .timeout(const Duration(seconds: 10));
+      }
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_loginDateKey);
+    await prefs.remove(_refreshTokenKey);
+    clearCache();
   }
 
   bool _validationHadNetworkError = false;
@@ -266,7 +403,7 @@ class AuthService {
   Future<bool> validateTokenWithServer(String token) async {
     _validationHadNetworkError = false;
     try {
-      final response = await http
+      http.Response response = await http
           .get(
             Uri.parse('${AppConstants.baseUrl}/user'),
             headers: {
@@ -290,6 +427,35 @@ class AuthService {
 
         return true;
       } else if (response.statusCode == 401) {
+        // Coba refresh sekali sebelum logout (seamless)
+        final ok = await refreshTokens();
+        if (ok) {
+          final newToken = await getToken();
+          if (newToken != null && newToken != token) {
+            try {
+              response = await http
+                  .get(
+                    Uri.parse('${AppConstants.baseUrl}/user'),
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                      'Authorization': 'Bearer $newToken',
+                    },
+                  )
+                  .timeout(const Duration(seconds: 30));
+              if (response.statusCode == 200) {
+                final body = jsonDecode(response.body);
+                _userProfileCache = body;
+                _lastProfileFetch = DateTime.now();
+                if (body is Map<String, dynamic> && body['is_banned'] == true) {
+                  await BanService.handleBanFromProfile(body);
+                  return false;
+                }
+                return true;
+              }
+            } catch (_) {}
+          }
+        }
         if (kDebugMode) {
           print('DEBUG: Token rejected by server (401), clearing local token.');
         }
@@ -347,7 +513,7 @@ class AuthService {
       return _userProfileCache;
     }
 
-    final token = await getToken();
+    final token = await getValidAccessToken();
     if (token == null) return null;
 
     try {
@@ -393,7 +559,8 @@ class AuthService {
     String email,
     String password,
   ) async {
-    final token = await getToken();
+    final token = await getValidAccessToken();
+    if (token == null) return {'success': false, 'message': 'Sesi habis, silakan login kembali.'};
     try {
       final response = await http
           .post(
@@ -423,7 +590,8 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> updateName(String name) async {
-    final token = await getToken();
+    final token = await getValidAccessToken();
+    if (token == null) return {'success': false, 'message': 'Sesi habis, silakan login kembali.'};
     try {
       final response = await http
           .post(
@@ -455,7 +623,8 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> updatePersona(String persona) async {
-    final token = await getToken();
+    final token = await getValidAccessToken();
+    if (token == null) return {'success': false, 'message': 'Sesi habis, silakan login kembali.'};
     try {
       final response = await http
           .post(
@@ -490,7 +659,8 @@ class AuthService {
     String newPassword,
     String newPasswordConfirmation,
   ) async {
-    final token = await getToken();
+    final token = await getValidAccessToken();
+    if (token == null) return {'success': false, 'message': 'Sesi habis, silakan login kembali.'};
     try {
       final response = await http
           .post(

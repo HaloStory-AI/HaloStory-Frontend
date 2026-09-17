@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../utils/chat_helpers.dart';
 
 class CompactCharacterMenu extends StatelessWidget {
@@ -52,9 +53,9 @@ class CompactCharacterMenu extends StatelessWidget {
                     radius: 20,
                     backgroundColor: color,
                     backgroundImage: member['image_url'] != null
-                        ? NetworkImage(member['image_url'])
+                        ? CachedNetworkImageProvider(member['image_url'])
                         : (member['avatar'] != null
-                            ? NetworkImage(member['avatar'])
+                            ? CachedNetworkImageProvider(member['avatar'])
                             : null),
                     child: (member['image_url'] == null &&
                             member['avatar'] == null)

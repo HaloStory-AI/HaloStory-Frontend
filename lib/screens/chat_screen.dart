@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
@@ -2229,7 +2230,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                     radius: 18,
                     backgroundColor: parseColor(widget.bot['color']),
                     backgroundImage: widget.bot['image_url'] != null
-                        ? NetworkImage(widget.bot['image_url'])
+                        ? CachedNetworkImageProvider(widget.bot['image_url'])
                         : null,
                     child: widget.bot['image_url'] == null
                         ? Text(
@@ -3018,7 +3019,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     return CircleAvatar(
       radius: 17,
       backgroundColor: bgColor,
-      backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+      backgroundImage: avatarUrl != null ? CachedNetworkImageProvider(avatarUrl) : null,
       child: avatarUrl == null
           ? Text(
               initial,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/student_request_service.dart';
 import '../services/localization_service.dart';
 
@@ -183,7 +184,7 @@ class _StudentRequestScreenState extends State<StudentRequestScreen> {
                           radius: 28,
                           backgroundColor: _parseColor(colorStr),
                           backgroundImage: imageUrl.isNotEmpty
-                              ? NetworkImage(imageUrl)
+                              ? CachedNetworkImageProvider(imageUrl)
                               : null,
                           child: imageUrl.isEmpty
                               ? Text(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dot_animation.dart';
 
 class TypingIndicator extends StatelessWidget {
@@ -28,7 +29,7 @@ class TypingIndicator extends StatelessWidget {
             radius: 18,
             backgroundColor: botColor,
             backgroundImage:
-                botAvatarUrl != null ? NetworkImage(botAvatarUrl!) : null,
+                botAvatarUrl != null ? CachedNetworkImageProvider(botAvatarUrl!) : null,
             child: botAvatarUrl == null
                 ? Text(
                     botName[0].toUpperCase(),

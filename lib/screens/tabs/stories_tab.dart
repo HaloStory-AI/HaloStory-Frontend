@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../services/story_service.dart';
 import '../../services/localization_service.dart';
@@ -226,7 +227,7 @@ class _StoriesTabState extends State<StoriesTab> {
                                   backgroundColor: Colors.grey.shade200,
                                   backgroundImage:
                                       latestStory['bot_avatar'] != null
-                                      ? NetworkImage(latestStory['bot_avatar'])
+                                      ? CachedNetworkImageProvider(latestStory['bot_avatar'].toString())
                                       : null,
                                   child: latestStory['bot_avatar'] == null
                                       ? Text(

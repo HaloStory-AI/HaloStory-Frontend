@@ -5,7 +5,6 @@ import '../../services/localization_service.dart';
 import '../profile_screen.dart';
 import '../admin_screen.dart';
 import '../student_request_screen.dart';
-import '../donation_screen.dart';
 import '../settings_screen.dart';
 import '../app_info_screen.dart';
 import '../../services/ban_service.dart';
@@ -327,31 +326,6 @@ class _MoreTabState extends State<MoreTab> {
           ),
           child: Column(
             children: [
-              ListTile(
-                tileColor: Colors.transparent,
-                leading: const Icon(
-                  Icons.favorite_rounded,
-                  color: Colors.pinkAccent,
-                ),
-                title: Text(tr('sidebar_donation')),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DonationScreen(),
-                    ),
-                  );
-                },
-              ),
-              Divider(
-                height: 1,
-                indent: 56,
-                color: colorScheme.outlineVariant,
-              ),
               ListTile(
                 tileColor: Colors.transparent,
                 leading: Icon(

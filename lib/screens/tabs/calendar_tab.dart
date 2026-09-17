@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../services/bot_service.dart';
 import '../../services/localization_service.dart';
@@ -263,7 +264,7 @@ class _CalendarTabState extends State<CalendarTab>
     return Card.filled(
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(radius: 28, backgroundImage: NetworkImage(bot['image_url'])),
+        leading: CircleAvatar(radius: 28, backgroundImage: CachedNetworkImageProvider((bot['thumb_url'] ?? bot['image_url']).toString())),
         title: Text(bot['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         subtitle: Row(
           mainAxisSize: MainAxisSize.min,

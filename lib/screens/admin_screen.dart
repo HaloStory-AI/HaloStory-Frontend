@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/admin_service.dart';
 import 'package:intl/intl.dart';
 import 'admin/bot_editor.dart';
@@ -184,7 +185,7 @@ class _AdminScreenState extends State<AdminScreen> {
               return ListTile(
                 leading: CircleAvatar(
                   backgroundImage: bot['avatar'] != null
-                      ? NetworkImage(bot['avatar'])
+                      ? CachedNetworkImageProvider(bot['avatar'])
                       : null,
                   child: bot['avatar'] == null
                       ? const Icon(Icons.smart_toy)

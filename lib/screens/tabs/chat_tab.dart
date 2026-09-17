@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/bot_service.dart';
 import '../../services/localization_service.dart';
@@ -1223,7 +1224,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                     radius: 28,
                     backgroundColor: _parseColor(chat['color']),
                     backgroundImage: chat['image_url'] != null
-                        ? NetworkImage(chat['image_url'])
+                        ? CachedNetworkImageProvider((chat['thumb_url'] ?? chat['image_url']).toString())
                         : null,
                     child: chat['image_url'] == null
                         ? Text(
@@ -1448,11 +1449,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                         fit: StackFit.expand,
                         children: [
                           if (imageUrl != null && imageUrl.isNotEmpty)
-                            Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
+                            CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,
+                              errorWidget: (context, url, error) => Container(
                                   color: _parseColor(chat['color']),
                                   alignment: Alignment.center,
                                   child: Text(
@@ -1463,8 +1461,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                                       fontSize: 84,
                                     ),
                                   ),
-                                );
-                              },
+                                ),
                             )
                           else
                             Container(

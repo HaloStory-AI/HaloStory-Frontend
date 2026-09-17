@@ -30,6 +30,8 @@ void main() async {
     HttpOverrides.global = _ImageHostHttpOverrides();
   }
   WidgetsFlutterBinding.ensureInitialized();
+  PaintingBinding.instance.imageCache.maximumSize = 200;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 << 20;
   initSqlite();
   await LocalizationService().init();
 

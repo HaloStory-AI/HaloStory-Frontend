@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
@@ -252,9 +253,7 @@ class CallScreenState extends State<CallScreen> {
                       child: widget.bot['image_url'] != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(50),
-                              child: Image.network(
-                                widget.bot['image_url'],
-                                fit: BoxFit.cover,
+                              child: CachedNetworkImage(imageUrl: widget.bot['image_url'], fit: BoxFit.cover,
                               ),
                             )
                           : Center(

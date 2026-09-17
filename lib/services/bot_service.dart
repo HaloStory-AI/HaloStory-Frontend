@@ -29,6 +29,9 @@ class BotService {
     bool forceRefresh = false,
     String? type,
     String? category,
+    int? page,
+    int? perPage,
+    String? query,
   }) async {
     final effectiveType = type ?? 'all';
     final now = DateTime.now();
@@ -38,7 +41,11 @@ class BotService {
     bool isDefault = (effectiveType == 'Main' || effectiveType == 'all') && category == null;
 
     if (!isDefault) {
-      return await _performFetch(type: type, category: category);
+      return await _performFetch(type: type, category: category, page: page, perPage: perPage, query: query);
+    }
+    // Paginated request bypasses cache
+    if (page != null) {
+      return await _performFetch(type: type, category: category, page: page, perPage: perPage, query: query);
     }
 
     // 1. Memory Cache Check - FRESH (< 10 minutes)
@@ -93,6 +100,9 @@ class BotService {
   Future<List<Map<String, dynamic>>> _performFetch({
     String? type,
     String? category,
+    int? page,
+    int? perPage,
+    String? query,
   }) async {
     final now = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
@@ -108,6 +118,9 @@ class BotService {
       List<String> params = [];
       if (type != null) params.add('type=$type');
       if (category != null) params.add('category=$category');
+      if (page != null) params.add('page=$page');
+      if (perPage != null) params.add('per_page=$perPage');
+      if (query != null && query.isNotEmpty) params.add('q=${Uri.encodeComponent(query)}');
       if (params.isNotEmpty) {
         url += '?${params.join('&')}';
       }
@@ -124,7 +137,8 @@ class BotService {
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded is Map && decoded['items'] is List ? decoded['items'] as List : []);
         final result = List<Map<String, dynamic>>.from(data);
 
         // --- NEW: UPDATE KNOWN BOTS ---

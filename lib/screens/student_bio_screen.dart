@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
@@ -563,7 +564,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               radius: 60,
               backgroundColor: _parseColor(widget.bot['color']),
               backgroundImage: widget.bot['image_url'] != null
-                  ? NetworkImage(widget.bot['image_url'])
+                  ? CachedNetworkImageProvider(widget.bot['image_url'])
                   : null,
               child: widget.bot['image_url'] == null
                   ? Text(
@@ -1047,7 +1048,7 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
                       radius: 20,
                       backgroundColor: memberColor,
                       backgroundImage: memberAvatar != null
-                          ? NetworkImage(memberAvatar)
+                          ? CachedNetworkImageProvider(memberAvatar)
                           : null,
                       child: memberAvatar == null
                           ? Text(

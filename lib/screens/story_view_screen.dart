@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:video_player/video_player.dart';
 import 'package:intl/intl.dart';
@@ -421,7 +422,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
             child: _localFile != null && !_isVideo
                 ? Image.file(_localFile!, fit: BoxFit.cover)
                 : (story['bot_avatar'] != null
-                      ? Image.network(story['bot_avatar'], fit: BoxFit.cover)
+                      ? CachedNetworkImage(imageUrl: story['bot_avatar'], fit: BoxFit.cover)
                       : Container(color: Colors.black)),
           ),
           Positioned.fill(
@@ -472,9 +473,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                 : InteractiveViewer(
                     child: (!kIsWeb && _localFile != null)
                         ? Image.file(_localFile!, fit: BoxFit.contain)
-                        : Image.network(
-                            story['image_url'],
-                            fit: BoxFit.contain,
+                        : CachedNetworkImage(imageUrl: story['image_url'], fit: BoxFit.contain,
                           ),
                   ),
           ),
@@ -517,7 +516,7 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
                   radius: 20,
                   backgroundColor: Colors.white24,
                   backgroundImage: story['bot_avatar'] != null
-                      ? NetworkImage(story['bot_avatar'])
+                      ? CachedNetworkImageProvider(story['bot_avatar'])
                       : null,
                   child: story['bot_avatar'] == null
                       ? Text(

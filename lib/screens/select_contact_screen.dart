@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../services/bot_service.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/localization_service.dart';
@@ -40,6 +41,11 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
   String _searchQuery = '';
 
   bool _isLoadingBots = true;
+  // Pagination for newChat
+  int _currentPage = 1;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  final ScrollController _scrollController = ScrollController();
 
   // Category state (singleChat mode only)
   List<Map<String, dynamic>> _categories = [];
@@ -51,7 +57,36 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _loadAvailableBots();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore && _searchQuery.isEmpty && widget.mode == SelectContactMode.newChat && _selectedCategorySlug == null) {
+        _loadMoreBots();
+      }
+    }
+  }
+
+  Future<void> _loadMoreBots() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    final nextPage = _currentPage + 1;
+    final bots = await _botService.getBots(page: nextPage, perPage: 25);
+    if (!mounted) return;
+    setState(() {
+      _isLoadingMore = false;
+      if (bots.isEmpty || bots.length < 25) _hasMore = false;
+      _currentPage = nextPage;
+      _availableBots.addAll(bots);
+    });
   }
 
   Future<void> _loadAvailableBots() async {
@@ -59,14 +94,19 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
       await _loadCategories();
       return;
     }
-    setState(() => _isLoadingBots = true);
+    setState(() {
+      _isLoadingBots = true;
+      _currentPage = 1;
+      _hasMore = true;
+    });
     final bots = widget.mode == SelectContactMode.newChat
-        ? await _botService.getBots(forceRefresh: true)
+        ? await _botService.getBots(page: 1, perPage: 25)
         : await _botService.getRecruitedBots();
     if (mounted) {
       setState(() {
         _availableBots = bots;
         _isLoadingBots = false;
+        _hasMore = bots.length >= 25;
       });
     }
   }
@@ -328,10 +368,13 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
       );
     }
     return ListView.separated(
-      itemCount: bots.length,
+      controller: widget.mode == SelectContactMode.newChat && _hasMore ? _scrollController : null,
+      itemCount: bots.length + (_isLoadingMore ? 1 : 0),
       separatorBuilder: (context, index) =>
           Divider(height: 1, color: Theme.of(context).dividerColor),
       itemBuilder: (context, index) {
+        if (index >= bots.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+
         final bot = bots[index];
         final id = bot['id'].toString();
         final isSelected = _selectedBotIds.contains(id);
@@ -343,7 +386,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
               CircleAvatar(
                 backgroundColor: _parseColor(bot['color']),
                 backgroundImage: bot['image_url'] != null
-                    ? NetworkImage(bot['image_url'])
+                    ? CachedNetworkImageProvider((bot['thumb_url'] ?? bot['image_url']).toString())
                     : null,
                 child: bot['image_url'] == null
                     ? Text(
@@ -574,7 +617,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
       leading: CircleAvatar(
         backgroundColor: cs.surfaceContainerHighest,
         backgroundImage: logoUrl != null && logoUrl.toString().isNotEmpty
-            ? NetworkImage(logoUrl.toString())
+            ? CachedNetworkImageProvider(logoUrl.toString())
             : null,
         child: logoUrl == null || logoUrl.toString().isEmpty
             ? Text(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import '../../utils/chat_helpers.dart';
@@ -58,7 +59,7 @@ class BotMessageBubble extends StatelessWidget {
             radius: 18,
             backgroundColor: botColor,
             backgroundImage: botAvatarUrl != null
-                ? NetworkImage(botAvatarUrl!)
+                ? CachedNetworkImageProvider(botAvatarUrl!)
                 : null,
             child: botAvatarUrl == null
                 ? Text(

@@ -19,7 +19,6 @@ import 'profile_screen.dart';
 import 'admin_screen.dart';
 import 'student_request_screen.dart';
 import 'app_info_screen.dart';
-import 'donation_screen.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({super.key});
@@ -36,7 +35,6 @@ enum MiddlePanelState {
   suggest,
   info,
   chat,
-  donation,
   selectContact,
 }
 
@@ -380,8 +378,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         return const AppInfoScreen();
       case MiddlePanelState.chat:
         return const Center(child: Text("Chat View"));
-      case MiddlePanelState.donation:
-        return const DonationScreen(isDesktopMiddlePanel: true);
       case MiddlePanelState.selectContact:
         return SelectContactScreen(
           onContactSelected: (chatData) {
