@@ -2,23 +2,12 @@ name: Android arm64 Manual
 
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build'
-        required: true
-        default: 'main'
-        type: choice
-        options:
-          - main
-          - develop
-          - dev
-          - staging
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-arm64-${{ inputs.branch }}
+  group: android-arm64-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -28,8 +17,6 @@ jobs:
     steps:
       - name: Checkout selected branch
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.branch }}
 
       - uses: subosito/flutter-action@v2
         with:
@@ -68,7 +55,7 @@ jobs:
         run: |
           VER=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
           echo "VERSION_NAME=$VER" >> $GITHUB_ENV
-          echo "Branch: ${{ inputs.branch }} -> $VER"
+          echo "Branch: ${{ github.ref_name }} -> $VER"
 
       - name: Rename APKs (keep arm64 only for artifact)
         run: |
@@ -83,7 +70,7 @@ jobs:
       - name: Upload arm64 APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Android-arm64-${{ inputs.branch }}-${{ env.VERSION_NAME }}
+          name: Android-arm64-${{ github.ref_name }}-${{ env.VERSION_NAME }}
           path: build/app/outputs/flutter-apk/HaloStory_AI-V*arm64-v8a.apk
           retention-days: 14
           if-no-files-found: error
