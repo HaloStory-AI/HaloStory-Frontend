@@ -5,6 +5,7 @@ import '../services/localization_service.dart';
 import '../services/ai_service.dart';
 import 'chat_screen.dart';
 import 'desktop_home_screen.dart';
+import 'select_contact_screen.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/calendar_tab.dart';
@@ -110,17 +111,101 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onBottomNavTap(int index) {
     if (index == 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('coming_soon')),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showCreateSheet();
       return;
     }
     if (index == _currentIndex) return;
     setState(() => _currentIndex = index);
+  }
+
+  void _showCreateSheet() {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        final sheetCs = Theme.of(sheetCtx).colorScheme;
+        Widget tile({
+          required IconData icon,
+          required String title,
+          String? subtitle,
+          required VoidCallback onTap,
+        }) {
+          return ListTile(
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: sheetCs.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: sheetCs.onSecondaryContainer),
+            ),
+            title: Text(title, style: TextStyle(color: sheetCs.onSurface, fontWeight: FontWeight.w600)),
+            subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: sheetCs.onSurfaceVariant, fontSize: 12)) : null,
+            onTap: onTap,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          );
+        }
+
+        void snackSoon() {
+          Navigator.pop(sheetCtx);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr('coming_soon')), behavior: SnackBarBehavior.floating),
+          );
+        }
+
+        void openSingle() {
+          Navigator.pop(sheetCtx);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SelectContactScreen(
+                mode: SelectContactMode.singleChat,
+                onContactSelected: (chatData) => _onChatSelected(chatData),
+                onCancel: () => Navigator.pop(context),
+              ),
+            ),
+          );
+        }
+
+        void openGroup() {
+          Navigator.pop(sheetCtx);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SelectContactScreen(
+                mode: SelectContactMode.newChat,
+                onContactSelected: (chatData) => _onChatSelected(chatData),
+                onCancel: () => Navigator.pop(context),
+              ),
+            ),
+          );
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: sheetCs.outlineVariant, borderRadius: BorderRadius.circular(10))),
+                const SizedBox(height: 16),
+                tile(icon: Icons.person_add_rounded, title: 'Buat Chat sendiri', subtitle: tr('tab_chat_single_chat'), onTap: openSingle),
+                tile(icon: Icons.group_add_rounded, title: 'Buat Chat Group', subtitle: tr('tab_chat_group_chat'), onTap: openGroup),
+                tile(icon: Icons.auto_awesome_rounded, title: 'Buat Karakter', subtitle: tr('coming_soon'), onTap: snackSoon),
+                tile(icon: Icons.add_task_rounded, title: 'Minta Karakter', subtitle: tr('coming_soon'), onTap: snackSoon),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override

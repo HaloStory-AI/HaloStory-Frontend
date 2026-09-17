@@ -41,16 +41,13 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   // but it's used here.
   bool _isLoadingChats = true;
   bool _bondDisabled = false;
-  bool _isFabOpen = false;
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
-  bool _showSyncNotice = true;
   StreamSubscription<String>? _chatUpdateSubscription;
   Timer? _debounceTimer;
 
   static const String _chatSortByKey = 'chat_sort_by';
   static const String _chatSortAscKey = 'chat_sort_ascending';
-  static const String _syncNoticeDismissedKey = 'chat_sync_notice_dismissed';
   static const String _chatHeaderPopupFont = 'Roboto';
   static const List<ChatSortType> _sortOptions = [
     ChatSortType.newest,
@@ -197,20 +194,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     await prefs.setBool(_chatSortAscKey, _sortAscending);
   }
 
-  Future<void> _loadSyncNoticePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    final dismissed = prefs.getBool(_syncNoticeDismissedKey) ?? false;
-    if (mounted) {
-      setState(() {
-        _showSyncNotice = !dismissed;
-      });
-    }
-  }
-
   @override
   void initState() {
     super.initState();
-    _loadSyncNoticePreference();
     _loadSortPreferencesAndInit();
 
     // Listen to real-time chat updates (new messages, deleted chats) — debounced
@@ -387,239 +373,66 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
       return;
     }
 
-    showGeneralDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Sort',
-      barrierColor: Colors.black.withValues(alpha: 0.05),
-      transitionDuration: const Duration(milliseconds: 150),
-      pageBuilder: (overlayContext, animation, secondaryAnimation) {
-        final media = MediaQuery.of(overlayContext);
-        final double topOffset = media.padding.top + kToolbarHeight + 44;
-
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetCtx) {
         return StatefulBuilder(
-          builder: (dialogContext, setSheetState) {
-            const compactControlHeight = 34.0;
-            final colorScheme = Theme.of(dialogContext).colorScheme;
-            final selectedColor = colorScheme.primary;
-            final titleTextColor = _primaryTextColor(dialogContext);
-            final solidModalShadow = [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.58),
-                offset: const Offset(0, 3),
-                blurRadius: 0,
-                spreadRadius: 0,
-              ),
-            ];
-
-            Widget buildSortChoice(ChatSortType value) {
-              final bool isSelected = draftSort == value;
-
-              return InkWell(
-                onTap: () => setSheetState(() => draftSort = value),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  height: compactControlHeight,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? selectedColor
-                        : _surfaceAltColor(dialogContext),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected
-                          ? selectedColor
-                          : _borderColor(dialogContext),
+          builder: (ctx, setSheetState) {
+            final cs = Theme.of(ctx).colorScheme;
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(10))),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Text(_trOr('sort_title', 'Sort'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                        const Spacer(),
+                        IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded)),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.42),
-                        offset: const Offset(0, 2),
-                        blurRadius: 0,
-                        spreadRadius: 0,
+                    const SizedBox(height: 12),
+                    RadioGroup<ChatSortType>(
+                      groupValue: draftSort,
+                      onChanged: (nv) => setSheetState(() => draftSort = nv!),
+                      child: Column(
+                        children: _sortOptions.map((v) => RadioListTile<ChatSortType>(
+                          value: v,
+                          title: Text(_sortLabel(v)),
+                          activeColor: cs.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        )).toList(),
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    _sortLabel(value),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: _chatHeaderPopupFont,
-                      color: isSelected
-                          ? colorScheme.onPrimary
-                          : _secondaryTextColor(dialogContext),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () async {
+                          setState(() => _sortBy = draftSort);
+                          await _saveSortPreferences();
+                          await _loadActiveChats();
+                          if (!mounted) return;
+                          Navigator.pop(ctx);
+                        },
+                        child: Text(_trOr('sort_confirm', 'Confirm')),
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            }
-
-            Widget buildOptionsRow(List<ChatSortType> options) {
-              return Row(
-                children: [
-                  for (int i = 0; i < options.length; i++) ...[
-                    Expanded(child: buildSortChoice(options[i])),
-                    if (i != options.length - 1) const SizedBox(width: 10),
-                  ],
-                  if (options.length == 1) ...[
-                    const SizedBox(width: 10),
-                    const Expanded(child: SizedBox.shrink()),
-                  ],
-                ],
-              );
-            }
-
-            return Material(
-              type: MaterialType.transparency,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(dialogContext),
-                      behavior: HitTestBehavior.opaque,
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    top: topOffset,
-                    child: SafeArea(
-                      bottom: false,
-                      child: GestureDetector(
-                        onTap: () {},
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: _surfaceColor(dialogContext),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: solidModalShadow,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  14,
-                                  10,
-                                  8,
-                                  8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      _trOr('sort_title', 'Sort'),
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w500,
-                                        fontFamily: _chatHeaderPopupFont,
-                                        color: titleTextColor,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    IconButton(
-                                      onPressed: () =>
-                                          Navigator.pop(dialogContext),
-                                      icon: Icon(
-                                        Icons.close_rounded,
-                                        color: _secondaryTextColor(
-                                          dialogContext,
-                                        ),
-                                        size: 28,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Divider(
-                                height: 1,
-                                color: Theme.of(dialogContext).dividerColor,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  10,
-                                  12,
-                                  10,
-                                ),
-                                child: Column(
-                                  children: [
-                                    buildOptionsRow(
-                                      _sortOptions.take(2).toList(),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    buildOptionsRow(
-                                      _sortOptions.skip(2).take(2).toList(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Divider(
-                                height: 1,
-                                color: Theme.of(dialogContext).dividerColor,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  10,
-                                  12,
-                                  12,
-                                ),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton(
-                                    onPressed: () async {
-                                      setState(() {
-                                        _sortBy = draftSort;
-                                      });
-                                      await _saveSortPreferences();
-                                      await _loadActiveChats();
-                                      if (!mounted) return;
-                                      Navigator.of(context).pop();
-                                    },
-                                    style: OutlinedButton.styleFrom(
-                                      backgroundColor: _surfaceAltColor(
-                                        dialogContext,
-                                      ),
-                                      foregroundColor: _primaryTextColor(
-                                        dialogContext,
-                                      ),
-                                      side: BorderSide(
-                                        color: _borderColor(dialogContext),
-                                      ),
-                                      minimumSize: const Size(
-                                        double.infinity,
-                                        compactControlHeight,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _trOr('sort_confirm', 'Confirm'),
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        fontFamily: _chatHeaderPopupFont,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             );
           },
         );
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(opacity: animation, child: child);
       },
     );
   }
@@ -635,115 +448,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
       body: SafeArea(
         top: false,
         child: RefreshIndicator(onRefresh: _handleRefresh, child: _buildBody()),
-      ),
-      floatingActionButton: _buildExpandableFab(),
-    );
-  }
-
-  Widget _buildExpandableFab() {
-    final colorScheme = Theme.of(context).colorScheme;
-    const slant = 0.174533;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (_isFabOpen) ...[
-          _buildFabAction(
-            icon: Icons.person_add_rounded,
-            label: tr('tab_chat_single_chat'),
-            onTap: () {
-              setState(() => _isFabOpen = false);
-              _openSelectContact(mode: SelectContactMode.singleChat);
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildFabAction(
-            icon: Icons.group_add_rounded,
-            label: tr('tab_chat_group_chat'),
-            onTap: () {
-              setState(() => _isFabOpen = false);
-              _openSelectContact();
-            },
-          ),
-          const SizedBox(height: 12),
-        ],
-        SizedBox(
-          width: 50,
-          height: 46,
-          child: Transform(
-            transform: Matrix4.skewX(-slant),
-            alignment: Alignment.center,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 0,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => setState(() => _isFabOpen = !_isFabOpen),
-                  child: Transform(
-                    transform: Matrix4.skewX(slant),
-                    alignment: Alignment.center,
-                    child: Center(
-                      child: Icon(
-                        _isFabOpen ? Icons.close_rounded : Icons.add_rounded,
-                        color: colorScheme.onPrimary,
-                        size: 28,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFabAction({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(12),
-      color: colorScheme.surfaceContainerHighest,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -767,94 +471,9 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
 
 
-  Widget _buildParallelogramControl({
-    required BuildContext context,
-    required VoidCallback onTap,
-    required Widget child,
-    double? width,
-    double height = 34,
-    bool accent = false,
-    bool showCornerArrow = false,
-    AlignmentGeometry contentAlignment = Alignment.center,
-    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-      horizontal: 12,
-      vertical: 6,
-    ),
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    const slant = 0.174533;
-
-    final fillColor =
-        colorScheme.onSurface.withValues(alpha: accent ? 0.12 : 0.09);
-
-    final cornerArrowColor = colorScheme.onSurfaceVariant;
-
-    final boxShadows = [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: accent ? 0.6 : 0.54),
-              offset: const Offset(0, 3),
-              blurRadius: 0,
-              spreadRadius: 0,
-            ),
-          ];
-
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Transform(
-        transform: Matrix4.skewX(-slant),
-        alignment: Alignment.center,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 170),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: fillColor,
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: boxShadows,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onTap,
-                    child: Transform(
-                      transform: Matrix4.skewX(slant),
-                      alignment: Alignment.center,
-                      child: Padding(
-                        padding: padding,
-                        child: Align(alignment: contentAlignment, child: child),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (showCornerArrow)
-                Positioned(
-                  right: 3,
-                  top: 2,
-                  child: Transform(
-                    transform: Matrix4.skewX(slant),
-                    alignment: Alignment.center,
-                    child: CustomPaint(
-                      size: const Size(11, 9),
-                      painter: _CornerArrowPainter(color: cornerArrowColor),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBody() {
     final colorScheme = Theme.of(context).colorScheme;
     final controlTextColor = colorScheme.onSurface;
-    final orderListColor = colorScheme.onSurfaceVariant;
     final orderArrowColor = colorScheme.onSurface;
     final actionIconColor = colorScheme.primary;
 
@@ -873,39 +492,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
     return Column(
       children: [
-        // Sync Notice
-        if (_showSyncNotice)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Colors.amber.shade100,
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    tr('chat_sync_notice'),
-                    style: const TextStyle(fontSize: 12, color: Colors.black87),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool(_syncNoticeDismissedKey, true);
-                    if (mounted) {
-                      setState(() {
-                        _showSyncNotice = false;
-                      });
-                    }
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 8.0),
-                    child: Icon(Icons.close, color: Colors.black54, size: 16),
-                  ),
-                ),
-              ],
-            ),
-          ),
 
         // Visual Header from Image
         Container(
@@ -951,81 +537,30 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                   ? Row(
                       key: const ValueKey('selected_header_mode'),
                       children: [
-                        SizedBox(
-                          width: 34,
-                          height: 34,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _clearSelection,
-                              borderRadius: BorderRadius.circular(8),
-                              child: Icon(
-                                Icons.close_rounded,
-                                size: 24,
-                                color: _secondaryTextColor(context),
-                              ),
-                            ),
-                          ),
+                        IconButton(
+                          onPressed: _clearSelection,
+                          icon: Icon(Icons.close_rounded, color: _secondaryTextColor(context)),
+                          style: IconButton.styleFrom(minimumSize: const Size(34, 34)),
                         ),
                         const SizedBox(width: 8),
                         const Spacer(),
-                        _buildParallelogramControl(
-                          context: context,
-                          onTap: _togglePinSelectedChats,
-                          width: 44,
-                          height: 34,
-                          accent: true,
-                          padding: EdgeInsets.zero,
-                          child: Icon(
-                            Icons.push_pin,
-                            size: 18,
-                            color: actionIconColor,
-                          ),
+                        IconButton.filledTonal(
+                          onPressed: _togglePinSelectedChats,
+                          icon: Icon(Icons.push_pin, size: 18, color: actionIconColor),
+                          style: IconButton.styleFrom(minimumSize: const Size(44, 34), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         ),
                         const SizedBox(width: 8),
-                        _buildParallelogramControl(
-                          context: context,
-                          onTap: _resummarySelectedChats,
-                          width: 126,
-                          height: 34,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome_rounded,
-                                size: 16,
-                                color: actionIconColor,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                'Re-Summary',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: _chatHeaderPopupFont,
-                                  color: controlTextColor,
-                                ),
-                              ),
-                            ],
-                          ),
+                        FilledButton.tonalIcon(
+                          onPressed: _resummarySelectedChats,
+                          icon: Icon(Icons.auto_awesome_rounded, size: 16, color: actionIconColor),
+                          label: Text('Re-Summary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: controlTextColor)),
+                          style: FilledButton.styleFrom(minimumSize: const Size(126, 34), padding: const EdgeInsets.symmetric(horizontal: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         ),
                         const SizedBox(width: 8),
-                        _buildParallelogramControl(
-                          context: context,
-                          onTap: _deleteSelectedChats,
-                          width: 44,
-                          height: 34,
-                          accent: true,
-                          padding: EdgeInsets.zero,
-                          child: Icon(
-                            Icons.delete_outline_rounded,
-                            size: 20,
-                            color: actionIconColor,
-                          ),
+                        IconButton.filledTonal(
+                          onPressed: _deleteSelectedChats,
+                          icon: Icon(Icons.delete_outline_rounded, size: 20, color: actionIconColor),
+                          style: IconButton.styleFrom(minimumSize: const Size(44, 34), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         ),
                       ],
                     )
@@ -1042,74 +577,29 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                           ),
                         ),
                         const Spacer(),
-                        _buildParallelogramControl(
-                          context: context,
-                          onTap: _showSortSheet,
-                          width: 118,
-                          height: 34,
-                          showCornerArrow: true,
-                          contentAlignment: Alignment.center,
-                          padding: const EdgeInsets.only(
-                            left: 10,
-                            right: 10,
-                            top: 6,
-                            bottom: 6,
-                          ),
-                          child: Text(
-                            _sortLabel(_sortBy),
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              fontFamily: _chatHeaderPopupFont,
-                              color: controlTextColor,
-                            ),
-                          ),
+                        FilledButton.tonalIcon(
+                          onPressed: _showSortSheet,
+                          icon: const Icon(Icons.arrow_drop_down_rounded, size: 18),
+                          label: Text(_sortLabel(_sortBy), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          style: FilledButton.styleFrom(minimumSize: const Size(118, 34), padding: const EdgeInsets.symmetric(horizontal: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         ),
                         const SizedBox(width: 10),
-                        _buildParallelogramControl(
-                          context: context,
-                          onTap: () async {
-                            setState(() {
-                              _sortAscending = !_sortAscending;
-                            });
+                        IconButton.filledTonal(
+                          onPressed: () async {
+                            setState(() => _sortAscending = !_sortAscending);
                             await _saveSortPreferences();
                             await _loadActiveChats();
                           },
-                          width: 58,
-                          height: 34,
-                          accent: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          child: AnimatedSwitcher(
+                          icon: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 180),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(
-                                    begin: 0.92,
-                                    end: 1,
-                                  ).animate(animation),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: CustomPaint(
+                            child: Icon(
+                              _sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
                               key: ValueKey<bool>(_sortAscending),
-                              size: const Size(24, 14),
-                              painter: _OrderGlyphPainter(
-                                ascending: _sortAscending,
-                                lineColor: orderListColor,
-                                arrowColor: orderArrowColor,
-                              ),
+                              size: 18,
+                              color: orderArrowColor,
                             ),
                           ),
+                          style: IconButton.styleFrom(minimumSize: const Size(44, 34), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         ),
                       ],
                     ),
@@ -1671,54 +1161,8 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
   Widget _buildSortOverlayContent(ChatSortType initialSort) {
     ChatSortType draftSort = initialSort;
-    const compactControlHeight = 34.0;
-
     return StatefulBuilder(
       builder: (context, setSheetState) {
-        final colorScheme = Theme.of(context).colorScheme;
-        final selectedColor = colorScheme.primary;
-        final titleTextColor = _primaryTextColor(context);
-
-        Widget buildSortChoice(ChatSortType value) {
-          final bool isSelected = draftSort == value;
-          return InkWell(
-            onTap: () => setSheetState(() => draftSort = value),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              height: compactControlHeight,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isSelected ? selectedColor : _surfaceAltColor(context),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isSelected ? selectedColor : _borderColor(context),
-                ),
-              ),
-              child: Text(
-                _sortLabel(value),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected
-                      ? colorScheme.onPrimary
-                      : _secondaryTextColor(context),
-                ),
-              ),
-            ),
-          );
-        }
-
-        Widget buildOptionsRow(List<ChatSortType> options) {
-          return Row(
-            children: [
-              for (int i = 0; i < options.length; i++) ...[
-                Expanded(child: buildSortChoice(options[i])),
-                if (i != options.length - 1) const SizedBox(width: 10),
-              ],
-            ],
-          );
-        }
-
         return Container(
           color: Colors.black.withValues(alpha: 0.3),
           child: Center(
@@ -1726,179 +1170,60 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: _surfaceColor(context),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(28),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    child: Row(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          _trOr('sort_title', 'Sort'),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: titleTextColor,
-                          ),
-                        ),
+                        Text(_trOr('sort_title', 'Sort'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTextColor(context))),
                         const Spacer(),
                         IconButton(
                           onPressed: () {
-                            if (widget.onShowSort != null) {
-                              widget.onShowSort!(const SizedBox.shrink());
-                            }
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.pop(context);
-                            }
+                            if (widget.onShowSort != null) widget.onShowSort!(const SizedBox.shrink());
+                            if (Navigator.of(context).canPop()) Navigator.pop(context);
                           },
                           icon: const Icon(Icons.close_rounded),
                         ),
                       ],
                     ),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      children: [
-                        buildOptionsRow(_sortOptions.take(2).toList()),
-                        const SizedBox(height: 8),
-                        buildOptionsRow(_sortOptions.skip(2).toList()),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        setState(() {
-                          _sortBy = draftSort;
-                        });
-                        await _saveSortPreferences();
-                        await _loadActiveChats();
-                        if (widget.onShowSort != null) {
-                          widget.onShowSort!(const SizedBox.shrink());
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        minimumSize: const Size(double.infinity, 40),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                    const SizedBox(height: 12),
+                    RadioGroup<ChatSortType>(
+                      groupValue: draftSort,
+                      onChanged: (nv) => setSheetState(() => draftSort = nv!),
+                      child: Column(
+                        children: _sortOptions.map((v) => RadioListTile<ChatSortType>(
+                          value: v,
+                          title: Text(_sortLabel(v)),
+                          activeColor: Theme.of(context).colorScheme.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        )).toList(),
                       ),
-                      child: Text(_trOr('sort_confirm', 'Confirm')),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () async {
+                          setState(() => _sortBy = draftSort);
+                          await _saveSortPreferences();
+                          await _loadActiveChats();
+                          if (widget.onShowSort != null) widget.onShowSort!(const SizedBox.shrink());
+                        },
+                        child: Text(_trOr('sort_confirm', 'Confirm')),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
     );
-  }
-}
-
-class _CornerArrowPainter extends CustomPainter {
-  final Color color;
-
-  const _CornerArrowPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CornerArrowPainter oldDelegate) {
-    return oldDelegate.color != color;
-  }
-}
-
-class _OrderGlyphPainter extends CustomPainter {
-  final bool ascending;
-  final Color lineColor;
-  final Color arrowColor;
-
-  const _OrderGlyphPainter({
-    required this.ascending,
-    required this.lineColor,
-    required this.arrowColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final arrowPaint = Paint()
-      ..color = arrowColor
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    const left = 1.0;
-    canvas.drawLine(Offset(left, 2.4), Offset(left + 10.8, 2.4), linePaint);
-    canvas.drawLine(Offset(left, 7), Offset(left + 12.5, 7), linePaint);
-    canvas.drawLine(Offset(left, 11.6), Offset(left + 8.8, 11.6), linePaint);
-
-    final x = size.width - 4.8;
-    const yTop = 2.4;
-    const yBottom = 11.6;
-    const head = 3.1;
-
-    canvas.drawLine(Offset(x, yTop), Offset(x, yBottom), arrowPaint);
-
-    if (ascending) {
-      canvas.drawLine(
-        Offset(x, yTop),
-        Offset(x - head, yTop + head),
-        arrowPaint,
-      );
-      canvas.drawLine(
-        Offset(x, yTop),
-        Offset(x + head, yTop + head),
-        arrowPaint,
-      );
-    } else {
-      canvas.drawLine(
-        Offset(x, yBottom),
-        Offset(x - head, yBottom - head),
-        arrowPaint,
-      );
-      canvas.drawLine(
-        Offset(x, yBottom),
-        Offset(x + head, yBottom - head),
-        arrowPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _OrderGlyphPainter oldDelegate) {
-    return oldDelegate.ascending != ascending ||
-        oldDelegate.lineColor != lineColor ||
-        oldDelegate.arrowColor != arrowColor;
   }
 }
