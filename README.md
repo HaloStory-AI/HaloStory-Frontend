@@ -1,14 +1,16 @@
-# NOTICE BESAR!!!
+# bluetalk_frontend
 
-Repository ini telah di Archive karena kita tidak lagi menggunakan Mode aplikasi
-berikut detail dari diriku
+A new Flutter project.
 
----
-1. Susah maintain: Semisalnya ada bug fatal, user harus update aplikasinya, itu bisa meningkatkan resiko
-2. peraturan google terbaru: mulai 30 september, seluruh user android tidak bisa menginstal aplikasi HaloStory AI sebagaimana mestinya karena pembatasan
-3. Tidak fleksibel: kalau semisalnya ada yang mau makai di android lama, maka ini akan menyusahkan kita semua membuatnya tidak kompatibel
+## Getting Started
 
-Terus kita gimana?
-kita akan migrasi ke Vue3 yang mana lebih fleksibel karena browser built-in, bisa dibuka [Link berikut ini](https://github.com/HaloStory-AI/HaloStory_Web)
+This project is a starting point for a Flutter application.
 
-Sekian
+A few resources to get you started if this is your first Flutter project:
+
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.
