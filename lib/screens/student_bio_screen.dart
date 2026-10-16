@@ -1,9 +1,7 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
-import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import '../services/localization_service.dart';
 import '../widgets/chat/edit_group_info_dialog.dart';
@@ -48,7 +46,6 @@ class StudentBioScreen extends StatefulWidget {
 }
 
 class _StudentBioScreenState extends State<StudentBioScreen> {
-  static final Map<String, Map<String, dynamic>?> _bondCache = {};
   static final Map<String, Map<String, dynamic>> _bioCache = {};
 
   String? _translatedDescription;
@@ -56,11 +53,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   late List<Map<String, dynamic>> _localMembers;
   late String _localGroupName;
   late String _localGroupBio;
-
-  // Bond state
-  Map<String, dynamic>? _bondData;
-  bool _isBondLoading = true;
-  bool _bondDisabled = false;
 
   // Bio data (fetched from /v1/bot-bio)
   String? _bioDescription;
@@ -78,19 +70,8 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     _localMembers = List<Map<String, dynamic>>.from(widget.groupMembers);
     _localGroupName = widget.groupName;
     _localGroupBio = widget.groupBio;
-    _loadBondSetting();
-    _loadBondData();
     if (!widget.isGroup) _fetchBotBio();
     _loadMemories();
-  }
-
-  Future<void> _loadBondSetting() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _bondDisabled = prefs.getBool('bond_disabled') ?? false;
-      });
-    }
   }
 
   String get _appLanguageCode => LocalizationService().currentLocale;
@@ -142,15 +123,13 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
       return;
     }
 
-    final authService = AuthService();
-    final token = await authService.getToken();
-    if (token == null || !mounted) return;
+    if (!mounted) return;
 
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/v1/bot-bio/${widget.botId}'),
         headers: {
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer ${AppConstants.staticToken}',
           'Accept': 'application/json',
         },
       );
@@ -174,25 +153,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
   }
 
 
-  Color _relationshipColor(String status) {
-    return switch (status) {
-      'enemy' => Colors.red.shade400,
-      'married' => Colors.purple.shade400,
-      'lover' => const Color(0xFFFB6F9D),
-      'rejected' => Colors.grey.shade500,
-      'stuck' => Colors.orange.shade400,
-      _ => Colors.blue.shade400,
-    };
-  }
-
-  Future<void> _loadBondData() async {
-    if (widget.isGroup) {
-      await _fetchAllGroupBondStats();
-    } else {
-      await _fetchBondStats();
-    }
-  }
-
   Future<void> _loadMemories() async {
     if (widget.isGroup) return;
     final memories = await _localChatService.loadMemories(widget.botId);
@@ -209,122 +169,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
     _memories.remove(item);
     await _localChatService.saveMemories(widget.botId, _memories);
     if (mounted) setState(() {});
-  }
-
-  Future<void> _fetchBondStats() async {
-    final cached = _bondCache[widget.botId];
-    if (cached != null) {
-      if (mounted) {
-        setState(() {
-          _bondData = cached;
-          _isBondLoading = false;
-        });
-      }
-      return;
-    }
-
-    final authService = AuthService();
-    final token = await authService.getToken();
-    if (token == null || !mounted) return;
-
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/bots/bond/${widget.botId}'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200 && mounted) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        _bondCache[widget.botId] = data;
-        setState(() {
-          _bondData = data;
-          _isBondLoading = false;
-        });
-      } else {
-        if (mounted) setState(() => _isBondLoading = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isBondLoading = false);
-    }
-  }
-
-  Future<Map<String, dynamic>?> _fetchBondStatsFor(String botId) async {
-    final cached = _bondCache[botId];
-    if (cached != null) return cached;
-
-    final authService = AuthService();
-    final token = await authService.getToken();
-    if (token == null || !mounted) return null;
-
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/bots/bond/$botId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        _bondCache[botId] = data;
-        return data;
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  Future<void> _fetchAllGroupBondStats() async {
-    if (_localMembers.isEmpty) {
-      if (mounted) setState(() => _isBondLoading = false);
-      return;
-    }
-
-    // Determine which members need fetching (not in cache)
-    final List<Map<String, dynamic>> toFetch = [];
-    final List<int> fetchIndices = [];
-    for (int i = 0; i < _localMembers.length; i++) {
-      final member = _localMembers[i];
-      final memberId =
-          member['bot_id']?.toString() ?? member['id']?.toString();
-      if (memberId != null && !_bondCache.containsKey(memberId)) {
-        toFetch.add(member);
-        fetchIndices.add(i);
-      }
-    }
-
-    // Parallel fetch all uncached members
-    if (toFetch.isNotEmpty) {
-      final results = await Future.wait(
-        toFetch.map((m) {
-          final mid = m['bot_id']?.toString() ?? m['id']?.toString();
-          return _fetchBondStatsFor(mid!);
-        }),
-      );
-
-      if (mounted) {
-        setState(() {
-          for (int j = 0; j < results.length; j++) {
-            final data = results[j];
-            if (data != null) {
-              final idx = fetchIndices[j];
-              _localMembers[idx] = {
-                ..._localMembers[idx],
-                'bond_hearts': data['bond_hearts'] ?? _localMembers[idx]['bond_hearts'],
-                'xp': data['xp'] ?? _localMembers[idx]['xp'],
-                'xp_into_level': data['xp_into_level'] ?? _localMembers[idx]['xp_into_level'],
-                'progress_percent': data['progress_percent'] ?? _localMembers[idx]['progress_percent'],
-              };
-            }
-          }
-          _isBondLoading = false;
-        });
-      }
-    } else {
-      // All cached — no fetch needed
-      if (mounted) setState(() => _isBondLoading = false);
-    }
   }
 
   Future<void> _translateText(String text) async {
@@ -666,11 +510,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
             if (widget.isGroup)
               _buildGroupMembersSection()
             else ...[
-              if (!_isBondLoading)
-                _bondDisabled
-                    ? _buildBondDisabledPlaceholder()
-                    : _buildSingleBondCard(),
-              if (!_isBondLoading) const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Align(
@@ -693,161 +532,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               ],
             ],
             const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSingleBondCard() {
-    final hearts = _bondData?['bond_hearts'] ?? widget.bot['bond_hearts'] ?? 0;
-    final xpInto = _bondData?['xp_into_level'] ?? 0;
-    final xpPer = _bondData?['xp_per_level'] ?? 5;
-    final progress = _bondData != null
-        ? ((_bondData!['progress_percent'] as num?) ?? 0) / 100.0
-        : 0.0;
-    final bondStatus = _bondData?['bond_status'] ?? 'normal';
-    final relationship =
-        _bondData?['relationship_label'] ?? 'Orang Asing';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(
-                      Icons.favorite,
-                      color: Color(0xFFFBB6CE),
-                      size: 48,
-                    ),
-                    Text(
-                      '$hearts',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Lv. $hearts',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _relationshipColor(bondStatus)
-                              .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: _relationshipColor(bondStatus)
-                                .withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Text(
-                          relationship,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _relationshipColor(bondStatus),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Progress to Lv. ${hearts + 1}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                Text(
-                  '$xpInto / $xpPer XP',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                minHeight: 8,
-                backgroundColor: Colors.pink.shade50,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFFB6F9D),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBondDisabledPlaceholder() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.favorite_border,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              size: 32,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                tr('bond_disabled_placeholder'),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontStyle: FontStyle.italic,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -993,28 +677,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               ),
             ),
           ),
-          if (_bondDisabled)
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.favorite_border,
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    tr('bond_disabled_placeholder'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           const SizedBox(height: 12),
           if (_localMembers.isEmpty)
             Padding(
@@ -1037,7 +699,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
               final memberName = member['name'] ?? 'Unknown';
               final memberColor = _parseColor(member['color']);
               final memberAvatar = member['image_url'] ?? member['avatar'];
-              final hearts = member['bond_hearts'] ?? 0;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -1070,29 +731,6 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
                         ),
                       ),
                     ),
-                    if (!_isBondLoading && !_bondDisabled)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.favorite,
-                              color: Color(0xFFFBB6CE),
-                              size: 16,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '$hearts',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     IconButton(
                       icon: Icon(
                         Icons.remove_circle_outline,

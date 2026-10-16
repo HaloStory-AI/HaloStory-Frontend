@@ -6,7 +6,6 @@ class ChatMetadata {
   final String? description;
   final String? imageUrl;
   final String? color;
-  final int? bondHearts;
   final String? provider;
 
   const ChatMetadata({
@@ -17,7 +16,6 @@ class ChatMetadata {
     this.description,
     this.imageUrl,
     this.color,
-    this.bondHearts,
     this.provider,
   });
 
@@ -31,7 +29,6 @@ class ChatMetadata {
     if (description != null) 'description': description,
     if (imageUrl != null) 'image_url': imageUrl,
     if (color != null) 'color': color,
-    if (bondHearts != null) 'bond_hearts': bondHearts,
     if (provider != null) 'provider': provider,
   };
 

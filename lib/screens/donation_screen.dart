@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/localization_service.dart';
-import '../services/auth_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
 
 class DonationScreen extends StatefulWidget {
   final bool isDesktopMiddlePanel;
@@ -13,75 +11,8 @@ class DonationScreen extends StatefulWidget {
 }
 
 class _DonationScreenState extends State<DonationScreen> {
-  final AuthService _authService = AuthService();
-  Map<String, dynamic>? _userProfile;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    final profile = await _authService.getUserProfile(forceRefresh: true);
-    if (mounted) {
-      setState(() {
-        _userProfile = profile;
-        _isLoading = false;
-      });
-    }
-  }
-
-  bool get _isVip {
-    if (_userProfile == null) return false;
-    final role = _userProfile!['role']?.toString().toLowerCase();
-    if (role == 'admin' || role == 'sensei') return true;
-    if (role == 'vip') {
-      final expiresAt = _userProfile!['vip_expires_at'];
-      if (expiresAt == null) return false;
-      try {
-        final expiryDate = DateTime.parse(expiresAt);
-        return expiryDate.isAfter(DateTime.now());
-      } catch (e) {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  String _getVipStatusText() {
-    if (_userProfile == null) return tr('vip_status_inactive');
-    final role = _userProfile!['role']?.toString().toLowerCase();
-    if (role == 'admin' || role == 'sensei') return tr('vip_status_admin');
-    if (_isVip) return tr('vip_status_active');
-    return tr('vip_status_inactive');
-  }
-
-  String? _getExpiryDate() {
-    if (_userProfile == null) return null;
-    final role = _userProfile!['role']?.toString().toLowerCase();
-    if (role == 'admin' || role == 'sensei') return null;
-    final expiresAt = _userProfile!['vip_expires_at'];
-    if (expiresAt == null) return null;
-    try {
-      final expiryDate = DateTime.parse(expiresAt);
-      return DateFormat.yMMMMd(tr('settings_language_code')).format(expiryDate);
-    } catch (e) {
-      return null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.pinkAccent),
-        ),
-      );
-    }
-
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -118,12 +49,6 @@ class _DonationScreenState extends State<DonationScreen> {
                 ),
                 const SizedBox(height: 24),
               ],
-              
-              // VIP Status Information Card
-              _buildVipStatusCard(context),
-              
-              const SizedBox(height: 30),
-              
               Hero(
                 tag: 'donation_icon',
                 child: Container(
@@ -156,8 +81,6 @@ class _DonationScreenState extends State<DonationScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-              
-              // VIP Benefits Card
               _buildModernCard(
                 context,
                 child: Column(
@@ -181,14 +104,12 @@ class _DonationScreenState extends State<DonationScreen> {
                       icon: Icons.workspace_premium_rounded,
                       color: Colors.purpleAccent,
                       title: tr('vip_benefit_badge'),
-                      subtitle: "Tunjukkan dukunganmu sebagai VIP Sensei.",
+                      subtitle: "Tunjukkan dukunganmu sebagai Sensei.",
                     ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 40),
-              
               Text(
                 "Rp 10.000 / Bulan",
                 style: theme.textTheme.headlineSmall?.copyWith(
@@ -197,8 +118,6 @@ class _DonationScreenState extends State<DonationScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              
-              // Donation Button
               SizedBox(
                 width: double.infinity,
                 height: 60,
@@ -219,10 +138,7 @@ class _DonationScreenState extends State<DonationScreen> {
                   ),
                 ),
               ),
-              
               const SizedBox(height: 16),
-              
-              // Discord Confirm Button
               SizedBox(
                 width: double.infinity,
                 height: 60,
@@ -242,7 +158,7 @@ class _DonationScreenState extends State<DonationScreen> {
                       Text(
                         tr('donation_confirm_discord'),
                         style: const TextStyle(
-                          fontSize: 16, 
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF5865F2),
                         ),
@@ -251,13 +167,11 @@ class _DonationScreenState extends State<DonationScreen> {
                   ),
                 ),
               ),
-              
               const SizedBox(height: 40),
-              
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text(
-                  "*Setelah donasi, harap kirim bukti transfer ke Discord agar VIP dapat diaktifkan manual oleh Admin.",
+                  "*Setelah donasi, harap kirim bukti transfer ke Discord agar dukunganmu tercatat.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -292,83 +206,15 @@ class _DonationScreenState extends State<DonationScreen> {
     );
   }
 
-  Widget _buildVipStatusCard(BuildContext context) {
-    final isVip = _isVip;
-    final statusText = _getVipStatusText();
-    final expiryDate = _getExpiryDate();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isVip 
-            ? [const Color(0xFFFFD700), const Color(0xFFFFA500)]
-            : [Colors.grey.shade400, Colors.grey.shade600],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (isVip ? Colors.orangeAccent : Colors.grey).withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            tr('vip_status_title'),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isVip ? Icons.stars_rounded : Icons.info_outline_rounded,
-                color: Colors.white,
-                size: 28,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                statusText,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          if (expiryDate != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              tr('vip_status_expires').replaceAll('{date}', expiryDate),
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildModernCard(BuildContext context, {required Widget child}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark 
-          ? Colors.white.withValues(alpha: 0.05) 
-          : Colors.white.withValues(alpha: 0.7),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
@@ -403,7 +249,6 @@ class _BenefitItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
     return Row(
       children: [
         Container(

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
-import 'package:intl/intl.dart';
 import 'admin/bot_editor.dart';
 import '../services/localization_service.dart';
 
@@ -17,7 +16,6 @@ class _AdminScreenState extends State<AdminScreen> {
 
   List<dynamic> _users = [];
   List<dynamic> _bots = [];
-  List<dynamic> _requests = [];
 
   @override
   void initState() {
@@ -31,13 +29,11 @@ class _AdminScreenState extends State<AdminScreen> {
     final results = await Future.wait([
       _adminService.getUsers(),
       _adminService.getBots(),
-      _adminService.getStudentRequests(),
     ]);
 
     setState(() {
       _users = results[0];
       _bots = results[1];
-      _requests = results[2];
       _isLoading = false;
     });
   }
@@ -51,7 +47,7 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: Text(tr('admin_panel_title')),
@@ -68,10 +64,6 @@ class _AdminScreenState extends State<AdminScreen> {
                 icon: const Icon(Icons.smart_toy),
                 text: tr('admin_tab_bots'),
               ),
-              Tab(
-                icon: const Icon(Icons.inbox),
-                text: tr('admin_tab_requests'),
-              ),
             ],
           ),
         ),
@@ -81,7 +73,6 @@ class _AdminScreenState extends State<AdminScreen> {
                 children: [
                   _buildUsersTab(),
                   _buildBotsTab(),
-                  _buildRequestsTab(),
                 ],
               ),
       ),
@@ -236,118 +227,6 @@ class _AdminScreenState extends State<AdminScreen> {
       builder: (context) =>
           BotEditorModal(botData: botData, onSaved: _loadAllData),
     );
-  }
-
-  Widget _buildRequestsTab() {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return ListView.builder(
-      itemCount: _requests.length,
-      itemBuilder: (context, index) {
-        final req = _requests[index];
-        Color statusColor = Colors.orange;
-        if (req['status'] == 'approved') statusColor = Colors.green;
-        if (req['status'] == 'rejected') statusColor = Colors.red;
-
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Murid: ${req['student_name']}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Chip(
-                      label: Text(
-                        req['status'].toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white,
-                        ),
-                      ),
-                      backgroundColor: statusColor,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Requested by: ${req['user']?['name'] ?? 'Unknown'}',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  'Date: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(req['created_at']))}',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                if (req['status'] == 'pending') ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton.icon(
-                        icon: Icon(
-                          Icons.close,
-                          color: colorScheme.error,
-                          size: 18,
-                        ),
-                        label: Text(
-                          'Reject',
-                          style: TextStyle(color: colorScheme.error),
-                        ),
-                        onPressed: () =>
-                            _updateRequestStatus(req['id'], 'rejected'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Approve'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          minimumSize: const Size(0, 40),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                        ),
-                        onPressed: () =>
-                            _updateRequestStatus(req['id'], 'approved'),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _updateRequestStatus(int id, String status) async {
-    final success = await _adminService.updateRequestStatus(id, status);
-    if (success) {
-      _showSnackBar(
-        status == 'approved'
-            ? tr('admin_request_approved')
-            : tr('admin_request_rejected'),
-      );
-      _loadAllData();
-    } else {
-      _showSnackBar(tr('admin_request_failed'));
-    }
   }
 
   Future<bool?> _showConfirmDialog(String title, String content) {

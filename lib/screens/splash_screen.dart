@@ -1,26 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/localization_service.dart';
-import '../services/auth_service.dart';
 import '../services/config_service.dart';
 import '../services/security_service.dart';
+import '../services/local_user_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'home_screen.dart';
 import 'setup_screen.dart';
-import 'welcome_screen.dart';
-import 'pin_screen.dart';
-import 'verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-import '../services/ban_service.dart';
-import 'banned_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/database/app_database.dart';
 import '../data/database/database_migration_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -39,7 +34,6 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _textOpacity;
   late Animation<Offset> _textSlide;
 
-  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -112,123 +106,90 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    if (ConfigService.isMaintenance) {
-      if (!mounted) return;
-      _showMaintenanceDialog();
-      return;
-    }
-
-    if (ConfigService.isAutoDetectedMaintenance) {
-      if (!mounted) return;
-      _showMaintenanceDialog();
-      return;
-    }
-
     if (!configSuccess) {
       if (!mounted) return;
       _showNoInternetBottomSheet();
       return;
     }
 
-    if (ConfigService.needsUpdate) {
-      if (!mounted) return;
-      _showUpdateDialog();
-      return;
-    }
-
-    if (ConfigService.hasMinorUpdate) {
-      if (!mounted) return;
-      await _showMinorUpdateDialog();
-    }
-
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      final hasSeenWebNotice = prefs.getBool('web_notice_shown_session') ?? false;
-      if (!hasSeenWebNotice) {
+    // LITE NOTICE — after config/timeout check, before permission/db
+    if (mounted) {
+      final prefsLite = await SharedPreferences.getInstance();
+      final dismissed = prefsLite.getBool('lite_notice_dismissed') == true;
+      if (!dismissed) {
+        await _showLiteNoticeBottomSheet();
         if (!mounted) return;
-        await _showWebRecommendationBottomSheet();
-        await prefs.setBool('web_notice_shown_session', true);
       }
-    } else {
-      await _requestPermissions();
-      await _initDatabaseAndMigrate();
     }
 
+    if (!kIsWeb) {
+      await _requestPermissions();
+      if (!mounted) return;
+      await _initDatabaseAndMigrate();
+      if (!mounted) return;
+    }
+
+    // Security check + small delay for splash animation
     final results = await Future.wait([
-      _authService.isLoggedIn(),
       kIsWeb ? Future.value(false) : SecurityService.isDeviceCompromised(),
       Future.delayed(Duration(seconds: kIsWeb ? 1 : 2)),
     ]);
 
-    final bool isLoggedIn = results[0] as bool;
-    final bool isCompromised = results[1] as bool;
+    final bool isCompromised = results[0] as bool;
     final prefs = await SharedPreferences.getInstance();
-    final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
+
+    // Migrasi: System/BYOM → BYOK (legacy prefs)
+    bool didMigrateProvider = false;
+    final rawProvider = prefs.getString('default_provider');
+    if (rawProvider == 'System' || rawProvider == 'BYOM') {
+      await prefs.setString('default_provider', 'BYOK');
+      didMigrateProvider = true;
+    }
+    if (!mounted) return;
+    final byokKey = prefs.getString('byok_api_key') ?? '';
+    final needsByokNotice = didMigrateProvider || byokKey.isEmpty;
+    if (needsByokNotice) {
+      // Non-blocking notice; tetap lanjut routing
+      // ignore: unawaited_futures
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        _showByokSetupNotice();
+      });
+    }
 
     if (!mounted) return;
 
-    if (isLoggedIn) {
-      if (_authService.validationHadNetworkError) {
-        if (!mounted) return;
-        _showNoInternetBottomSheet();
-        return;
-      }
-
-      if (!_authService.isEmailVerified) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const VerifyEmailScreen()),
-        );
-        return;
-      }
-
-      await _showContributorNotice();
+    // Local user name gate: wajib isi jika kosong
+    final rawName = prefs.getString('local_user_name');
+    if (rawName == null || rawName.trim().isEmpty) {
+      await _showLocalNameBottomSheet();
       if (!mounted) return;
+    }
 
-      if (isCompromised) {
-        await _showSecurityNoticeBottomSheet();
-        if (!mounted) return;
-      }
+    // Re-read prefs after potential name save
+    final prefs2 = await SharedPreferences.getInstance();
+    final bool isSetupCompleted = prefs2.getBool('is_setup_completed') ?? false;
 
-      final bool isAppLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+    if (isCompromised) {
+      await _showSecurityNoticeBottomSheet();
+      if (!mounted) return;
+    }
 
-      if (isAppLockEnabled) {
-        final pinTarget = isSetupCompleted ? const HomeScreen() : const SetupScreen();
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => PinScreen(target: pinTarget),
-          ),
-        );
-      } else {
-        if (isSetupCompleted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const SetupScreen()),
-          );
-        }
-      }
+    if (!mounted) return;
+    if (isSetupCompleted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
     } else {
-      if (BanService.isBanned) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const BannedScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-        );
-      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const SetupScreen()),
+      );
     }
   }
 
-  Future<void> _showContributorNotice() async {
-    final prefs = await SharedPreferences.getInstance();
-    const noticeId = 'contributor_recruitment_v1';
-    final hasShown = prefs.getBool('notice_shown_$noticeId') ?? false;
-
-    if (hasShown) return;
-    if (!mounted) return;
+  Future<void> _showLocalNameBottomSheet() async {
+    final controller = TextEditingController();
+    String? errorText;
 
     await showModalBottomSheet(
       context: context,
@@ -236,101 +197,121 @@ class _SplashScreenState extends State<SplashScreen>
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final colorScheme = Theme.of(ctx).colorScheme;
+            return PopScope(
+              canPop: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
                 ),
-              ),
-              const SizedBox(height: 24),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/image/notice_image.png',
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('contributor_notice_title'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                tr('contributor_notice_content'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  await launchUrl(
-                    Uri.parse(
-                      'https://www.blog-rafiq8k.zone.id/2026/03/mencari-kontributor-r8kstudio.html',
-                    ),
-                    mode: LaunchMode.externalApplication,
-                  );
-                  if (context.mounted) Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Theme.of(ctx).dividerColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Icon(Icons.person_rounded, size: 48, color: colorScheme.primary),
+                      const SizedBox(height: 16),
+                      Text(
+                        tr('profile_change_name'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        tr('profile_full_name'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: controller,
+                        maxLength: 50,
+                        autofocus: true,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: tr('profile_full_name'),
+                          hintText: LocalUserService.defaultName,
+                          prefixIcon: const Icon(Icons.person_outline),
+                          filled: true,
+                          fillColor: colorScheme.surfaceContainerHighest,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          errorText: errorText,
+                          counterText: '',
+                        ),
+                        onSubmitted: (_) async {
+                          final v = LocalUserService.sanitize(controller.text);
+                          if (v.isEmpty) {
+                            setSheetState(() => errorText = tr('profile_full_name'));
+                            return;
+                          }
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('local_user_name', v);
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final v = LocalUserService.sanitize(controller.text);
+                            if (v.isEmpty) {
+                              setSheetState(() => errorText = tr('profile_full_name'));
+                              return;
+                            }
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString('local_user_name', v);
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            minimumSize: const Size(double.infinity, 50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(tr('profile_update_btn')),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
                 ),
-                child: Text(
-                  tr('contributor_notice_yes'),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: Text(
-                  tr('contributor_notice_no'),
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
+            );
+          },
         );
       },
     );
-
-    await prefs.setBool('notice_shown_$noticeId', true);
   }
 
   Future<void> _requestPermissions() async {
@@ -362,15 +343,6 @@ class _SplashScreenState extends State<SplashScreen>
       if (kDebugMode) debugPrint('DEBUG: DB init error: $e');
     }
     if (!dbOk) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('db_init_error')),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
       return;
     }
 
@@ -665,200 +637,6 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Future<void> _showMinorUpdateDialog() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            tr('update_title'),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr('update_desc'), style: const TextStyle(fontSize: 14)),
-              const SizedBox(height: 12),
-              Text(
-                "${tr('update_version')}: v${ConfigService.remoteVersion}",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(tr('btn_cancel')),
-            ),
-            ElevatedButton(
-              onPressed: () => launchUrl(
-                Uri.parse('https://bluetalk.my-bini.my.id/download'),
-                mode: LaunchMode.externalApplication,
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-              ),
-              child: Text(
-                tr('update_btn'),
-                style: TextStyle(color: colorScheme.onPrimary),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showUpdateDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            tr('update_title'),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr('update_desc'), style: const TextStyle(fontSize: 14)),
-              const SizedBox(height: 12),
-              Text(
-                "${tr('update_version')}: v${ConfigService.remoteVersion}",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => launchUrl(
-                Uri.parse('https://bluetalk.my-bini.my.id/download'),
-                mode: LaunchMode.externalApplication,
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-              ),
-              child: Text(
-                tr('update_btn'),
-                style: TextStyle(color: colorScheme.onPrimary),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showMaintenanceDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/image/maintenance_image.png',
-                  height: 220,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('maintenance_title'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.error,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                tr('maintenance_info'),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                ConfigService.maintenanceMsg,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => SystemNavigator.pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.error,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    tr('exit_app'),
-                    style: TextStyle(
-                      color: colorScheme.onError,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _showNoInternetBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -929,6 +707,146 @@ class _SplashScreenState extends State<SplashScreen>
               const SizedBox(height: 12),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showLiteNoticeBottomSheet() async {
+    bool dontShowAgain = false;
+    await showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final colorScheme = Theme.of(ctx).colorScheme;
+            String t(String k, String fb) {
+              try {
+                final v = tr(k);
+                return (v == k) ? fb : v;
+              } catch (_) {
+                return fb;
+              }
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Theme.of(ctx).dividerColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Icon(Icons.info_rounded, size: 48, color: colorScheme.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    t('lite_notice_title', 'HaloStory — Mikazuki AI Lite'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    t('lite_notice_desc',
+                        'HaloStory adalah versi Lite dari Mikazuki AI. Untuk Full Experience (lebih banyak fitur & model), kunjungi Mikazuki AI.'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () => setSheetState(() => dontShowAgain = !dontShowAgain),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: dontShowAgain,
+                          onChanged: (v) => setSheetState(() => dontShowAgain = v ?? false),
+                        ),
+                        Expanded(
+                          child: Text(
+                            t('lite_notice_dont_show', 'Jangan tampilkan lagi'),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('lite_notice_dismissed', dontShowAgain);
+                        final uri = Uri.parse('https://ai.mikazuki.id');
+                        try {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        } catch (_) {}
+                        if (!ctx.mounted) return;
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        t('lite_notice_go', 'Ke website'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('lite_notice_dismissed', dontShowAgain);
+                        if (!ctx.mounted) return;
+                        Navigator.pop(ctx);
+                      },
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                      child: Text(
+                        t('lite_notice_later', 'Ga dulu deh'),
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -1007,98 +925,40 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Future<void> _showWebRecommendationBottomSheet() async {
-    await showModalBottomSheet(
+  String _t(String k, String fallback) {
+    try { final v = tr(k); return (v == k) ? fallback : v; } catch (_) { return fallback; }
+  }
+  void _showByokSetupNotice() {
+    if (!mounted) return;
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
-        
+        final cs = Theme.of(context).colorScheme;
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: colorScheme.surface,
+            color: cs.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+              Container(width: 40, height: 5, decoration: BoxDecoration(color: Theme.of(context).dividerColor, borderRadius: BorderRadius.circular(10))),
               const SizedBox(height: 24),
-              ScaleTransition(
-                scale: _iconScale,
-                child: SvgPicture.asset(
-                  'assets/icon/HaloStory.svg',
-                  height: 90,
-                  width: 90,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('web_recommendation_title'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
+              Icon(Icons.vpn_key_rounded, size: 48, color: cs.primary),
               const SizedBox(height: 16),
-              Text(
-                tr('web_recommendation_desc'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  await launchUrl(
-                    Uri.parse('https://bluetalk.my-bini.my.id/download'),
-                    mode: LaunchMode.externalApplication,
-                  );
-                },
-                icon: const Icon(Icons.download_rounded),
-                label: Text(
-                  tr('web_recommendation_download'),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
-              ),
+              Text(_t('byok_setup_title', 'Atur BYOK untuk mulai chat'), textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.primary)),
               const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: Text(
-                  tr('web_recommendation_continue'),
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Text(_t('byok_setup_desc', 'Isi API Key di Settings → AI Engine agar chat bisa berjalan. Mode System/BYOM sudah tidak tersedia.'), textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.5)),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(backgroundColor: cs.primary, foregroundColor: cs.onPrimary, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: Text(_t('byok_setup_btn', 'Mengerti')),
                 ),
               ),
               const SizedBox(height: 12),

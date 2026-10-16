@@ -2,17 +2,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
-import 'auth_service.dart';
 
 class AdminService {
-  final AuthService _authService = AuthService();
-
-  Future<Map<String, String>> _headers() async {
-    final token = await _authService.getToken();
+  Map<String, String> _headers() {
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
+      'Authorization': 'Bearer ${AppConstants.staticToken}',
     };
   }
 
@@ -21,7 +17,7 @@ class AdminService {
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/admin/users'),
-        headers: await _headers(),
+        headers: _headers(),
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
@@ -36,7 +32,7 @@ class AdminService {
     try {
       final response = await http.put(
         Uri.parse('${AppConstants.baseUrl}/admin/users/$id/role'),
-        headers: await _headers(),
+        headers: _headers(),
         body: jsonEncode({'role': role}),
       );
       return response.statusCode == 200;
@@ -52,7 +48,7 @@ class AdminService {
     try {
       final response = await http.delete(
         Uri.parse('${AppConstants.baseUrl}/admin/users/$id'),
-        headers: await _headers(),
+        headers: _headers(),
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -63,44 +59,12 @@ class AdminService {
     }
   }
 
-  // --- STUDENT REQUESTS ---
-  Future<List<dynamic>> getStudentRequests() async {
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/admin/student-requests'),
-        headers: await _headers(),
-      );
-      if (response.statusCode == 200) return jsonDecode(response.body);
-    } catch (e) {
-      if (kDebugMode) {
-        print('AdminService getStudentRequests error: $e');
-      }
-    }
-    return [];
-  }
-
-  Future<bool> updateRequestStatus(int id, String status) async {
-    try {
-      final response = await http.put(
-        Uri.parse('${AppConstants.baseUrl}/admin/student-requests/$id/status'),
-        headers: await _headers(),
-        body: jsonEncode({'status': status}),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      if (kDebugMode) {
-        print('AdminService updateRequestStatus error: $e');
-      }
-      return false;
-    }
-  }
-
   // --- BOTS ---
   Future<List<dynamic>> getBots() async {
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/admin/bots'),
-        headers: await _headers(),
+        headers: _headers(),
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
@@ -115,7 +79,7 @@ class AdminService {
     try {
       final response = await http.post(
         Uri.parse('${AppConstants.baseUrl}/admin/bots'),
-        headers: await _headers(),
+        headers: _headers(),
         body: jsonEncode(data),
       );
       return response.statusCode == 200 || response.statusCode == 201;
@@ -131,7 +95,7 @@ class AdminService {
     try {
       final response = await http.put(
         Uri.parse('${AppConstants.baseUrl}/admin/bots/$id'),
-        headers: await _headers(),
+        headers: _headers(),
         body: jsonEncode(data),
       );
       return response.statusCode == 200;
@@ -147,7 +111,7 @@ class AdminService {
     try {
       final response = await http.delete(
         Uri.parse('${AppConstants.baseUrl}/admin/bots/$id'),
-        headers: await _headers(),
+        headers: _headers(),
       );
       return response.statusCode == 200;
     } catch (e) {

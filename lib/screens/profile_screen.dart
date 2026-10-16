@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import '../services/localization_service.dart';
-import '../widgets/skeleton_loader.dart';
-import 'verify_email_screen.dart';
+import '../services/local_user_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -12,18 +10,21 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final AuthService _authService = AuthService();
-  late Future<Map<String, dynamic>?> _userProfile;
+  String _name = LocalUserService.defaultName;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _userProfile = _authService.getUserProfile();
+    _loadName();
   }
 
-  Future<void> _refreshProfile() async {
+  Future<void> _loadName() async {
+    final n = await LocalUserService.getLocalUserName();
+    if (!mounted) return;
     setState(() {
-      _userProfile = _authService.getUserProfile(forceRefresh: true);
+      _name = n;
+      _loading = false;
     });
   }
 
@@ -42,9 +43,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Color _secondaryTextColor(BuildContext context) =>
       Theme.of(context).colorScheme.onSurfaceVariant;
 
-  void _showEditPersonaDialog(String? currentPersona) {
-    final personaController = TextEditingController(text: currentPersona ?? '');
-    bool isLoading = false;
+  void _showChangeNameDialog() {
+    final nameController = TextEditingController(text: _name);
+    String? errorText;
 
     showModalBottomSheet(
       context: context,
@@ -60,129 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           decoration: BoxDecoration(
             color: _surfaceColor(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('profile_persona_edit'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: _primaryColor(context),
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: personaController,
-                maxLines: 3,
-                maxLength: 500,
-                decoration: InputDecoration(
-                  labelText: tr('profile_persona_hint'),
-                  prefixIcon: const Icon(Icons.face_outlined),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          final navigator = Navigator.of(context);
-                          final messenger = ScaffoldMessenger.of(context);
-
-                          setDialogState(() => isLoading = true);
-                          final result = await _authService.updatePersona(
-                            personaController.text.trim(),
-                          );
-
-                          if (!context.mounted) return;
-                          setDialogState(() => isLoading = false);
-
-                          if (result['success']) {
-                            navigator.pop();
-                            _refreshProfile();
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(tr('profile_update_success')),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          } else {
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  tr('profile_update_failed') +
-                                      result['message'],
-                                ),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(tr('profile_persona_save')),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showChangeNameDialog(String currentName) {
-    final nameController = TextEditingController(text: currentName);
-    bool isLoading = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            top: 24,
-            left: 24,
-            right: 24,
-          ),
-          decoration: BoxDecoration(
-            color: _surfaceColor(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -207,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 20),
               TextField(
                 controller: nameController,
+                maxLength: 50,
                 decoration: InputDecoration(
                   labelText: tr('profile_full_name'),
                   prefixIcon: const Icon(Icons.person_outline),
@@ -216,366 +96,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
+                  errorText: errorText,
+                  counterText: '',
                 ),
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          if (nameController.text.trim().isEmpty) return;
-                          
-                          final navigator = Navigator.of(context);
-                          final messenger = ScaffoldMessenger.of(context);
-
-                          setDialogState(() => isLoading = true);
-                          final result = await _authService.updateName(
-                            nameController.text.trim(),
-                          );
-
-                          if (!context.mounted) return;
-                          setDialogState(() => isLoading = false);
-
-                          if (result['success']) {
-                            navigator.pop();
-                            _refreshProfile();
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(tr('profile_update_success')),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          } else {
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  tr('profile_update_failed') +
-                                      result['message'],
-                                ),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
+                  onPressed: () async {
+                    final v = LocalUserService.sanitize(nameController.text);
+                    if (v.isEmpty) {
+                      setDialogState(() => errorText = tr('profile_full_name'));
+                      return;
+                    }
+                    await LocalUserService.setLocalUserName(v);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    setState(() => _name = v);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(tr('profile_update_success')),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(tr('profile_update_btn')),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showChangePasswordDialog() {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    bool isLoading = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            top: 24,
-            left: 24,
-            right: 24,
-          ),
-          decoration: BoxDecoration(
-            color: _surfaceColor(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('profile_change_password'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: _primaryColor(context),
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: currentPasswordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: tr('profile_current_password'),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: newPasswordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: tr('profile_new_password'),
-                  prefixIcon: const Icon(Icons.lock_reset),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: confirmPasswordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: tr('profile_confirm_password'),
-                  prefixIcon: const Icon(Icons.check_circle_outline),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          final navigator = Navigator.of(context);
-                          final messenger = ScaffoldMessenger.of(context);
-
-                          setDialogState(() => isLoading = true);
-                          final result = await _authService.updatePassword(
-                            currentPasswordController.text,
-                            newPasswordController.text,
-                            confirmPasswordController.text,
-                          );
-
-                          if (!context.mounted) return;
-                          setDialogState(() => isLoading = false);
-
-                          if (result['success']) {
-                            navigator.pop();
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(tr('profile_update_success')),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          } else {
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  tr('profile_update_failed') +
-                                      result['message'],
-                                ),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(tr('profile_update_btn')),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showChangeEmailDialog(String currentEmail) {
-    final emailController = TextEditingController(text: currentEmail);
-    final passwordController = TextEditingController();
-    bool isLoading = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            top: 24,
-            left: 24,
-            right: 24,
-          ),
-          decoration: BoxDecoration(
-            color: _surfaceColor(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('profile_change_email'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: _primaryColor(context),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                tr('profile_update_email_info'),
-                style: TextStyle(
-                  color: _secondaryTextColor(context),
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  labelText: tr('profile_new_email'),
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: tr('profile_current_password'),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  filled: true,
-                  fillColor: _surfaceAltColor(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          final navigator = Navigator.of(context);
-                          final messenger = ScaffoldMessenger.of(context);
-
-                          setDialogState(() => isLoading = true);
-                          final result = await _authService.updateEmail(
-                            emailController.text,
-                            passwordController.text,
-                          );
-
-                          if (!context.mounted) return;
-                          setDialogState(() => isLoading = false);
-
-                          if (result['success']) {
-                            navigator.pop();
-                            _refreshProfile();
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(tr('profile_update_success')),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          } else {
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  tr('profile_update_failed') +
-                                      result['message'],
-                                ),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(tr('profile_update_btn')),
+                  child: Text(tr('profile_update_btn')),
                 ),
               ),
             ],
@@ -594,42 +148,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: FutureBuilder<Map<String, dynamic>?>(
-          future: _userProfile,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const ProfileSkeleton();
-            }
-
-            if (snapshot.hasError || snapshot.data == null) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 60,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(tr('profile_load_error')),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: _refreshProfile,
-                      child: Text(tr('btn_retry')),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            final user = snapshot.data!;
-            final String name = user['name'] ?? 'User Name';
-            final String email = user['email'] ?? 'email@example.com';
-
-            return RefreshIndicator(
-              onRefresh: _refreshProfile,
-              child: ListView(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 30,
@@ -647,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          name,
+                          _name,
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -655,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         Text(
-                          email,
+                          tr('profile_full_name'),
                           style: TextStyle(
                             fontSize: 14,
                             color: _secondaryTextColor(context),
@@ -665,7 +186,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 40),
-
                   Text(
                     tr('profile_account_info'),
                     style: TextStyle(
@@ -678,70 +198,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildInfoTile(
                     Icons.person_outline,
                     tr('profile_full_name'),
-                    name,
+                    _name,
                   ),
-                  _buildInfoTile(
-                    Icons.email_outlined,
-                    tr('profile_email_address'),
-                    email,
-                  ),
-                  _buildInfoTile(
-                    Icons.calendar_today_outlined,
-                    tr('profile_joined'),
-                    user['created_at_human'] ?? 'Recently',
-                  ),
-
                   const SizedBox(height: 30),
-
-                  Text(
-                    tr('profile_persona'),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _primaryColor(context),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  ListTile(
-                    leading: Icon(
-                      Icons.face_outlined,
-                      color: _primaryColor(context),
-                    ),
-                    title: Text(tr('profile_persona_edit')),
-                    subtitle: Text(
-                      (user['persona'] != null &&
-                              (user['persona'] as String).isNotEmpty)
-                          ? user['persona']
-                          : tr('profile_persona_empty'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: const Icon(Icons.edit),
-                    onTap: () => _showEditPersonaDialog(
-                      user['persona'] as String?,
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  Text(
-                    tr('profile_security'),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _primaryColor(context),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  ListTile(
-                    leading: Icon(
-                      Icons.lock_outline,
-                      color: _primaryColor(context),
-                    ),
-                    title: Text(tr('profile_change_password')),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _showChangePasswordDialog,
-                  ),
                   ListTile(
                     leading: Icon(
                       Icons.person_outline,
@@ -749,47 +208,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     title: Text(tr('profile_change_name')),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showChangeNameDialog(name),
-                  ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.email_outlined,
-                      color: _primaryColor(context),
-                    ),
-                    title: Text(tr('profile_change_email')),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showChangeEmailDialog(email),
-                  ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.verified_user_outlined,
-                      color: _primaryColor(context),
-                    ),
-                    title: Text(tr('profile_account_verification')),
-                    subtitle: Text(
-                      user['email_verified_at'] != null
-                          ? tr('profile_verified')
-                          : 'Unverified',
-                    ),
-                    trailing: user['email_verified_at'] != null
-                        ? const Icon(Icons.check_circle, color: Colors.green)
-                        : const Icon(Icons.warning, color: Colors.orange),
-                    onTap: user['email_verified_at'] != null
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const VerifyEmailScreen(),
-                              ),
-                            ).then((_) => _refreshProfile());
-                          },
+                    onTap: _showChangeNameDialog,
                   ),
                 ],
               ),
-            );
-          },
-        ),
       ),
     );
   }

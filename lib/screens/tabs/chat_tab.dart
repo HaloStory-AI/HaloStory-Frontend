@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../select_contact_screen.dart';
 
-enum ChatSortType { newest, name, bond }
+enum ChatSortType { newest, name }
 
 class ChatTab extends StatefulWidget {
   final Function(Map<String, dynamic>) onChatSelected;
@@ -39,7 +39,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   // padahal disini katanya isn't used
   // but it's used here.
   bool _isLoadingChats = true;
-  bool _bondDisabled = false;
   bool _isFabOpen = false;
   ChatSortType _sortBy = ChatSortType.newest;
   bool _sortAscending = false;
@@ -54,7 +53,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   static const List<ChatSortType> _sortOptions = [
     ChatSortType.newest,
     ChatSortType.name,
-    ChatSortType.bond,
   ];
 
   Color _parseColor(dynamic color) {
@@ -123,26 +121,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     return Theme.of(context).dividerColor.withValues(alpha: 0.55);
   }
 
-  TextStyle _bondCountStyle(BuildContext context) {
-    final isDark = _isDark(context);
-    final colorScheme = Theme.of(context).colorScheme;
-    final shadowColor = isDark
-        ? Colors.black.withValues(alpha: 0.45)
-        : Colors.white;
-
-    return TextStyle(
-      color: colorScheme.primary,
-      fontWeight: FontWeight.w800,
-      fontSize: 14,
-      shadows: [
-        Shadow(color: shadowColor, offset: const Offset(1, 0)),
-        Shadow(color: shadowColor, offset: const Offset(-1, 0)),
-        Shadow(color: shadowColor, offset: const Offset(0, 1)),
-        Shadow(color: shadowColor, offset: const Offset(0, -1)),
-      ],
-    );
-  }
-
   String _trOr(String key, String fallback) {
     final translated = tr(key);
     return translated == key ? fallback : translated;
@@ -154,8 +132,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         return 'newest';
       case ChatSortType.name:
         return 'name';
-      case ChatSortType.bond:
-        return 'bond';
     }
   }
 
@@ -163,8 +139,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
     switch (key) {
       case 'name':
         return ChatSortType.name;
-      case 'bond':
-        return ChatSortType.bond;
       case 'newest':
       default:
         return ChatSortType.newest;
@@ -177,8 +151,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         return tr('sort_newest');
       case ChatSortType.name:
         return tr('sort_name');
-      case ChatSortType.bond:
-        return _trOr('sort_bond', 'Bond');
     }
   }
 
@@ -262,8 +234,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadActiveChats() async {
-    final prefs = await SharedPreferences.getInstance();
-    _bondDisabled = prefs.getBool('bond_disabled') ?? false;
     final chatMetadata = await _localChatService.getAllChatMetadata();
     final pinnedIds = await _localChatService.getPinnedChats();
 
@@ -349,13 +319,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         loadedChats.sort(
           (a, b) => (a['name'] as String).toLowerCase().compareTo(
             (b['name'] as String).toLowerCase(),
-          ),
-        );
-        break;
-      case ChatSortType.bond:
-        loadedChats.sort(
-          (a, b) => (a['bond_hearts'] as int? ?? 0).compareTo(
-            b['bond_hearts'] as int? ?? 0,
           ),
         );
         break;
@@ -1224,7 +1187,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         final isSelected = _selectedChatIds.contains(chatId);
         final selectedChatBgColor = colorScheme.surfaceContainerHighest
             .withValues(alpha: _isDark(context) ? 0.52 : 0.95);
-        final bondLevel = (chat['bond_hearts'] ?? 0).toString();
 
         final bool isGroupChat = chatId.startsWith('group_');
 
@@ -1301,30 +1263,6 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
                         ),
                       ),
                     ),
-                  if (chat['child'] == true && !isGroupChat)
-                    Positioned(
-                      right: -3,
-                      bottom: -3,
-                      child: IgnorePointer(
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Theme.of(context).scaffoldBackgroundColor,
-                              width: 2.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.child_care,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
                   Positioned(
                     right: -3,
                     bottom: -2,
@@ -1389,37 +1327,7 @@ class ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
               ],
             ),
 
-            trailing: isGroupChat
-                ? const SizedBox.shrink()
-                : _bondDisabled
-                    ? const SizedBox.shrink()
-                    : Container(
-                        width: 45,
-                        height: 45,
-                        margin: const EdgeInsets.only(left: 8),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            const Icon(
-                              Icons.favorite,
-                              color: Color(0xFFE462B5),
-                              size: 43,
-                            ),
-                            const Icon(
-                              Icons.favorite,
-                              color: Color(0xFFF3B7D1),
-                              size: 39,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Text(
-                                bondLevel,
-                                style: _bondCountStyle(context),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+            trailing: isGroupChat ? const SizedBox.shrink() : null,
             onTap: () async {
               if (_selectedChatIds.isNotEmpty) {
                 _toggleChatSelection(chatId);

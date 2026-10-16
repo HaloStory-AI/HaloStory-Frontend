@@ -471,5 +471,10 @@
   "chat_retry_prompt": "[Click the retry button to try again]",
   "session_expired_title": "Session Expired",
   "session_expired_message": "Your session has expired. Please log in again.",
-  "session_expired_btn": "Login Again"
+  "session_expired_btn": "Login Again",
+  "lite_notice_title": "HaloStory — Mikazuki AI Lite",
+  "lite_notice_desc": "HaloStory is the Lite version of Mikazuki AI. For the Full Experience (more features & models), visit Mikazuki AI.",
+  "lite_notice_go": "Visit Website",
+  "lite_notice_later": "Maybe Later",
+  "lite_notice_dont_show": "Don’t show again"
 }

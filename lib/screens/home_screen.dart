@@ -8,12 +8,10 @@ import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
 import 'chat_screen.dart';
 import 'admin_screen.dart';
-import 'student_request_screen.dart';
 import 'settings_screen.dart';
 
 import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
-import 'donation_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
@@ -132,11 +130,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(sheetContext);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DonationScreen(),
-                    ),
+                  launchUrl(
+                    Uri.parse('https://trakteer.id/r8kstudio'),
+                    mode: LaunchMode.externalApplication,
                   );
                 },
                 icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
@@ -387,24 +383,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           );
                           break;
-                        case 'suggest':
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const StudentRequestScreen(),
-                            ),
-                          );
-                          break;
                         case 'donation':
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const DonationScreen(),
-                            ),
+                          launchUrl(
+                            Uri.parse('https://trakteer.id/r8kstudio'),
+                            mode: LaunchMode.externalApplication,
                           );
                           break;
                         case 'contributor':
-                          launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                          launchUrl(
+                            Uri.parse('https://github.com/HaloStory-AI'),
+                            mode: LaunchMode.externalApplication,
+                          );
                           break;
                         case 'help':
                           launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
@@ -436,23 +425,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.amber,
                                 fontWeight: FontWeight.bold,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'suggest',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.add_task_rounded,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tr('sidebar_suggest_student'),
-                              style: TextStyle(color: colorScheme.onSurface),
                             ),
                           ],
                         ),

@@ -472,5 +472,10 @@
   "chat_retry_prompt": "[点击重试按钮重新尝试]",
   "session_expired_title": "会话已过期",
   "session_expired_message": "您的会话已过期，请重新登录。",
-  "session_expired_btn": "重新登录"
+  "session_expired_btn": "重新登录",
+  "lite_notice_title": "HaloStory — Mikazuki AI Lite",
+  "lite_notice_desc": "HaloStory 是 Mikazuki AI 的精简版。想要完整体验（更多功能与模型），请访问 Mikazuki AI。",
+  "lite_notice_go": "前往官网",
+  "lite_notice_later": "下次再说",
+  "lite_notice_dont_show": "不再显示"
 }

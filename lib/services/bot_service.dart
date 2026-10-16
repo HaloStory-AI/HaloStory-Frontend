@@ -3,11 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
-import 'auth_service.dart';
 import 'config_service.dart';
 
 class BotService {
-  final AuthService _authService = AuthService();
 
   static const String _botsCacheKey = 'cached_bots_list';
   static const String _botsTimeKey = 'cached_bots_timestamp';
@@ -24,6 +22,12 @@ class BotService {
 
   static List<Map<String, dynamic>>? _cachedChatTabBots;
   static DateTime? _lastChatTabFetch;
+
+  Map<String, String> _headers() => {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${AppConstants.staticToken}',
+      };
 
   Future<List<Map<String, dynamic>>> getBots({
     bool forceRefresh = false,
@@ -96,8 +100,6 @@ class BotService {
   }) async {
     final now = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
-    final token = await _authService.getToken();
-    if (token == null) return _cachedBots ?? [];
 
     try {
       if (kDebugMode) {
@@ -115,11 +117,7 @@ class BotService {
       final response = await http
           .get(
             Uri.parse(url),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
+            headers: _headers(),
           )
           .timeout(const Duration(seconds: 30));
 
@@ -127,7 +125,7 @@ class BotService {
         final List<dynamic> data = jsonDecode(response.body);
         final result = List<Map<String, dynamic>>.from(data);
 
-        // --- NEW: UPDATE KNOWN BOTS ---
+        // --- UPDATE KNOWN BOTS ---
         if (_knownBots == null) {
           final localJson = prefs.getString(_knownBotsDictKey);
           if (localJson != null) {
@@ -168,17 +166,10 @@ class BotService {
   }
 
   Future<List<Map<String, dynamic>>> getEventCategories() async {
-    final token = await _authService.getToken();
-    if (token == null) return [];
-
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/event-categories'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: _headers(),
       );
 
       if (response.statusCode == 200) {
@@ -194,17 +185,10 @@ class BotService {
   }
 
   Future<Map<String, dynamic>> getCategories() async {
-    final token = await _authService.getToken();
-    if (token == null) return {};
-
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/v1/categories'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: _headers(),
       );
 
       if (response.statusCode == 200) {
@@ -219,17 +203,10 @@ class BotService {
   }
 
   Future<List<Map<String, dynamic>>> getBotsByCategory(String slug) async {
-    final token = await _authService.getToken();
-    if (token == null) return [];
-
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/v1/category/$slug'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: _headers(),
       );
 
       if (response.statusCode == 200) {
@@ -250,33 +227,6 @@ class BotService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_botsCacheKey);
     await prefs.remove(_botsTimeKey);
-  }
-
-  Future<bool> recruitBot(String botId) async {
-    final token = await _authService.getToken();
-    if (token == null) return false;
-
-    try {
-      final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/bots/recruit'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'bot_id': botId}),
-      );
-
-      if (response.statusCode == 503) {
-        ConfigService.enterMaintenance();
-      }
-      return response.statusCode == 200;
-    } catch (e) {
-      if (kDebugMode) {
-        print('DEBUG: recruitBot Error: $e');
-      }
-      return false;
-    }
   }
 
   static List<Map<String, dynamic>>? _cachedCalendarBots;
@@ -321,18 +271,11 @@ class BotService {
   }
 
   Future<List<Map<String, dynamic>>> _fetchCalendarBots() async {
-    final token = await _authService.getToken();
-    if (token == null) return _cachedCalendarBots ?? [];
-
     try {
       final response = await http
           .post(
             Uri.parse('${AppConstants.baseUrl}/v1/calendar'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
+            headers: _headers(),
           )
           .timeout(const Duration(seconds: 30));
 
@@ -402,25 +345,18 @@ class BotService {
   }
 
   Future<List<Map<String, dynamic>>> _fetchChatTabBots() async {
-    final token = await _authService.getToken();
-    if (token == null) return _cachedChatTabBots ?? [];
-
     try {
       final response = await http
           .get(
             Uri.parse('${AppConstants.baseUrl}/v1/bot-tab'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
+            headers: _headers(),
           )
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final result = List<Map<String, dynamic>>.from(jsonDecode(response.body));
 
-        // Update _knownBots so getBotById can resolve bonded bots
+        // Update _knownBots so getBotById can resolve cached bots
         _knownBots ??= {};
         for (var bot in result) {
           _knownBots![bot['id'].toString()] = Map<String, dynamic>.from(bot);
@@ -441,33 +377,6 @@ class BotService {
       }
     }
     return _cachedChatTabBots ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> getRecruitedBots() async {
-    final token = await _authService.getToken();
-    if (token == null) return [];
-
-    try {
-      final response = await http
-          .get(
-            Uri.parse('${AppConstants.baseUrl}/v1/recruited-bots'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('DEBUG: getRecruitedBots Error: $e');
-      }
-    }
-    return [];
   }
 
   Future<Map<String, dynamic>?> getBotById(String botId) async {

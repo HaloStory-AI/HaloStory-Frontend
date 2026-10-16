@@ -304,9 +304,6 @@ class _StoryViewScreenState extends State<StoryViewScreen> {
 
           if (!mounted) return;
 
-          // Pastikan bot sudah terdaftar
-          _botService.recruitBot(botId);
-
           if (widget.onReply != null) {
             widget.onReply!(bot, message);
           } else {

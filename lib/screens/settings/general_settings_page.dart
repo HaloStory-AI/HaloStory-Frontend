@@ -13,11 +13,10 @@ class GeneralSettingsPage extends StatefulWidget {
 }
 
 class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
-  String _selectedProvider = 'System';
+  String _selectedProvider = 'BYOK';
   bool _aiReasoningEnabled = false;
   bool _realtimeDateTimeEnabled = false;
-  bool _bondDisabled = false;
-  final List<String> _providers = ['System', 'BYOK'];
+  final List<String> _providers = ['BYOK'];
 
   @override
   void initState() {
@@ -32,13 +31,8 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
       _selectedProvider = AIService.normalizeProvider(
         prefs.getString('default_provider'),
       );
-      if (_selectedProvider == 'BYOM') {
-        _selectedProvider = 'System';
-        prefs.setString('default_provider', 'System');
-      }
       _aiReasoningEnabled = prefs.getBool('ai_reasoning_enabled') ?? false;
       _realtimeDateTimeEnabled = prefs.getBool('realtime_date_time_enabled') ?? false;
-      _bondDisabled = prefs.getBool('bond_disabled') ?? false;
     });
   }
 
@@ -47,7 +41,6 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
     await prefs.setString('default_provider', _selectedProvider);
     await prefs.setBool('ai_reasoning_enabled', _aiReasoningEnabled);
     await prefs.setBool('realtime_date_time_enabled', _realtimeDateTimeEnabled);
-    await prefs.setBool('bond_disabled', _bondDisabled);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -169,33 +162,6 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
             ),
             const SizedBox(height: 24),
 
-            // ── Section: Disable Bond System ──
-            Container(
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: SwitchListTile(
-                title: Text(
-                  tr('settings_bond_disabled_title'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-                subtitle: Text(
-                  tr('settings_bond_disabled_desc'),
-                  style: TextStyle(color: textColor.withValues(alpha: 0.7)),
-                ),
-                value: _bondDisabled,
-                activeThumbColor: colorScheme.primary,
-                onChanged: (bool value) {
-                  setState(() => _bondDisabled = value);
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-
             // ── Section: About Modes ──
             Text(
               tr('settings_about_mode'),
@@ -206,7 +172,6 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
               ),
             ),
             const SizedBox(height: 10),
-            _buildModeInfo('System', tr('settings_mode_system_desc')),
             _buildModeInfo('BYOK', tr('settings_mode_byok_desc')),
             const SizedBox(height: 24),
           ],

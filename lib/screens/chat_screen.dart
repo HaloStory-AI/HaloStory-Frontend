@@ -1,24 +1,17 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/gestures.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/widget_previews.dart';
-import 'package:http/http.dart' as http;
 import '../services/ai_service.dart';
-import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import '../constants.dart';
 import '../services/localization_service.dart';
 import '../widgets/skeleton_loader.dart';
 import 'call_screen.dart';
-import '../widgets/chat/bond_explosion_effect.dart';
-import '../widgets/chat/safety_bar.dart';
 import '../widgets/chat/delete_bottom_sheet.dart';
 import '../widgets/chat/message_options_sheet.dart';
 import '../widgets/chat/user_message_bubble.dart';
@@ -45,7 +38,6 @@ Widget chatDetailScreenPreview() {
             'Nickname: Airi\nAge: 19\nNationality: Japanese\nHeight: 160 cm\nWeight: 48 kg\nLike: Music\nDislike: Silence',
         'image_url': null,
         'color': null,
-        'bond_hearts': 7,
         'birthday': null,
       },
       provider: 'Preview',
@@ -83,7 +75,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   final AIService _aiService = AIService();
   final LocalChatService _localChatService = LocalChatService();
 
-  static bool _hasShownSystemAiWarning = false;
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = false;
   Map<int, String> _summaries = {};
@@ -99,7 +90,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   bool _streamStopRequested = false;
   String? _retryCountdownText;
   bool _hasSystemError = false;
-  bool _showChildWarning = false;
 
   // Debug overlay state
   bool _showDebugOverlay = false;
@@ -114,15 +104,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   bool _isPersonaOpen = false;
   bool _isCharacterMenuOpen = false;
 
-  // Bond state
-  String _bondStatus = 'normal';
-  String _bondRelationship = 'Orang Asing';
-  late int _bondLevel;
-  String? _pendingBondEvent;
-
   static const String _chatHeaderFont = 'Roboto';
-  bool _showExplosion = false;
-  bool _showSafetyBar = false;
 
   bool _isGroup = false;
   bool _groupInfoChanged = false;
@@ -142,8 +124,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _groupName = (widget.bot['name'] ?? '').toString();
     _groupBio = (widget.bot['description'] ?? widget.bot['bio'] ?? '')
         .toString();
-    _bondLevel = widget.bot['bond_hearts'] ?? 0;
-    _showChildWarning = widget.bot['child'] == true && !_isGroup;
     _scrollController.addListener(_scrollListener);
     _loadHistory();
     _loadSystemNote();
@@ -151,10 +131,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _showBugNoticeIfNeeded();
     _loadSelectedBot();
     _loadItalicsSetting();
-    if (widget.provider == 'System' && !_hasShownSystemAiWarning) {
-      _showSystemAiWarning();
-      _hasShownSystemAiWarning = true;
-    }
   }
 
   Future<void> _loadSelectedBot() async {
@@ -257,81 +233,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       'persona_${widget.bot['id']}',
       _personaController.text,
     );
-  }
-
-  void _showSystemAiWarning() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isDisposed) return;
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: surfaceBackground(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/image/notice_image.png',
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('system_notice_title'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                tr('system_notice_content'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: subtitleColor(context),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: surfaceAltBackground(context),
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(tr('system_notice_btn')),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      );
-    });
   }
 
   Future<void> _showBugNoticeIfNeeded() async {
@@ -1101,19 +1002,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     String language = prefs.getString('app_language') ?? 'Indonesian';
 
     final bool realtimeDateTime = prefs.getBool('realtime_date_time_enabled') ?? false;
-    final bool bondDisabled = prefs.getBool('bond_disabled') ?? false;
 
-    // Resolve persona: per-chat override > global persona > none
+    // Resolve persona: hanya per-chat lokal persona_{chatId}
     String? resolvedPersona;
     final chatPersona = prefs.getString('persona_${widget.bot['id']}');
     if (chatPersona != null && chatPersona.trim().isNotEmpty) {
       resolvedPersona = chatPersona.trim();
-    } else {
-      final profile = await AuthService().getUserProfile();
-      final globalPersona = profile?['persona'] as String?;
-      if (globalPersona != null && globalPersona.trim().isNotEmpty) {
-        resolvedPersona = globalPersona.trim();
-      }
     }
     if (realtimeDateTime) {
       final timeTag = DateFormat("'[this message sent at 'dd/MM/yyyy HH:mm:ss']'").format(DateTime.now());
@@ -1167,7 +1061,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
           language: language,
           summary: summaryPrompt,
           persona: resolvedPersona,
-          bondDisabled: bondDisabled,
           isGroup: _isGroup,
         );
 
@@ -1490,9 +1383,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     bool shouldStartTyping = false;
     int partsLength = 0;
 
-    final prefsBond = await SharedPreferences.getInstance();
-    final bondNowDisabled = prefsBond.getBool('bond_disabled') ?? false;
-
     _safeSetState(() {
       _isLoading = false;
       _activeBotId = null;
@@ -1503,7 +1393,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
         String aiContent = response['choices'][0]['message']['content'] ?? '';
 
         if (aiContent.contains('[Need Help]')) {
-          _showSafetyBar = true;
           aiContent = aiContent.replaceAll('[Need Help]', '').trim();
         }
 
@@ -1516,7 +1405,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
           if (skipTypingEffect) {
             // Mode stream: bubble-bubble inkremental sudah tampil live;
             // hapus semuanya, bangun ulang dari konten final bersih
-            // (hasil ParseBondTags backend sebagai bubble per paragraf),
+            // (hasil backend sebagai bubble per paragraf),
             // tanpa bubble delay 2 detik.
             _messages.removeWhere((m) => m['is_streaming'] == true);
             _messages.add({
@@ -1560,14 +1449,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
           rawError: rawError,
         );
       }
-
-      // Update bond state from response
-      if (response != null && !bondNowDisabled) {
-        _bondStatus = response['bond_status'] ?? _bondStatus;
-        _bondRelationship = response['relationship_label'] ?? _bondRelationship;
-        _bondLevel = (response['bond_level'] as int?) ?? _bondLevel;
-        _pendingBondEvent = response['bond_event'] as String?;
-      }
     });
 
     if (shouldStartTyping) {
@@ -1577,16 +1458,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       _generateSummaries();
     }
     _scrollToBottom();
-
-    if (_pendingBondEvent != null && !bondNowDisabled) {
-      final evt = _pendingBondEvent!;
-      _pendingBondEvent = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_isDisposed) _handleBondEvent(evt);
-      });
-    } else {
-      _pendingBondEvent = null;
-    }
   }
 
   Future<void> _startTypingEffect(int totalParts) async {
@@ -1617,264 +1488,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     await _localChatService.saveChat(widget.bot['id'], _messages);
   }
 
-  // ───────────────────────────────────────────────────────────────
-  // Bond Simulator (Debug Only)
-  // ───────────────────────────────────────────────────────────────
-
-  void _showBondSimulator() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final scheme = Theme.of(ctx).colorScheme;
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: surfaceBackground(ctx),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Bond Simulator (God Mode)",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: scheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _simulateBond(xp: 1000),
-                    child: const Text("+1k XP"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _simulateBond(level: 25),
-                    child: const Text("Lv 25"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _simulateBond(level: 100),
-                    child: const Text("Lv 100"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _simulateBond(level: 150),
-                    child: const Text("Lv 150"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _handleBondEvent('confession_triggered'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pinkAccent,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text("Trigger Confession"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _handleBondEvent('marriage_triggered'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purpleAccent,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text("Trigger Marriage"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _simulateBond(reset: true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
-                    child: const Text(
-                      "Reset Bond",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "Note: Changes on server will sync on next message or refresh",
-                style: TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _simulateBond({int? xp, int? level, bool reset = false}) async {
-    final token = await AuthService().getToken();
-    if (token == null) return;
-
-    try {
-      final response = await http.post(
-        Uri.parse(
-          '${AppConstants.baseUrl}/bots/bond/${widget.bot['id']}/debug',
-        ),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'xp': ?xp,
-          'level': ?level,
-          if (reset) 'reset': true,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        _safeSetState(() {
-          _bondStatus = data['bond_status'];
-          _bondRelationship = data['relationship_label'];
-          _bondLevel = data['bond_hearts'];
-        });
-        if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Simulasi Berhasil!"),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        final errorData = jsonDecode(response.body);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                "Simulasi Gagal: ${response.statusCode} - ${errorData['error'] ?? 'Unknown Error'}",
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Simulator Error: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // ───────────────────────────────────────────────────────────────
-  // Bond Event Handling
-  // ───────────────────────────────────────────────────────────────
-
-  void _handleBondEvent(String event) {
-    if (!mounted || _isDisposed) return;
-
-    switch (event) {
-      case 'relationship_damaged':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.heart_broken, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text(
-                  'Hubungan kalian memburuk...',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        break;
-
-      case 'xp_lost':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.mood_bad, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text(
-                  'Bond XP berkurang...',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.orange.shade800,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        break;
-      case 'relationship_upgraded':
-        _triggerBondExplosion();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.favorite, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Hubungan kalian naik ke: $_bondRelationship! ✨',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.pink.shade400,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        break;
-
-      case 'level_up':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.favorite, color: Colors.pinkAccent, size: 18),
-                const SizedBox(width: 8),
-                Text('Bond naik! Lv. $_bondLevel — $_bondRelationship'),
-              ],
-            ),
-            backgroundColor: const Color(0xFF2D2D2D),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        break;
-
-      case 'confession_triggered':
-        // Popups removed for Natural Flow. AI handles dialogue.
-        break;
-
-      case 'marriage_triggered':
-        // Popups removed for Natural Flow. AI handles dialogue.
-        break;
-      case 'relationship_stuck':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Keputusan telah dibuat. Status hubungan tidak berubah.',
-            ),
-            backgroundColor: Colors.blueGrey,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        break;
-    }
-  }
-
-
   void _addSystemError(String timestamp, {int? statusCode, dynamic rawError}) {
     String errorMsg =
-        'Error: Failed to get response from ${widget.provider}. please check your API Key, Your Provider, or your BYOM';
+        'Error: Failed to get response from ${widget.provider}. please check your API Key or Provider';
 
     if (statusCode == 503) {
       errorMsg = 'Server is under maintenance, try again later';
@@ -1883,8 +1499,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       errorMsg = tr('error_rate_limit');
     } else if (statusCode == 400 || statusCode == 401) {
       errorMsg = tr('error_api_key');
-    } else if (widget.provider == 'System') {
-      errorMsg = tr('error_busy');
     }
 
     if (rawError != null) {
@@ -2493,24 +2107,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
           ),
           body: Stack(
             children: [
-              if (_showExplosion)
-                Positioned.fill(
-                  child: BondExplosionEffect(
-                    onFinished: () {
-                      _safeSetState(() => _showExplosion = false);
-                    },
-                  ),
-                ),
               Container(
                 decoration: getWallpaperDecoration(context) ?? BoxDecoration(color: pageBackground(context)),
                 child: Column(
                   children: [
-                    if (_showSafetyBar)
-                      SafetyBar(
-                        onDismiss: () => _safeSetState(
-                          () => _showSafetyBar = false,
-                        ),
-                      ),
                     if (_isSummarizing && _summaryProgress >= 0.0)
                       LinearProgressIndicator(
                         value: _summaryProgress,
@@ -2735,21 +2335,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                                 ),
                               ),
                             ),
-                          if (kDebugMode)
-                            Positioned(
-                              bottom: 72,
-                              right: 16,
-                              child: FloatingActionButton(
-                                mini: true,
-                                heroTag: "bond_simulator",
-                                backgroundColor: Colors.orange.shade700,
-                                onPressed: _showBondSimulator,
-                                child: const Icon(
-                                  Icons.bug_report,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
                           if (_isCharacterMenuOpen)
                             Positioned.fill(
                               child: AnimatedOpacity(
@@ -2853,13 +2438,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
                   ],
                 ),
               ),
-              if (_showChildWarning)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _buildChildWarningBanner(context),
-                ),
             ],
           ),
         ),
@@ -2909,52 +2487,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       }
     } catch (_) {}
     return parseColor(widget.bot['color']);
-  }
-
-  Widget _buildChildWarningBanner(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: Colors.amber.shade100,
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                style: TextStyle(fontSize: 12, color: Colors.black87),
-                children: [
-                  TextSpan(text: tr('child_sfw_warning')),
-                  const TextSpan(text: ' '),
-                  TextSpan(
-                    text: 'https://s.my-bini.my.id/hs-sfw-policy',
-                    style: TextStyle(
-                      color: Colors.blue.shade700,
-                      decoration: TextDecoration.underline,
-                      fontSize: 12,
-                    ),
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () {
-                        launchUrl(
-                          Uri.parse('https://s.my-bini.my.id/hs-sfw-policy'),
-                          mode: LaunchMode.externalApplication,
-                        );
-                      },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => _safeSetState(() => _showChildWarning = false),
-            child: const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Icon(Icons.close, color: Colors.black54, size: 16),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildTypingIndicatorWidget() {
@@ -3034,12 +2566,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
             )
           : null,
     );
-  }
-
-  void _triggerBondExplosion() {
-    _safeSetState(() {
-      _showExplosion = true;
-    });
   }
 }
 

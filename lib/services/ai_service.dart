@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
-import 'auth_service.dart';
 import 'localization_service.dart';
 import 'config_service.dart';
+import 'local_user_service.dart';
 
 /// Hasil konsumsi SSE /chat/stream/:uuid.
 enum StreamOutcomeKind {
@@ -40,69 +40,56 @@ class AIService {
   }
 
   static String normalizeProvider(String? p) {
-    if (p == null) return 'System';
-    if (p == 'System' || p == 'BYOK' || p == 'BYOM') return p;
-    // Legacy mapping (Gemini, Groq, etc were once types of System AI in older versions)
-    if (p.contains('Groq') || p == 'OpenAI' || p == 'Gemini') return 'System';
-    // Any other specific platforms should be treated as BYOK if not found in category list
+    // BYOM + System dihapus total — semua fallback ke BYOK
     return 'BYOK';
   }
 
-  final AuthService _authService = AuthService();
+  String get _staticToken => AppConstants.staticToken;
 
   Future<Map<String, dynamic>?> sendMessage({
-    required String provider, // 'System', 'BYOK', 'BYOM'
+    required String provider, // always BYOK (legacy System/BYOM migrated)
     required List<Map<String, String>> messages,
     String? botId,
     List<String>? botIds,
     String? language,
     String? summary,
     String? persona,
-    bool bondDisabled = false,
     bool isGroup = false,
   }) async {
-    final token = await _authService.getToken();
-    if (token == null) return null;
-
     final actualLanguage =
         language ?? LocalizationService().currentLanguageName;
     final prefs = await SharedPreferences.getInstance();
 
-    // Load user persona: prefer per-chat override, fallback to global profile
-    final userProfile = await _authService.getUserProfile();
-    final globalPersona = userProfile?['persona'] as String?;
-    final userPersona = persona ?? globalPersona;
+    // persona: caller already resolved per-chat (persona_{chatId}) — fallback empty
+    final userPersona = persona;
 
-    // Normalize provider for legacy support if needed
-    final mode = normalizeProvider(provider);
+    // user_name from local prefs
+    final userName = LocalUserService.getLocalUserNameSync(prefs);
 
-    // Load Advanced Params
-    final double temp = prefs.getDouble('ai_temp') ?? _getDefault(mode, 'temp');
+    // Advanced params — BYOK defaults
+    final double temp = prefs.getDouble('ai_temp') ?? _getDefault('temp');
     final int responseLength =
-        prefs.getInt('ai_response_length') ?? _getDefault(mode, 'max_token');
+        prefs.getInt('ai_response_length') ?? _getDefault('max_token');
     final int maxTokens =
-        prefs.getInt('ai_max_token') ?? _getDefault(mode, 'max_token');
+        prefs.getInt('ai_max_token') ?? _getDefault('max_token');
     final double topP =
-        prefs.getDouble('ai_top_p') ?? _getDefault(mode, 'top_p');
+        prefs.getDouble('ai_top_p') ?? _getDefault('top_p');
     final double topA =
-        prefs.getDouble('ai_top_a') ?? _getDefault(mode, 'top_a');
-    final int topK = prefs.getInt('ai_top_k') ?? _getDefault(mode, 'top_k');
+        prefs.getDouble('ai_top_a') ?? _getDefault('top_a');
+    final int topK = prefs.getInt('ai_top_k') ?? _getDefault('top_k');
     final double repPenalty =
-        prefs.getDouble('ai_rep_penalty') ?? _getDefault(mode, 'rep_penalty');
+        prefs.getDouble('ai_rep_penalty') ?? _getDefault('rep_penalty');
 
     final int contextLimit =
-        prefs.getInt('ai_context_limit') ?? _getDefault(mode, 'context_limit');
+        prefs.getInt('ai_context_limit') ?? _getDefault('context_limit');
     final int ltmBudget =
-        prefs.getInt('ai_ltm_budget') ?? _getDefault(mode, 'ltm_budget');
+        prefs.getInt('ai_ltm_budget') ?? _getDefault('ltm_budget');
     final int embedBudget =
-        prefs.getInt('ai_embed_budget') ?? _getDefault(mode, 'embed_budget');
+        prefs.getInt('ai_embed_budget') ?? _getDefault('embed_budget');
     final int historyDepth =
-        prefs.getInt('ai_history_depth') ?? _getDefault(mode, 'history_depth');
+        prefs.getInt('ai_history_depth') ?? _getDefault('history_depth');
     final bool reasoningEnabled =
         prefs.getBool('ai_reasoning_enabled') ?? false;
-    // Response mode: stream=true -> worker publish delta SSE + frontend baca
-    // /chat/stream/:uuid; false/absen -> polling biasa via /chat/status/:uuid.
-    // Default true agar instalasi baru langsung streaming.
     final bool streamEnabled = prefs.getBool('ai_stream_enabled') ?? true;
 
     final Map<String, dynamic> advancedParams = {
@@ -118,64 +105,32 @@ class AIService {
       'embedding_budget': embedBudget,
       'history_depth': historyDepth,
       'reasoning': {'enabled': reasoningEnabled},
-      'reasoning_enabled':
-          reasoningEnabled, // Send as flat property for generic controllers
+      'reasoning_enabled': reasoningEnabled,
       'stream': streamEnabled,
     };
 
     try {
-      if (mode == 'System') {
-        return await _sendSystemMessage(
-          token,
-          messages,
-          botId,
-          botIds,
-          actualLanguage,
-          advancedParams,
-          summary,
-          bondDisabled,
-          isGroup,
-          userPersona,
-        );
-      } else if (mode == 'BYOK') {
-        final apiKey = prefs.getString('byok_api_key') ?? '';
-        final model = prefs.getString('byok_model') ?? 'openai/gpt-3.5-turbo';
-        final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
-        final baseUrl = prefs.getString('byok_base_url') ?? '';
+      final apiKey = prefs.getString('byok_api_key') ?? '';
+      final model = prefs.getString('byok_model') ?? 'openai/gpt-3.5-turbo';
+      final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
+      final baseUrl = prefs.getString('byok_base_url') ?? '';
 
-        return await _sendByokMessage(
-          token,
-          messages,
-          botId,
-          botIds,
-          actualLanguage,
-          apiKey,
-          model,
-          byokProvider,
-          baseUrl,
-          advancedParams,
-          summary,
-          bondDisabled,
-          isGroup,
-          userPersona,
-        );
-      } else if (mode == 'BYOM') {
-        final endpoint =
-            prefs.getString('byom_endpoint') ??
-            'http://localhost:11434/v1/chat/completions';
-        final model = prefs.getString('byom_model') ?? 'llama3';
-        final apiKey = prefs.getString('byom_api_key') ?? '';
-        return await _sendByomMessage(
-          token,
-          messages,
-          botId,
-          actualLanguage,
-          endpoint,
-          model,
-          apiKey,
-          advancedParams,
-        );
-      }
+      return await _sendByokMessage(
+        _staticToken,
+        messages,
+        botId,
+        botIds,
+        actualLanguage,
+        apiKey,
+        model,
+        byokProvider,
+        baseUrl,
+        advancedParams,
+        summary,
+        isGroup,
+        userPersona,
+        userName,
+      );
     } catch (e) {
       if (kDebugMode) {
         print('DEBUG: AIService Error: $e');
@@ -184,129 +139,30 @@ class AIService {
     return null;
   }
 
-  dynamic _getDefault(String mode, String param) {
-    if (mode == 'System') {
-      switch (param) {
-        case 'temp':
-          return 0.7;
-        case 'max_token':
-          return 1024;
-        case 'top_p':
-          return 0.9;
-        case 'top_a':
-          return 0.0;
-        case 'top_k':
-          return 40;
-        case 'rep_penalty':
-          return 1.1;
-        case 'context_limit':
-          return 1500;
-        case 'ltm_budget':
-          return 300;
-        case 'embed_budget':
-          return 200;
-        case 'history_depth':
-          return 5;
-      }
-    } else if (mode == 'BYOK') {
-      switch (param) {
-        case 'temp':
-          return 0.7;
-        case 'max_token':
-          return 4096;
-        case 'top_p':
-          return 1.0;
-        case 'top_a':
-          return 0.0;
-        case 'top_k':
-          return 50;
-        case 'rep_penalty':
-          return 1.0;
-        case 'context_limit':
-          return 3000;
-        case 'ltm_budget':
-          return 1000;
-        case 'embed_budget':
-          return 500;
-        case 'history_depth':
-          return 15;
-      }
-    } else {
-      // BYOM - Higher or No limit in UI, but we need defaults here
-      switch (param) {
-        case 'temp':
-          return 0.7;
-        case 'max_token':
-          return 8192;
-        case 'top_p':
-          return 1.0;
-        case 'top_a':
-          return 0.0;
-        case 'top_k':
-          return 100;
-        case 'rep_penalty':
-          return 1.0;
-        case 'context_limit':
-          return 16000;
-        case 'ltm_budget':
-          return 4000;
-        case 'embed_budget':
-          return 2000;
-        case 'history_depth':
-          return 30;
-      }
+  dynamic _getDefault(String param) {
+    switch (param) {
+      case 'temp':
+        return 0.7;
+      case 'max_token':
+        return 4096;
+      case 'top_p':
+        return 1.0;
+      case 'top_a':
+        return 0.0;
+      case 'top_k':
+        return 50;
+      case 'rep_penalty':
+        return 1.0;
+      case 'context_limit':
+        return 3000;
+      case 'ltm_budget':
+        return 1000;
+      case 'embed_budget':
+        return 500;
+      case 'history_depth':
+        return 15;
     }
     return null;
-  }
-
-  Future<Map<String, dynamic>?> _sendSystemMessage(
-    String token,
-    List<Map<String, String>> messages,
-    String? botId,
-    List<String>? botIds,
-    String? language,
-    Map<String, dynamic> advancedParams,
-    String? summary,
-    bool bondDisabled,
-    bool isGroup,
-    String? userPersona,
-  ) async {
-    final response = await http.post(
-      Uri.parse(AppConstants.chatSystemUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'messages': messages,
-        'bot_id': botId,
-        'bot_ids': botIds,
-        'language': language,
-        'summary': summary,
-        if (bondDisabled) 'isdisabledbond': true,
-        if (isGroup) 'is_group': true,
-        if (userPersona != null && userPersona.isNotEmpty)
-          'user_persona': userPersona,
-        ...advancedParams,
-      }),
-    );
-    if (response.statusCode == 200) return jsonDecode(response.body);
-    if (response.statusCode == 503) {
-      ConfigService.enterMaintenance();
-    }
-
-    dynamic parsedBody;
-    try {
-      parsedBody = jsonDecode(response.body);
-    } catch (_) {}
-
-    return {
-      'error': true,
-      'status_code': response.statusCode,
-      'raw_error': parsedBody ?? response.body,
-      'message': 'Server returned ${response.statusCode}',
-    };
   }
 
   Future<Map<String, dynamic>?> _sendByokMessage(
@@ -321,11 +177,10 @@ class AIService {
     String baseUrl,
     Map<String, dynamic> advancedParams,
     String? summary,
-    bool bondDisabled,
     bool isGroup,
     String? userPersona,
+    String userName,
   ) async {
-    // Dynamic endpoint for BYOK
     final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
 
     final response = await http.post(
@@ -344,80 +199,13 @@ class AIService {
         'model': model,
         'base_url': baseUrl,
         'summary': summary,
-        if (bondDisabled) 'isdisabledbond': true,
+        'user_name': userName,
         if (isGroup) 'is_group': true,
         if (userPersona != null && userPersona.isNotEmpty)
           'user_persona': userPersona,
         ...advancedParams,
       }),
     );
-    if (response.statusCode == 200) return jsonDecode(response.body);
-    if (response.statusCode == 503) {
-      ConfigService.enterMaintenance();
-    }
-
-    dynamic parsedBody;
-    try {
-      parsedBody = jsonDecode(response.body);
-    } catch (_) {}
-
-    return {
-      'error': true,
-      'status_code': response.statusCode,
-      'raw_error': parsedBody ?? response.body,
-      'message': 'Server returned ${response.statusCode}',
-    };
-  }
-
-  Future<Map<String, dynamic>?> _sendByomMessage(
-    String token,
-    List<Map<String, String>> messages,
-    String? botId,
-    String? language,
-    String endpoint,
-    String model,
-    String apiKey,
-    Map<String, dynamic> advancedParams,
-  ) async {
-    // 1. Fetch system prompt from backend
-    final promptResponse = await http.get(
-      Uri.parse('${AppConstants.byomPromptUrl}/$botId?language=$language'),
-      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
-    );
-
-    String systemPrompt = "";
-    if (promptResponse.statusCode == 200) {
-      systemPrompt = jsonDecode(promptResponse.body)['system_prompt'] ?? "";
-    } else if (promptResponse.statusCode == 503) {
-      ConfigService.enterMaintenance();
-    }
-
-    // 2. Format messages for local model
-    List<Map<String, String>> localMessages = List.from(messages);
-    bool hasSystem = localMessages.any((m) => m['role'] == 'system');
-    if (!hasSystem && systemPrompt.isNotEmpty) {
-      localMessages.insert(0, {'role': 'system', 'content': systemPrompt});
-    }
-
-    // 3. Send directly to local/custom endpoint
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-    if (apiKey.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $apiKey';
-    }
-
-    final response = await http.post(
-      Uri.parse(endpoint),
-      headers: headers,
-      body: jsonEncode({
-        'model': model,
-        'messages': localMessages,
-        ...advancedParams,
-      }),
-    );
-
     if (response.statusCode == 200) return jsonDecode(response.body);
     if (response.statusCode == 503) {
       ConfigService.enterMaintenance();
@@ -443,15 +231,8 @@ class AIService {
     String? provider,
     List<String>? existingMemories,
   }) async {
-    final token = await _authService.getToken();
-    if (token == null) return null;
-
     final actualLanguage =
         language ?? LocalizationService().currentLanguageName;
-    final mode = normalizeProvider(provider);
-
-    // BYOM: skip summarization, model lokal handle large context secara native
-    if (mode == 'BYOM') return null;
 
     try {
       final body = <String, dynamic>{
@@ -463,45 +244,29 @@ class AIService {
         body['existing_memories'] = existingMemories;
       }
 
-      if (mode == 'BYOK') {
-        final prefs = await SharedPreferences.getInstance();
-        final apiKey = prefs.getString('byok_api_key') ?? '';
-        final model = prefs.getString('byok_model') ?? '';
-        final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
-        final baseUrl = prefs.getString('byok_base_url') ?? '';
-        final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
+      final prefs = await SharedPreferences.getInstance();
+      final apiKey = prefs.getString('byok_api_key') ?? '';
+      final model = prefs.getString('byok_model') ?? '';
+      final byokProvider = _normalizeByokProvider(prefs.getString('byok_provider'));
+      final baseUrl = prefs.getString('byok_base_url') ?? '';
+      final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
 
-        body.addAll({
-          'api_key': apiKey,
-          'model': model,
-          'base_url': baseUrl,
-          'is_summarize': true,
-        });
+      body.addAll({
+        'api_key': apiKey,
+        'model': model,
+        'base_url': baseUrl,
+        'is_summarize': true,
+      });
 
-        final response = await http.post(
-          Uri.parse(endpoint),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode(body),
-        );
-        if (response.statusCode == 200) return jsonDecode(response.body);
-        return _errorResponse(response);
-      }
-
-      // Default: System
       final response = await http.post(
-        Uri.parse(AppConstants.chatSummarizeUrl),
+        Uri.parse(endpoint),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $_staticToken',
         },
         body: jsonEncode(body),
       );
-
       if (response.statusCode == 200) return jsonDecode(response.body);
       return _errorResponse(response);
     } catch (e) {
@@ -533,21 +298,17 @@ class AIService {
   }
 
   Future<Map<String, dynamic>?> checkChatStatus(String uuid) async {
-    final token = await _authService.getToken();
-    if (token == null) return null;
-
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.apiUrl}/chat/status/$uuid'),
         headers: {
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $_staticToken',
         },
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
       if (response.statusCode == 404) return {'status': 'not_found'};
 
-      // Preserve error payload from non-200 responses (e.g. BYOK provider errors)
       try {
         final body = jsonDecode(response.body);
         return body is Map<String, dynamic> ? body : {'status': 'not_found'};
@@ -563,20 +324,12 @@ class AIService {
   }
 
   /// SSE client untuk mode stream: GET /chat/stream/:uuid.
-  /// [onDelta] dipanggil tiap event `delta` dengan isi `content`.
-  /// [isCancelled] dicek tiap chunk: jika true, koneksi ditutup dan
-  /// dikembalikan [StreamOutcome.stopped] (teks parsial tetap tersimpan di
-  /// caller, tanpa fallback polling dan tanpa error).
-  /// Hasil `done` di-unwrap ke bentuk yang sama seperti [checkChatStatus].
   Future<StreamOutcome> streamChatStatus(
     String uuid, {
     void Function(String delta)? onDelta,
     bool Function()? isCancelled,
     Duration timeout = const Duration(seconds: 210),
   }) async {
-    final token = await _authService.getToken();
-    if (token == null) return const StreamOutcome.failed();
-
     http.StreamedResponse? streamed;
     try {
       final client = http.Client();
@@ -587,7 +340,7 @@ class AIService {
         );
         request.headers.addAll({
           'Accept': 'text/event-stream',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $_staticToken',
         });
         streamed =
             await client.send(request).timeout(const Duration(seconds: 60));
@@ -675,10 +428,6 @@ class AIService {
     return const StreamOutcome.failed();
   }
 
-  /// Unwrap envelope `done` dari GET /chat/stream/:uuid
-  /// ({status, response, status_code, ...}) ke bentuk yang sama seperti
-  /// GET /chat/status/:uuid (isi `response` di level atas + `status_code`).
-  /// Envelope tanpa key `response` (mis. fallback {uuid}) dikembalikan apa adanya.
   Map<String, dynamic> _unwrapDoneEnvelope(Map<String, dynamic> envelope) {
     final inner = envelope['response'];
     if (inner is Map<String, dynamic>) {

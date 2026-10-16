@@ -3,7 +3,6 @@ import '../../services/bot_service.dart';
 import '../../services/local_chat_service.dart';
 import '../../services/localization_service.dart';
 import '../../widgets/skeleton_loader.dart';
-import 'student_request_screen.dart';
 
 enum SelectContactMode { newChat, addToGroup, singleChat }
 
@@ -60,9 +59,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
       return;
     }
     setState(() => _isLoadingBots = true);
-    final bots = widget.mode == SelectContactMode.newChat
-        ? await _botService.getBots(forceRefresh: true)
-        : await _botService.getRecruitedBots();
+    final bots = await _botService.getBots(forceRefresh: true);
     if (mounted) {
       setState(() {
         _availableBots = bots;
@@ -146,7 +143,6 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
         'color': '0xFF607D8B',
       },
     );
-    await _botService.recruitBot(id);
     widget.onContactSelected(bot);
   }
 
@@ -187,7 +183,6 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
         },
       );
 
-      await _botService.recruitBot(id);
       widget.onContactSelected(bot);
     } else {
       final name = await _showGroupNameDialog();
@@ -416,44 +411,6 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
     );
   }
 
-  Widget _buildSuggestStudentRow() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            tr('suggest_student_desc'),
-            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-          ),
-        ),
-        const SizedBox(width: 8),
-        TextButton.icon(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const StudentRequestScreen(),
-              ),
-            );
-          },
-          icon: const Icon(Icons.add_task_rounded, size: 16),
-          label: Text(
-            tr('suggest_student'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.primary,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildCategoryView() {
     if (_isLoadingCategories) return const ChatListSkeleton();
 
@@ -635,30 +592,21 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
               widget.mode != SelectContactMode.addToGroup)
             Padding(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    decoration: InputDecoration(
-                      hintText: tr('search_hint'),
-                      prefixIcon: Icon(Icons.search, color: cs.primary),
-                      filled: true,
-                      fillColor: cs.surfaceContainerHighest,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 0,
-                      ),
-                    ),
+              child: TextField(
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: tr('search_hint'),
+                  prefixIcon: Icon(Icons.search, color: cs.primary),
+                  filled: true,
+                  fillColor: cs.surfaceContainerHighest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
-                  if (widget.mode != SelectContactMode.newChat) ...[
-                    const SizedBox(height: 12),
-                    _buildSuggestStudentRow(),
-                  ],
-                ],
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 0,
+                  ),
+                ),
               ),
             ),
           Expanded(
