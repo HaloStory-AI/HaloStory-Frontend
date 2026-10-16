@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../constants.dart';
 import '../../services/localization_service.dart';
-import '../../services/ai_service.dart';
 import '../../services/auth_service.dart';
 
 class AIEngineSettingsPage extends StatefulWidget {
@@ -19,7 +18,6 @@ class AIEngineSettingsPage extends StatefulWidget {
 }
 
 class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
-  String _selectedProvider = 'System';
   String _byokProvider = 'gemini';
 
   final Map<String, String> _byokProvidersList = {
@@ -81,13 +79,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _selectedProvider = AIService.normalizeProvider(
-        prefs.getString('default_provider'),
-      );
-      if (_selectedProvider == 'BYOM') {
-        _selectedProvider = 'System';
-        prefs.setString('default_provider', 'System');
-      }
       _byokProvider = prefs.getString('byok_provider') ?? 'openrouter';
 
       _byokApiKeyController.text = prefs.getString('byok_api_key') ?? '';
@@ -239,18 +230,7 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
               ),
             ),
             const SizedBox(height: 12),
-            if (_selectedProvider == 'BYOK') ..._buildBYOKFields(),
-            if (_selectedProvider != 'BYOK')
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(40),
-                  child: Text(
-                    tr('settings_system_mode_info'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                ),
-              ),
+            ..._buildBYOKFields(),
             const SizedBox(height: 30),
             Divider(color: colorScheme.outlineVariant),
             const SizedBox(height: 10),

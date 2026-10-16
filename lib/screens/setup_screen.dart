@@ -55,7 +55,7 @@ class _SetupScreenState extends State<SetupScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'default_provider',
-      'System',
+      'BYOK',
     );
 
     await prefs.setBool('is_setup_completed', true);

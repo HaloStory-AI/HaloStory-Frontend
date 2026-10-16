@@ -133,6 +133,25 @@ class _SplashScreenState extends State<SplashScreen>
     final prefs = await SharedPreferences.getInstance();
     final bool isSetupCompleted = prefs.getBool('is_setup_completed') ?? false;
 
+    // Migrasi: System/BYOM → BYOK (legacy prefs)
+    bool didMigrateProvider = false;
+    final rawProvider = prefs.getString('default_provider');
+    if (rawProvider == 'System' || rawProvider == 'BYOM') {
+      await prefs.setString('default_provider', 'BYOK');
+      didMigrateProvider = true;
+    }
+    if (!mounted) return;
+    final byokKey = prefs.getString('byok_api_key') ?? '';
+    final needsByokNotice = didMigrateProvider || byokKey.isEmpty;
+    if (needsByokNotice) {
+      // Non-blocking notice; tetap lanjut routing
+      // ignore: unawaited_futures
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        _showByokSetupNotice();
+      });
+    }
+
     if (!mounted) return;
 
     if (isLoggedIn) {
@@ -642,6 +661,50 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Text(
                   tr('security_notice_btn'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _t(String k, String fallback) {
+    try { final v = tr(k); return (v == k) ? fallback : v; } catch (_) { return fallback; }
+  }
+  void _showByokSetupNotice() {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 5, decoration: BoxDecoration(color: Theme.of(context).dividerColor, borderRadius: BorderRadius.circular(10))),
+              const SizedBox(height: 24),
+              Icon(Icons.vpn_key_rounded, size: 48, color: cs.primary),
+              const SizedBox(height: 16),
+              Text(_t('byok_setup_title', 'Atur BYOK untuk mulai chat'), textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.primary)),
+              const SizedBox(height: 12),
+              Text(_t('byok_setup_desc', 'Isi API Key di Settings → AI Engine agar chat bisa berjalan. Mode System/BYOM sudah tidak tersedia.'), textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.5)),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(backgroundColor: cs.primary, foregroundColor: cs.onPrimary, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: Text(_t('byok_setup_btn', 'Mengerti')),
                 ),
               ),
               const SizedBox(height: 12),

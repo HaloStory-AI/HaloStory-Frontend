@@ -12,7 +12,6 @@ import 'settings_screen.dart';
 
 import 'app_info_screen.dart';
 import 'desktop_home_screen.dart';
-import 'donation_screen.dart';
 import 'tabs/chat_tab.dart';
 import 'tabs/stories_tab.dart';
 import 'tabs/calendar_tab.dart';
@@ -131,11 +130,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(sheetContext);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DonationScreen(),
-                    ),
+                  launchUrl(
+                    Uri.parse('https://trakteer.id/r8kstudio'),
+                    mode: LaunchMode.externalApplication,
                   );
                 },
                 icon: const Icon(Icons.favorite, color: Colors.pinkAccent),
@@ -387,15 +384,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                           break;
                         case 'donation':
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const DonationScreen(),
-                            ),
+                          launchUrl(
+                            Uri.parse('https://trakteer.id/r8kstudio'),
+                            mode: LaunchMode.externalApplication,
                           );
                           break;
                         case 'contributor':
-                          launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                          launchUrl(
+                            Uri.parse('https://github.com/HaloStory-AI'),
+                            mode: LaunchMode.externalApplication,
+                          );
                           break;
                         case 'help':
                           launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));

@@ -76,7 +76,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
   final AIService _aiService = AIService();
   final LocalChatService _localChatService = LocalChatService();
 
-  static bool _hasShownSystemAiWarning = false;
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = false;
   Map<int, String> _summaries = {};
@@ -133,10 +132,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
     _showBugNoticeIfNeeded();
     _loadSelectedBot();
     _loadItalicsSetting();
-    if (widget.provider == 'System' && !_hasShownSystemAiWarning) {
-      _showSystemAiWarning();
-      _hasShownSystemAiWarning = true;
-    }
   }
 
   Future<void> _loadSelectedBot() async {
@@ -239,81 +234,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       'persona_${widget.bot['id']}',
       _personaController.text,
     );
-  }
-
-  void _showSystemAiWarning() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isDisposed) return;
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: surfaceBackground(context),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/image/notice_image.png',
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr('system_notice_title'),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                tr('system_notice_content'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: subtitleColor(context),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: surfaceAltBackground(context),
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(tr('system_notice_btn')),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      );
-    });
   }
 
   Future<void> _showBugNoticeIfNeeded() async {
@@ -1577,7 +1497,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
   void _addSystemError(String timestamp, {int? statusCode, dynamic rawError}) {
     String errorMsg =
-        'Error: Failed to get response from ${widget.provider}. please check your API Key, Your Provider, or your BYOM';
+        'Error: Failed to get response from ${widget.provider}. please check your API Key or Provider';
 
     if (statusCode == 503) {
       errorMsg = 'Server is under maintenance, try again later';
@@ -1586,8 +1506,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
       errorMsg = tr('error_rate_limit');
     } else if (statusCode == 400 || statusCode == 401) {
       errorMsg = tr('error_api_key');
-    } else if (widget.provider == 'System') {
-      errorMsg = tr('error_busy');
     }
 
     if (rawError != null) {

@@ -4,7 +4,6 @@ import '../../services/auth_service.dart';
 import '../../services/localization_service.dart';
 import '../profile_screen.dart';
 import '../admin_screen.dart';
-import '../donation_screen.dart';
 import '../settings_screen.dart';
 import '../app_info_screen.dart';
 import '../splash_screen.dart';
@@ -285,7 +284,10 @@ class _MoreTabState extends State<MoreTab> {
                   color: colorScheme.onSurfaceVariant,
                 ),
                 onTap: () {
-                  launchUrl(Uri.parse('https://s.my-bini.my.id/discord'));
+                  launchUrl(
+                    Uri.parse('https://github.com/HaloStory-AI'),
+                    mode: LaunchMode.externalApplication,
+                  );
                 },
               ),
             ],
@@ -314,11 +316,9 @@ class _MoreTabState extends State<MoreTab> {
                   color: colorScheme.onSurfaceVariant,
                 ),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DonationScreen(),
-                    ),
+                  launchUrl(
+                    Uri.parse('https://trakteer.id/r8kstudio'),
+                    mode: LaunchMode.externalApplication,
                   );
                 },
               ),
