@@ -6,18 +6,42 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
     name: Build Android Release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx3G -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2 -Dorg.gradle.vfs.watch=false
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
-      
+
       - name: Install dependencies
         run: flutter pub get
       
@@ -44,7 +68,8 @@ jobs:
           EOF
 
       - name: Build Android APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --verbose
+        timeout-minutes: 20
 
       - name: Extract version
         run: |
