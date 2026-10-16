@@ -7,7 +7,6 @@ import '../admin_screen.dart';
 import '../donation_screen.dart';
 import '../settings_screen.dart';
 import '../app_info_screen.dart';
-import '../../services/ban_service.dart';
 import '../splash_screen.dart';
 
 class MoreTab extends StatefulWidget {
@@ -74,7 +73,6 @@ class _MoreTabState extends State<MoreTab> {
             onPressed: () async {
               Navigator.pop(ctx);
               await _auth.logout();
-              BanService.clearBan();
               if (!mounted) return;
               Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const SplashScreen()),

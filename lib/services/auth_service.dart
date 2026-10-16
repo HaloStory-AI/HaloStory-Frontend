@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import 'config_service.dart';
-import 'ban_service.dart';
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
@@ -87,10 +86,6 @@ class AuthService {
       }
       if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
-      }
-      if (response.statusCode == 403 && data is Map && data['message']?.toString().contains('banned') == true) {
-        await BanService.handleBanFromResponse(response);
-        return {'success': false, 'banned': true, 'message': data['message'] ?? 'Akun dibanned.'};
       }
       if (kDebugMode) {
         print(
@@ -282,12 +277,6 @@ class AuthService {
         _userProfileCache = body;
         _lastProfileFetch = DateTime.now();
 
-        // Check if user is banned
-        if (body is Map<String, dynamic> && body['is_banned'] == true) {
-          await BanService.handleBanFromProfile(body);
-          return false;
-        }
-
         return true;
       } else if (response.statusCode == 401) {
         if (kDebugMode) {
@@ -298,9 +287,6 @@ class AuthService {
         return false;
       } else if (response.statusCode == 503) {
         ConfigService.enterMaintenance();
-        return false;
-      } else if (BanService.isBanResponse(response)) {
-        await BanService.handleBanFromResponse(response);
         return false;
       }
       return false;

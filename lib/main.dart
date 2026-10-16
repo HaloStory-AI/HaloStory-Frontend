@@ -3,13 +3,11 @@ import 'dart:io' show Platform, HttpClient, HttpOverrides, SecurityContext, X509
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:bluetalk_frontend/screens/splash_screen.dart';
-import 'package:bluetalk_frontend/screens/banned_screen.dart';
 import 'package:bluetalk_frontend/services/localization_service.dart';
 import 'package:bluetalk_frontend/services/theme_service.dart';
 import 'package:bluetalk_frontend/services/wallpaper_service.dart';
 import 'package:bluetalk_frontend/theme/app_theme.dart';
 import 'package:bluetalk_frontend/services/config_service.dart';
-import 'package:bluetalk_frontend/services/ban_service.dart';
 import 'package:bluetalk_frontend/services/auth_service.dart';
 import 'package:bluetalk_frontend/screens/login_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -37,7 +35,7 @@ void main() async {
   await ThemeService().init();
   await WallpaperService().init();
 
-  // Background server ping + ban check every 2 minutes
+  // Background server ping every 2 minutes
   Timer.periodic(const Duration(minutes: 2), (timer) async {
     await ConfigService.checkServerUp();
     if (ConfigService.isAutoDetectedMaintenance) {
@@ -46,14 +44,6 @@ void main() async {
         (route) => false,
       );
       return;
-    }
-
-    final banned = await BanService.checkUserBanStatus();
-    if (banned) {
-      navigatorKey.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const BannedScreen()),
-        (route) => false,
-      );
     }
   });
 

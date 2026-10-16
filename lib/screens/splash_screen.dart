@@ -12,8 +12,6 @@ import 'pin_screen.dart';
 import 'verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-import '../services/ban_service.dart';
-import 'banned_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_svg/flutter_svg.dart';
@@ -177,15 +175,9 @@ class _SplashScreenState extends State<SplashScreen>
         }
       }
     } else {
-      if (BanService.isBanned) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const BannedScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-        );
-      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      );
     }
   }
 
