@@ -252,33 +252,6 @@ class BotService {
     await prefs.remove(_botsTimeKey);
   }
 
-  Future<bool> recruitBot(String botId) async {
-    final token = await _authService.getToken();
-    if (token == null) return false;
-
-    try {
-      final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}/bots/recruit'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'bot_id': botId}),
-      );
-
-      if (response.statusCode == 503) {
-        ConfigService.enterMaintenance();
-      }
-      return response.statusCode == 200;
-    } catch (e) {
-      if (kDebugMode) {
-        print('DEBUG: recruitBot Error: $e');
-      }
-      return false;
-    }
-  }
-
   static List<Map<String, dynamic>>? _cachedCalendarBots;
   static DateTime? _lastCalendarFetch;
   static const String _calendarCacheKey = 'cached_calendar_bots';
@@ -420,7 +393,7 @@ class BotService {
       if (response.statusCode == 200) {
         final result = List<Map<String, dynamic>>.from(jsonDecode(response.body));
 
-        // Update _knownBots so getBotById can resolve bonded bots
+        // Update _knownBots so getBotById can resolve cached bots
         _knownBots ??= {};
         for (var bot in result) {
           _knownBots![bot['id'].toString()] = Map<String, dynamic>.from(bot);
@@ -441,33 +414,6 @@ class BotService {
       }
     }
     return _cachedChatTabBots ?? [];
-  }
-
-  Future<List<Map<String, dynamic>>> getRecruitedBots() async {
-    final token = await _authService.getToken();
-    if (token == null) return [];
-
-    try {
-      final response = await http
-          .get(
-            Uri.parse('${AppConstants.baseUrl}/v1/recruited-bots'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('DEBUG: getRecruitedBots Error: $e');
-      }
-    }
-    return [];
   }
 
   Future<Map<String, dynamic>?> getBotById(String botId) async {

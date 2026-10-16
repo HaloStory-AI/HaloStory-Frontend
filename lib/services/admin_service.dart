@@ -63,38 +63,6 @@ class AdminService {
     }
   }
 
-  // --- STUDENT REQUESTS ---
-  Future<List<dynamic>> getStudentRequests() async {
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConstants.baseUrl}/admin/student-requests'),
-        headers: await _headers(),
-      );
-      if (response.statusCode == 200) return jsonDecode(response.body);
-    } catch (e) {
-      if (kDebugMode) {
-        print('AdminService getStudentRequests error: $e');
-      }
-    }
-    return [];
-  }
-
-  Future<bool> updateRequestStatus(int id, String status) async {
-    try {
-      final response = await http.put(
-        Uri.parse('${AppConstants.baseUrl}/admin/student-requests/$id/status'),
-        headers: await _headers(),
-        body: jsonEncode({'status': status}),
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      if (kDebugMode) {
-        print('AdminService updateRequestStatus error: $e');
-      }
-      return false;
-    }
-  }
-
   // --- BOTS ---
   Future<List<dynamic>> getBots() async {
     try {

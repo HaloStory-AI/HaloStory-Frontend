@@ -18,7 +18,6 @@ import 'story_view_screen.dart';
 import 'select_contact_screen.dart';
 import 'profile_screen.dart';
 import 'admin_screen.dart';
-import 'student_request_screen.dart';
 import 'app_info_screen.dart';
 import 'donation_screen.dart';
 
@@ -34,7 +33,6 @@ enum MiddlePanelState {
   settings,
   profile,
   admin,
-  suggest,
   info,
   chat,
   donation,
@@ -383,8 +381,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         return const ProfileScreen();
       case MiddlePanelState.admin:
         return const AdminScreen();
-      case MiddlePanelState.suggest:
-        return const StudentRequestScreen();
       case MiddlePanelState.info:
         return const AppInfoScreen();
       case MiddlePanelState.chat:

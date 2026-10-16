@@ -58,7 +58,6 @@ class AIService {
     String? language,
     String? summary,
     String? persona,
-    bool bondDisabled = false,
     bool isGroup = false,
   }) async {
     final token = await _authService.getToken();
@@ -133,7 +132,6 @@ class AIService {
           actualLanguage,
           advancedParams,
           summary,
-          bondDisabled,
           isGroup,
           userPersona,
         );
@@ -155,7 +153,6 @@ class AIService {
           baseUrl,
           advancedParams,
           summary,
-          bondDisabled,
           isGroup,
           userPersona,
         );
@@ -267,7 +264,6 @@ class AIService {
     String? language,
     Map<String, dynamic> advancedParams,
     String? summary,
-    bool bondDisabled,
     bool isGroup,
     String? userPersona,
   ) async {
@@ -284,7 +280,6 @@ class AIService {
         'bot_ids': botIds,
         'language': language,
         'summary': summary,
-        if (bondDisabled) 'isdisabledbond': true,
         if (isGroup) 'is_group': true,
         if (userPersona != null && userPersona.isNotEmpty)
           'user_persona': userPersona,
@@ -321,7 +316,6 @@ class AIService {
     String baseUrl,
     Map<String, dynamic> advancedParams,
     String? summary,
-    bool bondDisabled,
     bool isGroup,
     String? userPersona,
   ) async {
@@ -344,7 +338,6 @@ class AIService {
         'model': model,
         'base_url': baseUrl,
         'summary': summary,
-        if (bondDisabled) 'isdisabledbond': true,
         if (isGroup) 'is_group': true,
         if (userPersona != null && userPersona.isNotEmpty)
           'user_persona': userPersona,
