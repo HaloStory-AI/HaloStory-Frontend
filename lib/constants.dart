@@ -3,7 +3,7 @@ import 'services/config_service.dart';
 
 class AppConstants {
   // Hardcoded string for development
-  static const String _devBaseUrl = 'https://backend-hsai.rafiq8k.my.id/api';
+  static const String _devBaseUrl = 'http://localhost:3000/api';
 
   // Use hardcoded for dev, and ConfigService (GitHub dynamic) for prod
   static String get baseUrl => kDebugMode ? _devBaseUrl : ConfigService.baseUrl;

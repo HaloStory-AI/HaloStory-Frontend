@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
-import 'auth_service.dart';
 import 'localization_service.dart';
 import 'config_service.dart';
+import 'local_user_service.dart';
 
 /// Hasil konsumsi SSE /chat/stream/:uuid.
 enum StreamOutcomeKind {
@@ -44,7 +44,7 @@ class AIService {
     return 'BYOK';
   }
 
-  final AuthService _authService = AuthService();
+  String get _staticToken => AppConstants.staticToken;
 
   Future<Map<String, dynamic>?> sendMessage({
     required String provider, // always BYOK (legacy System/BYOM migrated)
@@ -56,17 +56,15 @@ class AIService {
     String? persona,
     bool isGroup = false,
   }) async {
-    final token = await _authService.getToken();
-    if (token == null) return null;
-
     final actualLanguage =
         language ?? LocalizationService().currentLanguageName;
     final prefs = await SharedPreferences.getInstance();
 
-    // Load user persona: prefer per-chat override, fallback to global profile
-    final userProfile = await _authService.getUserProfile();
-    final globalPersona = userProfile?['persona'] as String?;
-    final userPersona = persona ?? globalPersona;
+    // persona: caller already resolved per-chat (persona_{chatId}) — fallback empty
+    final userPersona = persona;
+
+    // user_name from local prefs
+    final userName = LocalUserService.getLocalUserNameSync(prefs);
 
     // Advanced params — BYOK defaults
     final double temp = prefs.getDouble('ai_temp') ?? _getDefault('temp');
@@ -118,7 +116,7 @@ class AIService {
       final baseUrl = prefs.getString('byok_base_url') ?? '';
 
       return await _sendByokMessage(
-        token,
+        _staticToken,
         messages,
         botId,
         botIds,
@@ -131,6 +129,7 @@ class AIService {
         summary,
         isGroup,
         userPersona,
+        userName,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -180,6 +179,7 @@ class AIService {
     String? summary,
     bool isGroup,
     String? userPersona,
+    String userName,
   ) async {
     final endpoint = '${AppConstants.apiUrl}/byok/$byokProvider/chat';
 
@@ -199,6 +199,7 @@ class AIService {
         'model': model,
         'base_url': baseUrl,
         'summary': summary,
+        'user_name': userName,
         if (isGroup) 'is_group': true,
         if (userPersona != null && userPersona.isNotEmpty)
           'user_persona': userPersona,
@@ -230,9 +231,6 @@ class AIService {
     String? provider,
     List<String>? existingMemories,
   }) async {
-    final token = await _authService.getToken();
-    if (token == null) return null;
-
     final actualLanguage =
         language ?? LocalizationService().currentLanguageName;
 
@@ -265,7 +263,7 @@ class AIService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $_staticToken',
         },
         body: jsonEncode(body),
       );
@@ -300,15 +298,12 @@ class AIService {
   }
 
   Future<Map<String, dynamic>?> checkChatStatus(String uuid) async {
-    final token = await _authService.getToken();
-    if (token == null) return null;
-
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.apiUrl}/chat/status/$uuid'),
         headers: {
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $_staticToken',
         },
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
@@ -335,9 +330,6 @@ class AIService {
     bool Function()? isCancelled,
     Duration timeout = const Duration(seconds: 210),
   }) async {
-    final token = await _authService.getToken();
-    if (token == null) return const StreamOutcome.failed();
-
     http.StreamedResponse? streamed;
     try {
       final client = http.Client();
@@ -348,7 +340,7 @@ class AIService {
         );
         request.headers.addAll({
           'Accept': 'text/event-stream',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $_staticToken',
         });
         streamed =
             await client.send(request).timeout(const Duration(seconds: 60));

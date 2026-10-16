@@ -472,5 +472,10 @@
   "chat_retry_prompt": "[再試行ボタンをクリックして再試行してください]",
   "session_expired_title": "セッションの有効期限が切れました",
   "session_expired_message": "セッションの有効期限が切れました。もう一度ログインしてください。",
-  "session_expired_btn": "再ログイン"
+  "session_expired_btn": "再ログイン",
+  "lite_notice_title": "HaloStory — Mikazuki AI Lite",
+  "lite_notice_desc": "HaloStoryはMikazuki AIのLite版です。フル機能（より多くの機能とモデル）をお求めの方は、Mikazuki AIをご利用ください。",
+  "lite_notice_go": "ウェブサイトへ",
+  "lite_notice_later": "また今度",
+  "lite_notice_dont_show": "今後表示しない"
 }

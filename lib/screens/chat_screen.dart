@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widget_previews.dart';
 import '../services/ai_service.dart';
-import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -1004,17 +1003,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> with ChatHelpers {
 
     final bool realtimeDateTime = prefs.getBool('realtime_date_time_enabled') ?? false;
 
-    // Resolve persona: per-chat override > global persona > none
+    // Resolve persona: hanya per-chat lokal persona_{chatId}
     String? resolvedPersona;
     final chatPersona = prefs.getString('persona_${widget.bot['id']}');
     if (chatPersona != null && chatPersona.trim().isNotEmpty) {
       resolvedPersona = chatPersona.trim();
-    } else {
-      final profile = await AuthService().getUserProfile();
-      final globalPersona = profile?['persona'] as String?;
-      if (globalPersona != null && globalPersona.trim().isNotEmpty) {
-        resolvedPersona = globalPersona.trim();
-      }
     }
     if (realtimeDateTime) {
       final timeTag = DateFormat("'[this message sent at 'dd/MM/yyyy HH:mm:ss']'").format(DateTime.now());

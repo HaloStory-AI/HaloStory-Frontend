@@ -200,6 +200,8 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       if (key.startsWith('ai_') ||
           key.startsWith('byok_') ||
           key.startsWith('byom_') ||
+          key.startsWith('persona_') ||
+          key == 'local_user_name' ||
           key == 'default_provider' ||
           key == 'app_language' ||
           key == 'app_theme_mode') {
@@ -240,7 +242,9 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     for (final key in allKeys) {
       if (key.startsWith('ai_') ||
           key.startsWith('byok_') ||
-          key.startsWith('byom_')) {
+          key.startsWith('byom_') ||
+          key.startsWith('persona_') ||
+          key == 'local_user_name') {
         await prefs.remove(key);
       }
     }

@@ -472,5 +472,10 @@
   "chat_retry_prompt": "[Klik tombol Ulangi untuk mencoba lagi]",
   "session_expired_title": "Sesi Habis",
   "session_expired_message": "Waktu masuk sudah habis, silahkan login ulang.",
-  "session_expired_btn": "Login Ulang"
+  "session_expired_btn": "Login Ulang",
+  "lite_notice_title": "HaloStory — Mikazuki AI Lite",
+  "lite_notice_desc": "HaloStory adalah versi Lite dari Mikazuki AI. Untuk Full Experience (lebih banyak fitur & model), kunjungi Mikazuki AI.",
+  "lite_notice_go": "Ke website",
+  "lite_notice_later": "Ga dulu deh",
+  "lite_notice_dont_show": "Jangan tampilkan lagi"
 }

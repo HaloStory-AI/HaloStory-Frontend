@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
-import '../services/auth_service.dart';
 import '../services/local_chat_service.dart';
 import '../services/localization_service.dart';
 import '../widgets/chat/edit_group_info_dialog.dart';
@@ -124,15 +123,13 @@ class _StudentBioScreenState extends State<StudentBioScreen> {
       return;
     }
 
-    final authService = AuthService();
-    final token = await authService.getToken();
-    if (token == null || !mounted) return;
+    if (!mounted) return;
 
     try {
       final response = await http.get(
         Uri.parse('${AppConstants.baseUrl}/v1/bot-bio/${widget.botId}'),
         headers: {
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer ${AppConstants.staticToken}',
           'Accept': 'application/json',
         },
       );

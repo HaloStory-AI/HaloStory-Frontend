@@ -6,10 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
-import 'auth_service.dart';
 
 class StoryService {
-  final AuthService _authService = AuthService();
 
   static const String _seenPrefix = 'story_seen_';
   static const String _storiesCacheKey = 'cached_stories_list';
@@ -17,6 +15,12 @@ class StoryService {
 
   static List<Map<String, dynamic>>? _cachedStories;
   static DateTime? _lastFetchTime;
+
+  Map<String, String> _headers() => {
+        'Authorization': 'Bearer ${AppConstants.staticToken}',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
 
   Future<List<Map<String, dynamic>>> getStories({bool forceRefresh = false}) async {
     final now = DateTime.now();
@@ -64,18 +68,12 @@ class StoryService {
 
   Future<List<Map<String, dynamic>>> _fetchStories() async {
     final now = DateTime.now();
-    final token = await _authService.getToken();
-    if (token == null) return _cachedStories ?? [];
 
     try {
       final response = await http
           .get(
             Uri.parse('${AppConstants.baseUrl}/v1/stories'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+            headers: _headers(),
           )
           .timeout(const Duration(seconds: 60));
 

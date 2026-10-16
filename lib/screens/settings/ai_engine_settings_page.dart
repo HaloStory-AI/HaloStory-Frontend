@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../constants.dart';
 import '../../services/localization_service.dart';
-import '../../services/auth_service.dart';
+
 
 class AIEngineSettingsPage extends StatefulWidget {
   final bool isDesktop;
@@ -435,8 +435,6 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
       return;
     }
 
-    final authService = AuthService();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -458,48 +456,46 @@ class _AIEngineSettingsPageState extends State<AIEngineSettingsPage> {
                   'base_url': baseUrl,
               };
 
-              authService.getToken().then((token) {
-                http
-                    .post(
-                      Uri.parse('${AppConstants.apiUrl}/byok/models'),
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        if (token != null) 'Authorization': 'Bearer $token',
-                      },
-                      body: jsonEncode(requestBody),
-                    )
-                    .then((res) {
-                      if (res.statusCode == 200) {
-                        final data = jsonDecode(res.body);
-                        List<dynamic> modelList = [];
-                        if (data is List) {
-                          modelList = data;
-                        } else if (data is Map &&
-                            data.containsKey('models')) {
-                          modelList = data['models'];
-                        }
-
-                        setModalState(() {
-                          fetched = modelList
-                              .map((e) => e['id'].toString())
-                              .toList();
-                          isFetching = false;
-                        });
-                      } else {
-                        setModalState(() {
-                          errorMessage = 'Failed to fetch: ${res.body}';
-                          isFetching = false;
-                        });
+              http
+                  .post(
+                    Uri.parse('${AppConstants.apiUrl}/byok/models'),
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                      'Authorization': 'Bearer ${AppConstants.staticToken}',
+                    },
+                    body: jsonEncode(requestBody),
+                  )
+                  .then((res) {
+                    if (res.statusCode == 200) {
+                      final data = jsonDecode(res.body);
+                      List<dynamic> modelList = [];
+                      if (data is List) {
+                        modelList = data;
+                      } else if (data is Map &&
+                          data.containsKey('models')) {
+                        modelList = data['models'];
                       }
-                    })
-                    .catchError((e) {
+
                       setModalState(() {
-                        errorMessage = 'Error: $e';
+                        fetched = modelList
+                            .map((e) => e['id'].toString())
+                            .toList();
                         isFetching = false;
                       });
+                    } else {
+                      setModalState(() {
+                        errorMessage = 'Failed to fetch: ${res.body}';
+                        isFetching = false;
+                      });
+                    }
+                  })
+                  .catchError((e) {
+                    setModalState(() {
+                      errorMessage = 'Error: $e';
+                      isFetching = false;
                     });
-              });
+                  });
             }
 
             return Padding(

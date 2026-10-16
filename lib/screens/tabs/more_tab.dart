@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../services/auth_service.dart';
 import '../../services/localization_service.dart';
+import '../../services/local_user_service.dart';
 import '../profile_screen.dart';
-import '../admin_screen.dart';
 import '../settings_screen.dart';
 import '../app_info_screen.dart';
-import '../splash_screen.dart';
 
 class MoreTab extends StatefulWidget {
   const MoreTab({super.key});
@@ -16,76 +15,24 @@ class MoreTab extends StatefulWidget {
 }
 
 class _MoreTabState extends State<MoreTab> {
-  final AuthService _auth = AuthService();
-  Map<String, dynamic>? _user;
+  String _name = LocalUserService.defaultName;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadName();
   }
 
-  Future<void> _loadProfile() async {
-    final profile = await _auth.getUserProfile();
+  Future<void> _loadName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final n = LocalUserService.getLocalUserNameSync(prefs);
     if (mounted) {
       setState(() {
-        _user = profile;
+        _name = n;
         _isLoading = false;
       });
     }
-  }
-
-  String _maskEmail(String? email) {
-    if (email == null || email.length <= 6) return email ?? '';
-    return '${email.substring(0, 3)}...@...${email.substring(email.length - 3)}';
-  }
-
-  Color _roleBgColor(String? role) {
-    return switch (role) {
-      'admin' => Colors.amber,
-      'vip' => const Color(0xFFFFD700),
-      _ => Theme.of(context).colorScheme.primary,
-    };
-  }
-
-  IconData _roleIcon(String? role) {
-    return switch (role) {
-      'admin' => Icons.shield_rounded,
-      'vip' => Icons.star_rounded,
-      _ => Icons.person_rounded,
-    };
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('sidebar_logout')),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _auth.logout();
-              if (!mounted) return;
-              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const SplashScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.redAccent),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _sectionHeader(String title) {
@@ -128,10 +75,14 @@ class _MoreTabState extends State<MoreTab> {
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+              if (!mounted) return;
+              _loadName();
+            },
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -147,7 +98,7 @@ class _MoreTabState extends State<MoreTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _user?['name'] ?? 'Sensei',
+                          _name,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -157,7 +108,7 @@ class _MoreTabState extends State<MoreTab> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _maskEmail(_user?['email']),
+                          tr('profile_full_name'),
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.onSurfaceVariant,
@@ -167,99 +118,15 @@ class _MoreTabState extends State<MoreTab> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _roleBgColor(_user?['role']).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _roleBgColor(_user?['role']).withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _roleIcon(_user?['role']),
-                              size: 14,
-                              color: _roleBgColor(_user?['role']),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _user?['role']?.toString().toUpperCase() ?? 'USER',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: _roleBgColor(_user?['role']),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_user?['role'] == 'vip' &&
-                          _user?['vip_expires_at'] != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'Exp: ${_user!['vip_expires_at'].toString().substring(0, 10)}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
+                  Icon(
+                    Icons.chevron_right,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ],
               ),
             ),
           ),
         ),
-
-        // ── Admin Section ──
-        if (_user?['role'] == 'admin') ...[
-          _sectionHeader('Admin'),
-          Card(
-            elevation: 0,
-            color: cardColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ListTile(
-              tileColor: Colors.transparent,
-              leading: const Icon(
-                Icons.admin_panel_settings,
-                color: Colors.amber,
-              ),
-              title: Text(
-                tr('sidebar_admin_panel'),
-                style: const TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              trailing: Icon(
-                Icons.chevron_right,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AdminScreen(),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
 
         // ── Community Section ──
         _sectionHeader(tr('sidebar_contributor')),
@@ -403,25 +270,6 @@ class _MoreTabState extends State<MoreTab> {
                 },
               ),
             ],
-          ),
-        ),
-
-        // ── Account Section ──
-        _sectionHeader(tr('sidebar_logout')),
-        Card(
-          elevation: 0,
-          color: cardColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            tileColor: Colors.transparent,
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: Text(
-              tr('sidebar_logout'),
-              style: const TextStyle(color: Colors.redAccent),
-            ),
-            onTap: _showLogoutDialog,
           ),
         ),
       ],

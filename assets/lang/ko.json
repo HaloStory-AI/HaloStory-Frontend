@@ -472,5 +472,10 @@
   "chat_retry_prompt": "[재시도 버튼을 클릭하여 다시 시도하세요]",
   "session_expired_title": "세션 만료",
   "session_expired_message": "세션이 만료되었습니다. 다시 로그인해 주세요.",
-  "session_expired_btn": "다시 로그인"
+  "session_expired_btn": "다시 로그인",
+  "lite_notice_title": "HaloStory — Mikazuki AI Lite",
+  "lite_notice_desc": "HaloStory는 Mikazuki AI의 Lite 버전입니다. 더 많은 기능과 모델을 갖춘 Full Experience를 원하신다면 Mikazuki AI를 방문해 보세요.",
+  "lite_notice_go": "웹사이트로 이동",
+  "lite_notice_later": "나중에",
+  "lite_notice_dont_show": "다시 표시하지 않기"
 }
